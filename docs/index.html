@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050607">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>FlowDesk · Paper trading desk</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="splash">
+  <div class="splash-inner">
+    <img src="assets/logo.svg" alt="" class="splash-logo">
+    <div class="splash-name"><span>Flow</span><em>Desk</em></div>
+    <div class="splash-tag">Read the flow. Trade the plan.</div>
+    <div class="splash-bar"><i></i></div>
+  </div>
+</div>
+
+<div id="bg"><div class="bg-img" id="bgImg"></div><canvas id="bgArt"></canvas><div class="bg-shade"></div></div>
+<canvas id="fx"></canvas>
+
+<header class="top">
+  <a class="brand" href="#" data-tab="dashboard"><img src="assets/logo.svg" alt=""><span class="brand-name"><span>Flow</span><em>Desk</em></span></a>
+  <nav class="tabs" id="tabs">
+    <button data-tab="check"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>Check</button>
+    <button data-tab="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
+    <button data-tab="chart"><svg viewBox="0 0 24 24"><path d="M6 4v16M6 8h-2v6h2M12 6v12M12 9h-2v5h2M18 3v16M18 6h-2v8h2"/></svg>Live chart</button>
+    <button data-tab="signals"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Signals</button>
+    <button data-tab="positions"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 6V4h8v2"/></svg>Positions</button>
+    <button data-tab="news"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>News &amp; Calendar</button>
+    <button data-tab="journal"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>Journal</button>
+    <button data-tab="performance"><svg viewBox="0 0 24 24"><path d="M3 20l6-7 4 4 8-10"/><path d="M15 7h6v6"/></svg>Performance</button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
+  </nav>
+  <div class="top-right">
+    <span class="paper-badge" title="Paper trading only - no real orders">PAPER</span>
+    <button class="icon-btn" id="bellBtn" title="Upcoming events"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 004 0"/></svg><i class="dot" id="bellDot" hidden></i></button>
+    <button class="avatar" id="avatarBtn" title="Settings">E</button>
+  </div>
+</header>
+
+<div id="demoBanner" class="demo-banner" hidden>DEMO · sample data — not live. Connect your FlowDesk API with the link from Telegram (/desk).</div>
+<div id="connBanner" class="conn-banner" hidden></div>
+
+<main id="view" class="view"></main>
+
+<div id="toast" class="toast" hidden></div>
+
+<footer class="foot">
+  <span>FlowDesk · paper trading only · order flow is <b>estimated</b> from candles</span>
+  <span id="footSrc"></span>
+  <a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a>
+</footer>
+
+<script src="js/lightweight-charts.js"></script>
+<script src="js/util.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/api.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/views.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

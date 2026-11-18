@@ -1,0 +1,69 @@
+# FlowDesk configuration. Secrets never go here - they come from environment (.env).
+mode: paper            # paper only. There is no live broker in this codebase.
+
+data:
+  provider: yahoo      # yahoo (default, free, futures may be delayed) | oanda (needs OANDA_API_KEY + OANDA_ACCOUNT_ID)
+  cache_seconds: 45
+
+watchlist:
+  - {symbol: "EURUSD=X", tf: "15m"}
+  - {symbol: "GBPUSD=X", tf: "15m"}
+  - {symbol: "USDJPY=X", tf: "15m"}
+  - {symbol: "NQ=F", tf: "15m"}
+  - {symbol: "ES=F", tf: "15m"}
+  - {symbol: "GC=F", tf: "15m"}
+  - {symbol: "CL=F", tf: "15m"}
+
+scanner:
+  interval_seconds: 120
+  require_killzone: false     # true = only open new trades in London/NY killzones
+
+orderflow:                    # FlowPro-style settings (applied to the ESTIMATED order flow)
+  market_pressure: 300        # 300-900: bar |delta| as % of its rolling average needed to count as a pressure surge
+  volume_spread: 2.0          # 2-4: bar volume as a multiple of rolling average volume for a volume spike
+  lookback: 20
+  profile_bars: 120           # bars used for the volume profile (POC / HVN)
+  profile_bins: 40
+
+strategy:
+  min_score: 55               # minimum confluence score (0-100) to call LONG/SHORT
+  min_margin: 15              # winning side must beat the other side by this many points
+  swing_k: 2                  # fractal pivot width for swings
+  atr_period: 14
+  sl_buffer_atr: 0.25
+  min_sl_atr: 0.6
+  max_sl_atr: 3.0
+  min_rr_tp1: 1.0
+  default_rr_tp2: 2.5
+
+events:
+  block_minutes_before: 30    # no new entries this many minutes before a high-impact event for the instrument
+  block_minutes_after: 15
+  warn_hours: 12              # /check warns about high-impact events in the next N hours
+  calendar_cache_minutes: 30
+  news_cache_minutes: 5
+  rss_feeds:
+    - https://www.fxstreet.com/rss/news
+    - https://www.investing.com/rss/news_1.rss
+    - https://www.cnbc.com/id/20910258/device/rss/rss.html
+    - https://feeds.content.dowjones.io/public/rss/mw_topstories
+
+broker:
+  starting_balance: 50        # USD paper balance
+  risk_pct: 1.0               # % of equity risked per trade (1% of $50 = $0.50)
+  min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
+  qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
+  max_leverage: 30            # notional cap = equity x this; size is reduced (never increased) to fit
+  max_positions: 4
+  daily_loss_limit_pct: 2.0   # stop opening trades after losing this % of day-start equity
+  tp1_close_pct: 50           # % of position closed at TP1, then stop to breakeven
+  trail_atr: 1.0              # after TP1, trail stop at this many ATR
+  spread_bps: {forex: 0.8, indices: 1.0, futures: 1.0, commodities: 2.0, crypto: 5.0, rates: 1.0, other: 2.0}
+  slippage_bps: 0.5
+
+api:
+  host: 127.0.0.1
+  port: 8790
+  cors_origins: ["https://emiiss67.github.io", "http://localhost:8000", "http://127.0.0.1:8000"]
+
+desk_url: https://emiiss67.github.io/Flow-desk/

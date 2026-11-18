@@ -1,0 +1,16 @@
+[Unit]
+Description=FlowDesk cloudflared quick tunnel (sends new desk link via Telegram when URL changes)
+After=network-online.target flowdesk-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grokbot
+WorkingDirectory=/home/grokbot/flowdesk
+EnvironmentFile=/home/grokbot/flowdesk/.env
+ExecStart=/home/grokbot/flowdesk/venv/bin/python -m flowdesk.tunnel
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
