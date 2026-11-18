@@ -7,11 +7,11 @@ const Charts = (() => {
     el.innerHTML = '';
     const chart = LightweightCharts.createChart(el, {
       autoSize: true,
-      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9CA3AF', fontFamily: 'Inter', fontSize: 11 },
-      grid: { vertLines: { color: 'rgba(255,255,255,.035)' }, horzLines: { color: 'rgba(255,255,255,.035)' } },
-      rightPriceScale: { borderColor: 'rgba(255,255,255,.06)', scaleMargins: { top: .08, bottom: .22 } },
-      timeScale: { borderColor: 'rgba(255,255,255,.06)', timeVisible: true, secondsVisible: false, rightOffset: 8 },
-      crosshair: { mode: 0, vertLine: { color: `rgba(${Theme.C},.35)`, labelBackgroundColor: '#0b2a33' }, horzLine: { color: `rgba(${Theme.C},.35)`, labelBackgroundColor: '#0b2a33' } },
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: Theme.light ? '#4B5563' : '#9CA3AF', fontFamily: 'Inter', fontSize: 11 },
+      grid: { vertLines: { color: Theme.light ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.035)' }, horzLines: { color: Theme.light ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.035)' } },
+      rightPriceScale: { borderColor: Theme.light ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.06)', scaleMargins: { top: .08, bottom: .22 } },
+      timeScale: { borderColor: Theme.light ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.06)', timeVisible: true, secondsVisible: false, rightOffset: 8 },
+      crosshair: { mode: 0, vertLine: { color: `rgba(${Theme.C},.35)`, labelBackgroundColor: Theme.light ? '#1f2937' : '#0b2a33' }, horzLine: { color: `rgba(${Theme.C},.35)`, labelBackgroundColor: Theme.light ? '#1f2937' : '#0b2a33' } },
       handleScale: { axisPressedMouseMove: true }, handleScroll: { vertTouchDrag: false },
     });
     const candles = chart.addCandlestickSeries({ upColor: Theme.g, downColor: Theme.r, borderUpColor: Theme.g, borderDownColor: Theme.r, wickUpColor: `rgba(${Theme.G},.75)`, wickDownColor: `rgba(${Theme.R},.75)`, priceLineColor: `rgba(${Theme.C},.6)` });
@@ -72,7 +72,7 @@ const Charts = (() => {
       if (label) { x.fillStyle = lc || stroke; x.fillText(label, x1 + 4, top + 11); }
     };
     const ch = data.chart || {};
-    if (opts.sess) (ch.sessions || []).forEach(s => box(X(s.start), Y(s.high), X(s.end), Y(s.low), 'rgba(110,139,255,.05)', 'rgba(110,139,255,.25)', W < 600 ? '' : s.name, 'rgba(160,180,255,.8)'));
+    if (opts.sess) (ch.sessions || []).forEach(s => box(X(s.start), Y(s.high), X(s.end), Y(s.low), 'rgba(110,139,255,.05)', 'rgba(110,139,255,.25)', W < 600 ? '' : s.name, Theme.light ? 'rgba(60,80,200,.85)' : 'rgba(160,180,255,.8)'));
     if (opts.fvg) (ch.fvgs || []).slice(W < 600 ? -3 : -8).forEach(g => box(X(g.time), Y(g.top), null, Y(g.bottom), g.dir === 'bull' ? `rgba(${Theme.G},.08)` : `rgba(${Theme.R},.08)`, g.dir === 'bull' ? `rgba(${Theme.G},.35)` : `rgba(${Theme.R},.35)`, 'FVG'));
     if (opts.ob) (ch.order_blocks || []).slice(W < 600 ? -2 : -6).forEach(o => box(X(o.time), Y(o.top), null, Y(o.bottom), o.dir === 'bull' ? `rgba(${Theme.C},.09)` : 'rgba(245,181,68,.09)', o.dir === 'bull' ? `rgba(${Theme.C},.45)` : 'rgba(245,181,68,.45)', o.dir === 'bull' ? 'Bull OB' : 'Bear OB'));
     const hline = (p, color, label, dash = [4, 4], w = 1) => { const y = Y(p); if (y == null) return; x.setLineDash(dash); x.strokeStyle = color; x.lineWidth = w; x.beginPath(); x.moveTo(0, y); x.lineTo(plotW, y); x.stroke(); x.setLineDash([]); if (label) { x.fillStyle = color; x.textAlign = 'right'; x.fillText(label, plotW - 6, y - 4); x.textAlign = 'left'; } };
@@ -81,7 +81,7 @@ const Charts = (() => {
     if (opts.liq) {
       const pick = []; (ch.liquidity || []).slice().sort((a, b) => Math.abs(a.price - lastPx) - Math.abs(b.price - lastPx))
         .forEach(l => { if (pick.length < (small ? 4 : 7) && !pick.some(q => Math.abs(q.price - l.price) < span * .02)) pick.push(l); });
-      pick.forEach(l => hline(l.price, 'rgba(255,255,255,.32)', '$$$ ' + l.name, [2, 4]));
+      pick.forEach(l => hline(l.price, Theme.light ? 'rgba(20,24,32,.5)' : 'rgba(255,255,255,.32)', '$$$ ' + l.name, [2, 4]));
     }
     if (opts.vp && ch.profile?.poc) {
       hline(ch.profile.poc, 'rgba(245,181,68,.85)', 'POC', [6, 3], 1.4);
@@ -105,7 +105,7 @@ const Charts = (() => {
       (ch.heavy_abs || []).forEach(m => { const cx = X(m.time); const py = Y(m.price); if (cx == null || py == null || cx > plotW) return;
         const r = Math.min(small ? 10 : 13, Math.max(7, bw * .55 + (m.vol_ratio || 1.5) * 1.2)); const up = m.side === 'trapped_buyers';
         const cy = up ? py - r - 4 : py + r + 4; const col = up ? `rgba(${Theme.G},1)` : `rgba(${Theme.R},1)`;
-        x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fillStyle = 'rgba(5,6,7,.55)'; x.fill(); x.lineWidth = 1.6; x.strokeStyle = col; x.stroke();
+        x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fillStyle = Theme.light ? 'rgba(255,255,255,.8)' : 'rgba(5,6,7,.55)'; x.fill(); x.lineWidth = 1.6; x.strokeStyle = col; x.stroke();
         if (r >= 8) { x.fillStyle = col; x.font = `700 ${r >= 11 ? 9 : 8}px JetBrains Mono, monospace`; x.textAlign = 'center'; x.fillText(m.label, cx, cy + 3); x.textAlign = 'left'; x.font = '600 10px Inter'; } });
     }
     x.restore();

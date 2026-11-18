@@ -17,6 +17,7 @@ from .ict import killzone
 from .journal import Journal
 from .strategy import check, fmt
 from .commands import fmt_winrate
+from .currency import FxConverter, migrate, fmt_money
 from .telegram import Telegram, esc
 
 log = logging.getLogger("flowdesk.bot")
@@ -28,6 +29,13 @@ class Bot:
         self.j = journal or Journal()
         self.b = PaperBroker(self.j, self.cfg.get("broker"))
         self.p = get_provider()
+        self.fx = FxConverter(self.p, self.j)
+        try:
+            mig = migrate(self.j, self.fx, self.b.ccy, self.b.start_balance)
+            if mig:
+                log.info("journal currency converted: %s", mig)
+        except Exception as e:
+            log.warning("currency migration postponed: %s", e)
         self.tg = tg or Telegram()
         self.cmds = Commands(self.j, self.b, self.p, self.tg)
         self.stop = threading.Event()
@@ -39,26 +47,23 @@ class Bot:
         if self.tg.enabled and (self.cfg.get("telegram", {}) or {}).get("auto_alerts", False):
             self.tg.send(text)
 
-    def usd_mult(self, symbol: str, price: float) -> float:
-        info = instruments.info(symbol)
-        if info["category"] != "Forex":
-            return 1.0
-        s = info["symbol"].replace("=X", "")
-        q = s[3:6]
-        if q == "USD":
-            return 1.0
-        if s[:3] == "USD":
-            return 1.0 / price
-        for tk, inv in ((f"{q}USD=X", False), (f"USD{q}=X", True)):
-            try:
-                px = float(self.p.candles(tk, "1h")["close"].iloc[-1])
-                return 1 / px if inv else px
-            except Exception:
-                continue
-        return 1.0
+    def usd_mult(self, symbol: str, price: float, ts: int | None = None) -> float | None:
+        """Quote-currency -> account-currency multiplier (name kept for compatibility)."""
+        return self.fx.mult(symbol, price, self.b.ccy, ts)
+
+    def refresh_fx(self) -> None:
+        """Re-mark open trades at the current FX rate so their P&L is converted at the time it is realised."""
+        for t in self.b.open_trades():
+            m = self.usd_mult(t["symbol"], t["last_price"] or t["entry"])
+            if m and abs(m - (t["usd_mult"] or 0)) > 1e-12:
+                self.j.x("UPDATE trades SET usd_mult=? WHERE id=?", (m, t["id"]))
 
     # ---------- position management ----------
     def manage(self) -> None:
+        try:
+            self.refresh_fx()
+        except Exception as e:
+            log.warning("fx refresh failed: %s", e)
         for t in self.b.open_trades():
             try:
                 df = self.p.candles(t["symbol"], t["tf"] or "15m")
@@ -74,8 +79,8 @@ class Bot:
                     tr = ev["trade"]
                     emoji = "✅" if ev["pnl"] >= 0 else "❌"
                     self.alert(f"{emoji} <b>{esc(tr['symbol'])}</b> {tr['side']} {esc(ev['kind'])} at "
-                               f"{fmt(ev['price'])}: <b>{ev['pnl']:+,.2f} USD</b> (paper)"
-                               + (f"\nTrade total {tr['pnl_usd']:+,.2f} USD" if tr["status"] == "closed" else
+                               f"{fmt(ev['price'])}: <b>{fmt_money(ev['pnl'], self.b.ccy)}</b> (paper)"
+                               + (f"\nTrade total {fmt_money(tr['pnl_usd'], self.b.ccy)}" if tr["status"] == "closed" else
                                   "\nRest running, stop moved to breakeven"))
                 if self.b._get(t["id"])["status"] != "open":
                     break
@@ -114,11 +119,14 @@ class Bot:
             if ok and sz["skip"]:
                 ok, why = False, sz["reason"]
             t = None
+            mult = self.usd_mult(sym, r["levels"]["entry"]) if ok else None
+            if ok and not mult:
+                ok, why = False, f"no FX rate to convert {sym} into {self.b.ccy}"
             if ok:
                 lv = r["levels"]
                 t = self.b.open(sym, r["decision"], lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], tf=tf, atr=r["atr"],
                                 reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
-                                usd_mult=self.usd_mult(sym, lv["entry"]), risk_pct=sz["risk_pct"], setup=setup,
+                                usd_mult=mult, risk_pct=sz["risk_pct"], setup=setup,
                                 risk_reason=sz["reason"])
                 if not t:
                     ok, why = False, self.b.last_reject or "order rejected"
@@ -130,7 +138,7 @@ class Bot:
                 log.info("paper entry %s %s risk %.1f%% (%s)", sym, t["side"], t["risk_pct"] or 0, t["risk_reason"])
                 self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}"
                            + (f" · 🎯 {esc(setup)}" if setup else "") + "\n"
-                           f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {t['risk_usd']:,.2f} USD")
+                           f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {fmt_money(t['risk_usd'], self.b.ccy, False)}")
 
     def prewarm_loop(self) -> None:
         """Keep watchlist win rates fresh so entries and desk checks never wait for the ~1 min replay."""

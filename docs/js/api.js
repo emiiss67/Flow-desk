@@ -36,7 +36,7 @@ const API = {
   save(api, key) { store.set('api', api); store.set('key', key); store.del('demoChosen'); this.base = api; this.key = key; this.demo = false; this.syncHash(); },
   disconnect() { store.del('api'); store.del('key'); this.base = this.key = null; this.demo = true; history.replaceState(null, '', location.pathname + location.search); },
   async get(path, params = {}) {
-    if (this.demo) return DEMO.get(path, params);
+    if (this.demo) { Cur.set('EUR', '€'); return DEMO.get(path, params); }
     const u = new URL(this.base + path);
     Object.entries(params).forEach(([k, v]) => v != null && v !== '' && u.searchParams.set(k, v));
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 30000);
@@ -45,7 +45,7 @@ const API = {
       if (r.status === 401) { Unlock.show('This desk key was rejected. Send /desk in Telegram and paste the new link.'); throw new Error('Desk key rejected - get a fresh link with /desk in Telegram'); }
       if (!r.ok) { let d = ''; try { d = (await r.json()).detail } catch { } throw new Error(d || ('HTTP ' + r.status)); }
       this.lastError = null; App.setConn(true);
-      return await r.json();
+      const j = await r.json(); if (j && j.currency) Cur.set(j.currency, j.currency_symbol); return j;
     } catch (e) {
       this.lastError = e.name === 'AbortError' ? 'API timed out' : (e.message || 'API unreachable');
       App.setConn(false, this.lastError);

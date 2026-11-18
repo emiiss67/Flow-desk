@@ -14,7 +14,8 @@ absorption, high-volume nodes, psychological levels), combined with ICT concepts
 | `flowdesk/ict.py` | Swings, BOS / CHoCH, fair value gaps, order blocks, liquidity pools (PDH/PDL, Asia/London/NY highs & lows, equal highs/lows), liquidity sweeps, premium/discount, OTE (62-79%), killzones (NY time). |
 | `flowdesk/events.py` | ForexFactory weekly calendar (`nfs.faireconomy.media`, cached 30 min) + RSS headlines (FXStreet, Investing.com, CNBC, MarketWatch), mapped to instruments by currency and keywords. High-impact events block new entries around release time. |
 | `flowdesk/strategy.py` | Confluence scoring (0-100) for long vs short with plain-English reasons; structural SL (beyond sweep / OB / FVG / swing, clamped 0.6-3 ATR) and TP1/TP2 at opposing liquidity. `check()` is compute-only. |
-| `flowdesk/broker.py` | Paper broker: 50 USD starting balance, risk % per trade (10% = $5, configurable), fractional units/contracts, paper leverage cap (200x), optional min size / lot step, spread + slippage, TP1 partial (50%) then breakeven, ATR trailing, TP2, max positions, daily loss limit. Conservative fills (SL wins if SL and TP are in the same bar). |
+| `flowdesk/currency.py` | Account currency: converts size and P&L from each instrument's quote currency (USD for indices/futures/gold/oil/BTC, JPY/CHF/GBP… for crosses) to EUR with live FX from the data provider (10 min cache, last known rate as fallback; no rate = no entry). On first start it converts an old USD journal (trades, fills, balance, equity history) at each fill's own-time rate, after backing up the DB. |
+| `flowdesk/broker.py` | Paper broker in the account currency (`broker.account_currency`, default **EUR**, €50 start), risk % per trade (10% = €5, configurable), fractional units/contracts, paper leverage cap (200x), optional min size / lot step, spread + slippage, TP1 partial (50%) then breakeven, ATR trailing, TP2, max positions, daily loss limit. Conservative fills (SL wins if SL and TP are in the same bar). |
 | `flowdesk/journal.py`, `stats.py` | SQLite journal of every signal and trade; net, win rate, profit factor, max drawdown, equity curve, heatmap. |
 | `flowdesk/bot.py` | Scanner loop over the watchlist + Telegram long-polling (answers **only** `FLOWDESK_TELEGRAM_CHAT_ID`). |
 | `flowdesk/api.py` | FastAPI on `127.0.0.1:8790`, desk key required, CORS for `https://emiiss67.github.io`. |
@@ -75,9 +76,23 @@ Settings → Colours has palettes (Neon, Gold, Ice blue, Purple, Monochrome, Mat
 Without an API the desk runs in **DEMO** mode with sample data and a clear "DEMO - sample data" banner.
 
 ## Credits
-* Background photographs: The Metropolitan Museum of Art, Open Access (CC0) - *Marble portrait of the emperor Augustus*
-  (object 247993, image DP337225) and *Marble portrait head of Antinoos* (object 257825, image DP333685). Recoloured,
-  cropped and composited for FlowDesk (green eye glow added). "Ascend" and "Order flow" backgrounds are generated in-browser.
+* Background photographs (docs/assets/bg/): The Metropolitan Museum of Art, Open Access, **CC0 / public domain**.
+  All are recoloured, cropped and composited for FlowDesk (tint, vignette, grain; the light versions are cut out onto a
+  pale studio backdrop). "Ascend" and "Order flow" backgrounds are generated in-browser.
+
+  | File | Theme | Met object | Image |
+  |---|---|---|---|
+  | bust-augustus.jpg | Neon (green eye glow added) | [Marble portrait of the emperor Augustus](https://www.metmuseum.org/art/collection/search/247993) (#247993) | DP337225 |
+  | bust-antinoos.jpg | Neon | [Marble portrait head of Antinoos](https://www.metmuseum.org/art/collection/search/257825) (#257825) | DP333685 |
+  | bust-antoninus-gold.jpg | Gold & Bronze | [Marble portrait bust of Antoninus Pius](https://www.metmuseum.org/art/collection/search/246984) (#246984) | DP338125 |
+  | bust-verus-crimson.jpg | Crimson | [Marble portrait of the co-emperor Lucius Verus](https://www.metmuseum.org/art/collection/search/248783) (#248783) | DP337237 |
+  | bust-antinoos-ocean.jpg | Ocean | [Marble portrait head of Antinoos](https://www.metmuseum.org/art/collection/search/257825) (#257825) | DP333683 |
+  | bust-bronze-emerald.jpg | Emerald | [Bronze portrait of a man](https://www.metmuseum.org/art/collection/search/248892) (#248892) | DP337268 |
+  | bust-herodotos.jpg | Gold / Emerald scenes | [Marble bust of Herodotos](https://www.metmuseum.org/art/collection/search/245829) (#245829) | DP328506 |
+  | bust-severus.jpg | Neon / Crimson / Ocean scenes | [Marble portrait bust of Severus Alexander](https://www.metmuseum.org/art/collection/search/258540) (#258540) | DP345023 |
+  | statue-warrior.jpg | Gold / Crimson / Ocean scenes | [Marble statue of a wounded warrior](https://www.metmuseum.org/art/collection/search/251929) (#251929) | DP-39853-001 |
+  | marble-woman-light.jpg | White Marble (light) | [Portrait head of a woman](https://www.metmuseum.org/art/collection/search/246997) (#246997) | DP333728 |
+  | marble-herodotos-light.jpg | White Marble (light) | [Marble bust of Herodotos](https://www.metmuseum.org/art/collection/search/245829) (#245829) | DP328506 |
 * Charts: [TradingView Lightweight Charts](https://www.tradingview.com/lightweight-charts/) v4.2 (Apache-2.0), vendored in `docs/js`.
 * Fonts: Inter, Playfair Display, JetBrains Mono (Google Fonts, OFL).
 * Concept inspiration: ProfitPro Trading's FlowPro bot for ATAS. FlowDesk is an independent implementation and is not affiliated.

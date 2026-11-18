@@ -79,8 +79,9 @@ events:
     - https://feeds.content.dowjones.io/public/rss/mw_topstories
 
 broker:
-  starting_balance: 50        # USD paper balance
-  risk_pct: 10.0              # % of equity risked per trade (10% of $50 = $5) - aggressive, paper only
+  account_currency: EUR       # balance, sizing and P&L are kept in this currency (live FX from the data provider)
+  starting_balance: 50        # paper balance in the account currency (€50)
+  risk_pct: 10.0              # % of equity risked per trade (10% of €50 = €5) - aggressive, paper only
   min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
   qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
   max_leverage: 1000          # paper notional cap = equity x this; high so 30% risk on a tight forex stop isn't cut

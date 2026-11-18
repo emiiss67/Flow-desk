@@ -1,4 +1,8 @@
-"""Paper broker. Simulated fills only - there is no connection to any real broker."""
+"""Paper broker. Simulated fills only - there is no connection to any real broker.
+
+All money (balance, risk_usd, pnl_usd, fills, equity) is kept in the ACCOUNT currency (broker.account_currency,
+default EUR). The historical column names still say "usd"; `usd_mult` on a trade is the quote-currency ->
+account-currency multiplier (see currency.py)."""
 from __future__ import annotations
 import json
 import math
@@ -13,7 +17,8 @@ class PaperBroker:
     def __init__(self, journal: Journal, cfg: dict | None = None):
         self.j = journal
         c = cfg or {}
-        self.start_balance = float(c.get("starting_balance", 50))
+        self.start_balance = float(c.get("starting_balance", 50))      # in the account currency
+        self.ccy = str(c.get("account_currency", "EUR")).upper()
         self.min_qty = float(c.get("min_qty", 0) or 0)
         self.qty_step = float(c.get("qty_step", 0) or 0)
         self.max_leverage = float(c.get("max_leverage", 30) or 0)

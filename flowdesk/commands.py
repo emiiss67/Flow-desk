@@ -6,6 +6,7 @@ from . import events, instruments
 from .config import get_config
 from .strategy import check, fmt
 from .telegram import esc
+from .currency import fmt_money, account_ccy
 
 HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/check SYMBOL [tf] - long/short call with entry, SL, TP\n"
@@ -22,7 +23,7 @@ def fmt_winrate(wr: dict | None, score=None) -> str:
     if not wr.get("n"):
         return (sc + "\n" if sc else "") + f"📊 Backtest: no past {wr['direction'].lower()} setups in score band {wr['band'][0]}-{wr['band'][1]}"
     line = (f"📊 Backtest win {wr['win_rate']:.0f}% (TP1 before SL) · TP2 {wr['tp2_rate']:.0f}% · n={wr['n']} · "
-            f"avg {wr['avg_r']:+.2f}R · exp {wr.get('expectancy_usd', 0):+.2f} USD/trade")
+            f"avg {wr['avg_r']:+.2f}R · exp {fmt_money(wr.get('expectancy_usd', 0), account_ccy())}/trade")
     if wr.get("low_sample"):
         line += "\n⚠️ low sample (n &lt; 20) - treat as anecdotal"
     ss = wr.get("setup_stats")
@@ -104,16 +105,17 @@ class Commands:
             sgn = 1 if t["side"] == "LONG" else -1
             u = (t["last_price"] - t["entry"]) * sgn * t["qty_open"] * t["point_value"] * t["usd_mult"] if t["last_price"] else 0
             out.append(f"{'🟢' if sgn > 0 else '🔴'} <b>{esc(t['symbol'])}</b> {t['side']} @ {fmt(t['entry'])}  "
-                       f"SL {fmt(t['sl'])} TP {fmt(t['tp1'])}/{fmt(t['tp2'])}  <b>{u:+,.2f} USD</b>")
+                       f"SL {fmt(t['sl'])} TP {fmt(t['tp1'])}/{fmt(t['tp2'])}  <b>{fmt_money(u, self.b.ccy)}</b>")
         return "\n".join(out)
 
     def cmd_pnl(self, a):
         from .stats import performance
         s = performance(self.j, self.b.start_balance)
         pf = s["profit_factor"] if s["profit_factor"] is not None else "-"
-        return (f"<b>Paper P&amp;L</b>\nBalance {self.b.balance:,.2f} | Equity {self.b.equity():,.2f}\n"
-                f"Today {self.b.realized_today():+,.2f} | Net {s['net']:+,.2f}\n"
-                f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {s['max_drawdown']:,.2f}")
+        c = self.b.ccy
+        return (f"<b>Paper P&amp;L</b> ({c})\nBalance {fmt_money(self.b.balance, c, False)} | Equity {fmt_money(self.b.equity(), c, False)}\n"
+                f"Today {fmt_money(self.b.realized_today(), c)} | Net {fmt_money(s['net'], c)}\n"
+                f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {fmt_money(s['max_drawdown'], c, False)}")
 
     def cmd_pause(self, a):
         self.j.set("paused", True)
@@ -133,7 +135,7 @@ class Commands:
         df = self.p.candles(sym, ts[0]["tf"] or "15m")
         px = float(df["close"].iloc[-1])
         ev = self.b.close(ts[0]["id"], px, "manual close")
-        return f"Closed {esc(sym)} at {fmt(px)}: <b>{ev['pnl']:+,.2f} USD</b> (paper)"
+        return f"Closed {esc(sym)} at {fmt(px)}: <b>{fmt_money(ev['pnl'], self.b.ccy)}</b> (paper)"
 
     def cmd_watchlist(self, a):
         wl = get_config().get("watchlist", [])
@@ -165,7 +167,7 @@ class Commands:
         age = time.time() - hb if hb else None
         st = "paused" if self.j.get("paused", False) else "running"
         return (f"<b>FlowDesk</b> {st} · PAPER\nLast scan {f'{age:.0f}s ago' if age is not None else 'never'}\n"
-                f"Open {len(self.b.open_trades())} | Balance {self.b.balance:,.2f} USD\n"
+                f"Open {len(self.b.open_trades())} | Balance {fmt_money(self.b.balance, self.b.ccy, False)}\n"
                 f"Data: {esc(self.p.name)} (order flow estimated)")
 
     def cmd_desk(self, a):

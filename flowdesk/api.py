@@ -38,6 +38,42 @@ def B() -> PaperBroker:
     return PaperBroker(J(), cfg.get("broker"))
 
 
+_fx = None
+
+
+def FX():
+    global _fx
+    if _fx is None:
+        from .currency import FxConverter
+        _fx = FxConverter(get_provider(), J())
+    return _fx
+
+
+def _cur() -> dict:
+    """Currency the money fields are in (the journal's stored currency; EUR once converted)."""
+    from .currency import stored_ccy, symbol_for
+    c = stored_ccy(J(), (cfg.get("broker") or {}).get("account_currency", "EUR"))
+    return {"currency": c, "currency_symbol": symbol_for(c).strip() if c != "CHF" else "CHF"}
+
+
+def _size_info(r: dict) -> None:
+    """Add the account-currency risk amount + paper size to a check result's sizing block."""
+    sz, lv = r.get("sizing"), r.get("levels")
+    if not sz or not lv or sz.get("skip") or r.get("decision") not in ("LONG", "SHORT"):
+        return
+    try:
+        b = B()
+        eq = b.equity()
+        m = FX().mult(r["symbol"], lv["entry"], b.ccy)
+        pv = float(instruments.info(r["symbol"])["point_value"])
+        if m:
+            q = b.position_size(eq, float(sz["risk_pct"]), lv["entry"], lv["sl"], pv, m, b.max_leverage, b.qty_step, b.min_qty)
+            sz.update(risk_amount=round(abs(lv["entry"] - lv["sl"]) * q * pv * m, 2), qty=q, fx_mult=round(m, 6),
+                      quote_ccy=__import__("flowdesk.currency", fromlist=["quote_ccy"]).quote_ccy(r["symbol"]), **_cur())
+    except Exception as e:  # sizing preview is best effort
+        log.info("size preview failed: %s", e)
+
+
 @app.middleware("http")
 async def auth_mw(request: Request, call_next):
     if request.method == "OPTIONS" or request.url.path == "/health":
@@ -109,12 +145,15 @@ def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m", notify: 
             r["telegram"] = "sent"
         else:
             r["telegram"] = "skipped (sent moments ago)"
+    _size_info(r)
+    r.update(_cur())
     return r
 
 
 @app.get("/api/winrate")
 def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direction: str = "LONG",
-                score: float = Query(60, ge=0, le=100), setup: str | None = Query(None, max_length=60)):
+                score: float = Query(60, ge=0, le=100), setup: str | None = Query(None, max_length=60),
+                entry: float | None = None, sl: float | None = None):
     """Historical walk-forward win rate for a direction + Confluence-score band (async: poll until status=ok)."""
     from . import backtest
     if tf not in TIMEFRAMES:
@@ -127,6 +166,10 @@ def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direct
         w = backtest.winrate(symbol, tf, direction, score, mode="async", setup=setup)
         if w.get("status") == "ok":
             w["sizing"] = sizing.choose(w, cfg)
+            if entry and sl:
+                _size_info({"symbol": instruments.normalize(symbol), "decision": direction, "sizing": w["sizing"],
+                            "levels": {"entry": entry, "sl": sl}})
+        w.update(_cur())
         return w
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -171,7 +214,7 @@ def _session():
     closed_pnl = round(b.realized_today(), 2)
     return {"since": day0, "open_pnl": open_pnl, "closed_pnl": closed_pnl, "in_trade": bool(pos), "open_positions": len(pos),
             "net": round(closed_pnl + open_pnl, 2), "trades": n, "wins": wins, "losses": losses,
-            "win_rate": round(100 * wins / n, 1) if n else None, "paper": True}
+            "win_rate": round(100 * wins / n, 1) if n else None, "paper": True, **_cur()}
 
 
 @app.get("/api/session")
@@ -181,7 +224,7 @@ def api_session():
 
 @app.get("/api/positions")
 def api_positions():
-    return {"positions": _positions(), "paper": True}
+    return {"positions": _positions(), "paper": True, **_cur()}
 
 
 @app.get("/api/signals")
@@ -196,7 +239,7 @@ def api_journal(limit: int = 300, symbol: str | None = None, side: str | None = 
         ts = [t for t in ts if t["symbol"] == instruments.normalize(symbol)]
     if side:
         ts = [t for t in ts if t["side"] == side.upper()]
-    return {"trades": ts}
+    return {"trades": ts, **_cur()}
 
 
 @app.get("/api/performance")
@@ -206,6 +249,7 @@ def api_performance():
     eq = J().q("SELECT ts, equity FROM equity ORDER BY ts DESC LIMIT 2000")
     p["equity_snapshots"] = [{"time": r["ts"], "value": round(r["equity"], 2)} for r in reversed(eq)]
     p["balance"], p["equity"], p["start_balance"] = round(b.balance, 2), round(b.equity(), 2), b.start_balance
+    p.update(_cur())
     return p
 
 
@@ -240,7 +284,7 @@ def api_dashboard():
                  f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"],
         "upcoming_events": ev, "watchlist": cfg.get("watchlist", []),
         "source": get_provider().name,
-        "session": _session(),
+        "session": _session(), **_cur(),
     }
 
 

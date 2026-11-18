@@ -17,7 +17,7 @@ Views.dashboard = async (v) => {
     <div class="sub">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} · <span id="mkt"></span></div></div>
     <div class="seg" id="dashRange"><button class="on">30D</button></div></div>
     <div class="grid cols-main" style="margin-top:8px"><div id="dMain"><div class="skeleton" style="height:420px"></div></div><div id="dSide"></div></div>`;
-  const [d, err] = await load('/api/dashboard');
+  const [[d, err], [perf]] = await Promise.all([load('/api/dashboard'), load('/api/performance')]);
   if (!d) { $('#dMain').innerHTML = `<div class="panel">${unavailable('Dashboard', err)}</div>`; return; }
   const kz = (() => { const ny = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })); const t = ny.getHours() + ny.getMinutes() / 60, wd = ny.getDay();
     if (wd === 6 || (wd === 0 && t < 18) || (wd === 5 && t >= 17)) return 'Markets closed (weekend)'; if (t >= 2 && t < 5) return 'London killzone active'; if (t >= 7 && t < 10) return 'New York killzone active'; if (t >= 20) return 'Asia session'; return 'Markets open'; })();
@@ -29,19 +29,23 @@ Views.dashboard = async (v) => {
   const streakDash = Array.from({ length: 14 }, (_, i) => { const t = lt[lt.length - 14 + i]; return `<i class="${t ? (t.pnl > 0 ? 'w' : 'l') : ''}"></i>`; }).join('');
   $('#dMain').innerHTML = `
     <div class="hero"><div class="label">Net P&amp;L · 30 days</div><div class="huge num ${net30 > 0 ? 'glow-g' : net30 < 0 ? 'glow-r' : ''}">${money(net30)}</div>
-      <div class="sub">Paper balance <b class="num" style="color:#fff">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span></div></div>
+      <div class="sub">Paper balance <b class="num hi">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span></div></div>
     <div class="grid cols-4" style="margin-top:26px">
       <div class="panel stat"><div class="label">Status today</div><div class="v"><span class="dot-live ${stCls}"></span>${st === 'running' ? 'Clean' : st === 'paused' ? 'Paused' : 'Offline'}</div><div class="sub">${d.daily_limit_hit ? '<span class="r">Daily loss limit hit</span>' : 'Bot ' + esc(st) + (d.heartbeat ? ' · scan ' + ago(d.heartbeat) : '')}</div></div>
       <div class="panel stat"><div class="label">Net result · today</div><div class="v num ${pnlClass(d.today_pnl)}">${money(d.today_pnl)}</div><div class="sub">Realized, paper</div></div>
       <div class="panel stat"><div class="label">Win rate</div><div class="v num">${d.win_rate}%</div><div class="sub">${d.trades} closed trades · PF ${d.profit_factor ?? '–'}</div></div>
       <div class="panel stat"><div class="label">Risk blocks · 24h</div><div class="v num">${d.blocked_24h}</div><div class="sub">${d.signals_24h} signals · ${d.entries_24h} entries</div></div>
     </div>
+    <div class="panel eq-dash" style="margin-top:16px"><h3>Equity curve <span class="right">hover or drag to read any point</span></h3><div class="eq-box"><canvas id="eqd"></canvas></div></div>
     <div class="grid cols-3" style="margin-top:16px">
       <div class="panel"><h3>Win streak</h3><div class="big num">${d.streak}</div><div class="sub">wins in a row · best ${d.best_streak}</div><div class="streak">${streakDash}</div></div>
       <div class="panel"><h3>Last 14 trades</h3><div class="bars-mid"><div class="axis"></div><div class="cols">${lt.length ? lt.map(t => `<div class="col" title="${esc(t.symbol)} ${money(t.pnl)}"><i class="${t.pnl > 0 ? 'p' : 'n'}" style="height:${Math.max(3, Math.abs(t.pnl) / mx * 48)}%"></i></div>`).join('') : '<div class="m" style="margin:auto;font-size:13px">No trades yet</div>'}</div></div></div>
       <div class="panel"><h3>P&amp;L · 30 days <span class="right num ${pnlClass(net30)}">${money(net30)}</span></h3><div class="bars">${d.daily_30.map(x => `<div class="b ${x.pnl > 0 ? 'p' : x.pnl < 0 ? 'n' : 'z'}" title="${x.date} ${money(x.pnl)}" style="height:${x.pnl ? Math.max(6, Math.abs(x.pnl) / dm * 100) : 3}%"></div>`).join('')}</div></div>
     </div>
     <div class="panel" style="margin-top:16px"><h3>When it works · hour by weekday <span class="right">UTC hours · entries</span></h3>${heatmap(d.heatmap)}</div>`;
+  { const nowS = Math.floor(Date.now() / 1000); let ser = perf?.equity_curve?.length ? perf.equity_curve : (perf?.equity_snapshots?.length >= 2 ? perf.equity_snapshots : []);
+    if (!ser.length) ser = [{ time: nowS - 7 * 86400, value: d.balance }, { time: nowS, value: d.balance }];
+    FX.equity($('#eqd'), ser, { base: perf?.start_balance ?? ser[0].value, small: true, pad: { t: 30, r: 64 } }); }
   const ev = d.upcoming_events || [];
   $('#dSide').innerHTML = sessionCard(d.session) + `
     <div class="panel"><h3>Today's plan</h3><ul class="plan">${d.plan.map(p => `<li><span class="ck">✓</span>${esc(p)}</li>`).join('')}</ul></div>
@@ -73,7 +77,7 @@ Views.check = async (v) => {
       <button class="check-btn" id="go">Check</button>
       <div class="sub" style="text-align:center;margin-top:10px">Analysis only · never places a trade</div>
     </div></div>
-    <div id="res"><div class="panel empty"><div><div class="big-ic">◎</div><div style="font-weight:600;color:#fff;margin-bottom:6px">Ready when you are</div>Select an instrument and press <b>Check</b>.</div></div></div>
+    <div id="res"><div class="panel empty"><div><div class="big-ic">◎</div><div class="hi" style="font-weight:600;margin-bottom:6px">Ready when you are</div>Select an instrument and press <b>Check</b>.</div></div></div>
   </div>`;
   let items = INSTRUMENTS; let selected = sel; let tfSel = tf;
   load('/api/instruments').then(([r]) => { if (r?.items?.length) { items = r.items; draw(); } });
@@ -146,7 +150,7 @@ function renderResult(r) {
 function szHTML(r) {
   const z = r.sizing; if (!z || !['LONG', 'SHORT'].includes(r.decision)) return '';
   if (z.skip) return `<div class="warn block" style="margin-top:12px">⛔ The bot would skip this: ${esc(z.reason)}</div>`;
-  return `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">Risk per trade (win-rate sizing)</div><div class="sub" style="margin:2px 0 0">${esc(z.reason)}</div></div></div>`;
+  return `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">Risk per trade (win-rate sizing)</div><div class="sub" style="margin:2px 0 0">${esc(z.reason)}</div>${z.risk_amount != null ? `<div class="sub" style="margin:4px 0 0"><b class="hi num">${money2(z.risk_amount)}</b> at risk · size <span class="num">${+Number(z.qty).toPrecision(4)}</span> ${z.quote_ccy && z.quote_ccy !== z.currency ? `· ${esc(z.quote_ccy)}→${esc(z.currency)} ${Number(z.fx_mult).toPrecision(5)}` : ''}</div>` : ''}</div></div>`;
 }
 
 function ckTg() { return Object.assign({ imb: true, hvz: true, habs: true }, store.get('ckToggles', {})); }
@@ -166,7 +170,7 @@ function wrHTML(w, r) {
       <div><div class="k">Full TP2</div><div class="v num">${pc(w.tp2_rate)}</div><div class="sub">ran to target</div></div>
       <div><div class="k">Trades (n)</div><div class="v num">${w.n}</div><div class="sub">${w.period_from ? dmy(w.period_from) + ' → ' + dmy(w.period_to) : ''}</div></div>
       <div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>
-      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${sg(w.expectancy_usd ?? 0)}</div><div class="sub">USD/trade at $${(w.risk_usd ?? 5).toFixed(2)} risk</div></div>
+      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${money(w.expectancy_usd ?? 0)}</div><div class="sub">per trade at ${money2(w.risk_usd ?? 5)} risk</div></div>
     </div>
     ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; 20) - treat this win rate as anecdotal.</div>' : ''}
     ${w.setup_stats ? `<div class="wr-setup">🎯 <b>${esc(w.setup_stats.setup)}</b> on its own: ${w.setup_stats.n ? `win <b class="num">${Math.round(w.setup_stats.win_rate)}%</b> · n ${w.setup_stats.n} · avg <span class="num">${sg(w.setup_stats.avg_r)}R</span>${w.setup_stats.low_sample ? ' · <span class="a">low sample</span>' : ''}` : 'no past occurrences in this history'}</div>` : ''}
@@ -179,7 +183,7 @@ async function pollWR(r) {
     await new Promise(res => setTimeout(res, 4000));
     const box = $('#wrBox'); if (!box || box.dataset.sym && box.dataset.sym !== r.symbol) return;
     const su = (r.setups || []).find(x => x.side === side.toLowerCase());
-    const [w] = await load('/api/winrate', { symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence, setup: su ? su.name : '' });
+    const [w] = await load('/api/winrate', Object.assign({ symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence, setup: su ? su.name : '' }, r.levels ? { entry: r.levels.entry, sl: r.levels.sl } : {}));
     if (!$('#wrBox')) return;
     if (w && w.status !== 'computing') { $('#wrBox').innerHTML = wrHTML(w, r); if (w.sizing) { r.sizing = w.sizing; $('#szBox').innerHTML = szHTML(r); } return; }
   }
@@ -349,12 +353,19 @@ Views.performance = async (v) => {
 Views.settings = async (v) => {
   const cur = store.get('bg', 'auto');
   v.innerHTML = `<div class="page-title">Settings</div><div class="page-sub">Display only. Trading settings live in config.yaml on the server.</div>
+  <div class="panel" style="margin-bottom:16px"><h3>Theme <span class="right">palette + matching background, saved in this browser</span></h3>
+    <div class="themes" id="themes">${Object.entries(Theme.THEMES).map(([k, t]) => { const bg = App.BGS.find(b => b.id === t.scenes[0]); return `<button class="theme-card ${t.light ? 'is-light' : ''} ${Theme.cur.theme === k && Theme.cur.palette !== 'custom' ? 'on' : Theme.cur.theme === k ? 'on custom' : ''}" data-th="${k}" style="--tg:${t.g};--tr:${t.r};--tc:${t.c};--tp:${Theme.rgb(t.panel)};--ta:${t.a}">
+      <span class="tc-img" style="background-image:url(${bg?.src || ''})"></span>
+      <span class="tc-glass"><i style="background:${t.g}"></i><i style="background:${t.r}"></i><i style="background:${t.c}"></i><svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="M0 26 C15 24 20 14 32 17 S50 8 62 12 80 2 100 4" fill="none" stroke="${t.g}" stroke-width="2.2"/></svg></span>
+      <span class="tc-name">${esc(t.name)}<small>${esc(t.sub)}</small></span></button>`; }).join('')}</div>
+    ${Theme.cur.palette === 'custom' ? '<div class="sub" style="margin-top:10px">Custom colours are on top of the selected theme. Pick a theme again to reset them.</div>' : ''}</div>
   <div class="grid cols-2">
     <div class="panel"><h3>Background</h3><div class="bg-opts" id="bgo">${App.BGS.map(b => `<div class="bg-opt ${b.id === cur ? 'on' : ''}" data-b="${b.id}" style="${b.src ? `background-image:url(${b.src})` : ''}">${b.art ? `<canvas data-art="${b.art}"></canvas>` : ''}${b.id === 'auto' ? '<canvas data-art="flow"></canvas>' : ''}<span>${esc(b.name)}</span></div>`).join('')}</div>
-      <div class="sub" style="margin-top:12px">"Cinematic" changes the scene per tab. Photos: The Metropolitan Museum of Art, Open Access (CC0).</div></div>
+      <div class="sub" style="margin-top:12px">"Cinematic" follows the theme and changes the scene per tab. Photos: The Metropolitan Museum of Art, Open Access (CC0).</div></div>
     <div class="panel"><h3>Display</h3>
       <div class="set-row"><span>Live PnL widget (Dashboard, Live chart)</span><button class="switch ${store.get('pnlWidget', true) ? 'on' : ''}" data-s="pnlWidget"></button></div>
       <div class="set-row"><span>Floating particles</span><button class="switch ${store.get('particles', true) ? 'on' : ''}" data-s="particles"></button></div>
+      <div class="set-row"><span>Particle density <b class="num" id="pdV">${store.get('pdensity', 100)}%</b></span><input type="range" min="25" max="200" step="25" value="${store.get('pdensity', 100)}" id="pd" style="width:160px"></div>
       <div class="set-row"><span>Splash screen</span><button class="switch ${store.get('splash', true) ? 'on' : ''}" data-s="splash"></button></div>
       <div class="set-row"><span>Background dim</span><input type="range" min="0" max="80" value="${store.get('dim', 25)}" id="dim" style="width:160px"></div>
       <div class="set-row"><span>Greeting name</span><input class="txt" style="width:160px;height:36px" id="nm" value="${esc(store.get('name', 'Emis'))}"></div>
@@ -372,18 +383,21 @@ Views.settings = async (v) => {
         <div class="set-row"><span>Panel opacity <b class="num" id="aV">${Math.round(Theme.cur.a * 100)}%</b></span><input type="range" min="15" max="90" value="${Math.round(Theme.cur.a * 100)}" data-r="a" style="width:160px"></div>
         <div class="set-row"><span>Glow intensity <b class="num" id="glowV">${Math.round(Theme.cur.glow * 100)}%</b></span><input type="range" min="0" max="200" value="${Math.round(Theme.cur.glow * 100)}" data-r="glow" style="width:160px"></div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap"><span class="pill long">▲ LONG</span><span class="pill short">▼ SHORT</span><span class="glow-g big num">+$12.40</span><span class="glow-r big num">-$3.10</span><button class="btn" id="resetTheme" style="margin-left:auto">Reset to Neon</button></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap"><span class="pill long">▲ LONG</span><span class="pill short">▼ SHORT</span><span class="glow-g big num">${money(12.4)}</span><span class="glow-r big num">${money(-3.1)}</span><button class="btn" id="resetTheme" style="margin-left:auto">Reset to theme colours</button></div>
     </div>`;
   $$('#bgo canvas').forEach(c => FX.drawArt(c, c.dataset.art, 300, 184));
   $('#bgo').onclick = e => { const o = e.target.closest('.bg-opt'); if (!o) return; store.set('bg', o.dataset.b); $$('#bgo .bg-opt').forEach(x => x.classList.toggle('on', x === o)); App.applyBg('settings'); };
   $$('.switch').forEach(s => s.onclick = () => { const k = s.dataset.s; const nv = !store.get(k, true); store.set(k, nv); s.classList.toggle('on', nv); });
+  $('#pd').oninput = e => { store.set('pdensity', +e.target.value); $('#pdV').textContent = e.target.value + '%'; };
+  $('#pd').onchange = () => FX.ambient?.resize();
+  $('#themes').onclick = e => { const b = e.target.closest('[data-th]'); if (!b) return; Theme.setTheme(b.dataset.th); App.applyDim(); Views.settings(v); refresh(); };
   $('#dim').oninput = e => { store.set('dim', +e.target.value); App.applyDim(); };
   $('#nm').onchange = e => store.set('name', e.target.value.trim() || 'Emis');
   const d = $('#disc'); if (d) d.onclick = () => { API.disconnect(); location.reload(); };
   const refresh = () => { App.applyBg('settings'); $$('#bgo canvas').forEach(c => FX.drawArt(c, c.dataset.art, 300, 184)); };
-  $('#pal').onclick = e => { const b = e.target.closest('button[data-p]'); if (!b) return; Theme.save(Object.assign({}, Theme.PALETTES[b.dataset.p], { palette: b.dataset.p })); Views.settings(v); refresh(); };
+  $('#pal').onclick = e => { const b = e.target.closest('button[data-p]'); if (!b) return; const nx = Object.assign({}, Theme.PALETTES[b.dataset.p], { palette: b.dataset.p }); delete nx.name; if (Theme.light) Object.assign(nx, { light: false, theme: 'neon' }); Theme.save(nx); App.applyDim(); Views.settings(v); refresh(); };
   $$('input[type=color][data-t]').forEach(i => i.oninput = () => { Theme.save({ [i.dataset.t]: i.value, palette: 'custom' }); $$('#pal button').forEach(x => x.classList.remove('on')); });
   $$('input[type=color][data-t]').forEach(i => i.onchange = refresh);
   $$('input[type=range][data-r]').forEach(i => i.oninput = () => { const k = i.dataset.r; Theme.save({ [k]: +i.value / 100, palette: 'custom' }); $(k === 'a' ? '#aV' : '#glowV').textContent = i.value + '%'; });
-  $('#resetTheme').onclick = () => { store.del('theme'); Theme.load(); Theme.apply(); Views.settings(v); refresh(); };
+  $('#resetTheme').onclick = () => { const th = Theme.cur.theme || 'neon'; Theme.setTheme(th); App.applyDim(); Views.settings(v); refresh(); };
 };

@@ -2,14 +2,25 @@
 const App = {
   tab: null, timers: [],
   BGS: [
-    { id: 'auto', name: 'Cinematic (per tab)' },
-    { id: 'augustus', name: 'Marble · Augustus', src: 'assets/bg/bust-augustus.jpg' },
-    { id: 'antinoos', name: 'Marble · Antinous', src: 'assets/bg/bust-antinoos.jpg' },
+    { id: 'auto', name: 'Cinematic (theme, per tab)' },
+    { id: 'augustus', name: 'Augustus', src: 'assets/bg/bust-augustus.jpg', tint: true },
+    { id: 'antinoos', name: 'Antinous', src: 'assets/bg/bust-antinoos.jpg', tint: true },
+    { id: 'antoninus', name: 'Antoninus · gold', src: 'assets/bg/bust-antoninus-gold.jpg' },
+    { id: 'verus', name: 'Lucius Verus · crimson', src: 'assets/bg/bust-verus-crimson.jpg' },
+    { id: 'ocean', name: 'Antinous · ocean', src: 'assets/bg/bust-antinoos-ocean.jpg' },
+    { id: 'emerald', name: 'Bronze · emerald', src: 'assets/bg/bust-bronze-emerald.jpg' },
+    { id: 'herodotos', name: 'Herodotos', src: 'assets/bg/bust-herodotos.jpg' },
+    { id: 'severus', name: 'Severus Alexander', src: 'assets/bg/bust-severus.jpg' },
+    { id: 'warrior', name: 'Wounded warrior', src: 'assets/bg/statue-warrior.jpg' },
+    { id: 'marblewoman', name: 'White marble · lady', src: 'assets/bg/marble-woman-light.jpg', light: true },
+    { id: 'marbleherodotos', name: 'White marble · Herodotos', src: 'assets/bg/marble-herodotos-light.jpg', light: true },
     { id: 'ascend', name: 'Ascend (generated)', art: 'ascend' },
     { id: 'flow', name: 'Order flow (generated)', art: 'flow' },
-    { id: 'none', name: 'Pure black' },
+    { id: 'none', name: 'Plain' },
   ],
-  SCENE: { dashboard: 'augustus', check: 'antinoos', chart: 'flow', signals: 'flow', positions: 'augustus', news: 'antinoos', journal: 'augustus', performance: 'ascend', settings: 'augustus' },
+  /* per-tab scene: a slot in the theme's scene list, or generated art on dark themes */
+  SCENE: { dashboard: 0, check: 1, chart: 'flow', signals: 'flow', positions: 2, news: 1, journal: 2, performance: 'ascend', settings: 0 },
+  scene(tab) { const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
   TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'settings'],
   init() {
     API.init(); Unlock.init();
@@ -18,7 +29,7 @@ const App = {
     if (API.demo && (new URLSearchParams(location.search).get('unlock') === '1' || (API.standalone() && !store.get('demoChosen', false)))) Unlock.show();
     $('#footSrc').textContent = API.demo ? 'DEMO data' : 'Live API';
     if (!store.get('splash', true)) $('#splash').classList.add('hide'); else setTimeout(() => $('#splash').classList.add('hide'), 1500);
-    FX.dust(); this.applyDim();
+    FX.ambient = FX.dust(); this.applyDim(); Anim.init();
     $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) this.go(b.dataset.tab); });
     $('.brand').addEventListener('click', e => { e.preventDefault(); this.go('dashboard'); });
     $('#avatarBtn').onclick = () => this.go('settings');
@@ -39,19 +50,19 @@ const App = {
     this.applyBg(tab);
     PnlWidget.show(tab === 'dashboard' || tab === 'chart');
     if (tab === 'dashboard' || tab === 'chart') this.timer(() => PnlWidget.refresh(), 15000);
-    const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+    Anim.stamp(); const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
     window.scrollTo({ top: 0 });
     try { await Views[tab](v); } catch (e) { console.error(e); v.innerHTML = `<div class="panel">${unavailable(tab, e.message)}</div>`; }
   },
   applyBg(tab) {
-    let id = store.get('bg', 'auto'); if (id === 'auto') id = this.SCENE[tab] || 'augustus';
+    let id = store.get('bg', 'auto'); if (id === 'auto') id = this.scene(tab);
     const b = this.BGS.find(x => x.id === id) || this.BGS[1];
     const img = $('#bgImg'), art = $('#bgArt');
-    if (b.src) { if (img.dataset.src !== b.src) { img.classList.remove('on'); const im = new Image(); im.onload = () => { img.style.backgroundImage = `url(${b.src})`; img.dataset.src = b.src; img.classList.add('on'); }; im.src = b.src; } else img.classList.add('on'); art.classList.remove('on'); }
+    if (b.src) { img.classList.toggle('tinted', !!b.tint); if (img.dataset.src !== b.src) { img.classList.remove('on'); const im = new Image(); im.onload = () => { img.style.backgroundImage = `url(${b.src})`; img.dataset.src = b.src; img.classList.add('on'); }; im.src = b.src; } else img.classList.add('on'); art.classList.remove('on'); }
     else if (b.art) { img.classList.remove('on'); const ak = b.art + Theme.g + Theme.c; if (art.dataset.k !== ak) { FX.drawArt(art, b.art, Math.min(1920, innerWidth * 1.5), Math.min(1200, innerHeight * 1.5)); art.dataset.k = ak; } art.classList.add('on'); }
     else { img.classList.remove('on'); art.classList.remove('on'); }
   },
-  applyDim() { $('.bg-shade').style.backgroundColor = `rgba(0,0,0,${store.get('dim', 25) / 100})`; },
+  applyDim() { const k = store.get('dim', 25) / 100; $('.bg-shade').style.backgroundColor = Theme.light ? `rgba(245,243,238,${k * .8})` : `rgba(0,0,0,${k})`; },
   setConn(ok, msg) { const b = $('#connBanner'); if (ok) { b.hidden = true; return; } b.hidden = false; b.textContent = '⚠ ' + (msg || 'API unreachable') + ' - showing what could be loaded.'; },
   async bell() { try { const c = await API.get('/api/calendar'); const now = Date.now() / 1000; $('#bellDot').hidden = !(c.events || []).some(e => e.impact === 'High' && e.ts > now && e.ts - now < 6 * 3600); } catch { } },
 };

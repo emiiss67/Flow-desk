@@ -105,7 +105,7 @@ const DEMO = (() => {
       ok: true, demo: true, symbol: sym, name: (INSTRUMENTS.find(i => i.symbol === sym) || {}).name || sym, tf, paper: true,
       source: 'DEMO sample data', source_note: 'Sample data for preview only', decision, confluence: conf, price: last,
       winrate: Object.assign(demoWR(L ? 'LONG' : 'SHORT', conf), { setup_stats: { setup: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', n: 11 + conf % 9, win_rate: 52 + conf % 11, avg_r: 0.31, low_sample: true } }),
-      sizing: { risk_pct: 20, reason: '20% - short setups scoring 49-69: win 53%, n=42, exp +0.21R', skip: false },
+      sizing: { risk_pct: 20, reason: '20% - short setups scoring 49-69: win 53%, n=42, exp +0.21R', skip: false, risk_amount: 24.87, qty: 1.62, quote_ccy: 'USD', currency: 'EUR', fx_mult: 0.8612 },
       setup: decision === 'NO TRADE' ? null : (L ? 'HVN Absorption' : 'Key Level Absorption Reversal'), setups: decision === 'NO TRADE' ? [] : [{ name: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', side: L ? 'long' : 'short' }],
       scores: { long: L ? conf : 30, short: L ? 30 : conf }, reasons: decision === 'NO TRADE' ? reasons.slice(0, 2) : reasons,
       against: [{ text: 'Higher timeframe (1h) structure is ' + (L ? 'bearish' : 'bullish'), tag: 'HTF bias', points: 15 }],

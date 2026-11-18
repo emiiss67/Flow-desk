@@ -5,12 +5,15 @@ function h(html) { const t = document.createElement('template'); t.innerHTML = h
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function dec(p) { const a = Math.abs(p); return a < 10 ? 5 : a < 200 ? 3 : 2; }
 function fp(p, d) { if (p == null || isNaN(p)) return '–'; return Number(p).toLocaleString('en-US', { minimumFractionDigits: d ?? dec(p), maximumFractionDigits: d ?? dec(p) }); }
+/* account currency (EUR by default); the API reports it with every money response */
+const Cur = { code: 'EUR', sym: '€', set(c, s) { if (!c) return; this.code = c; this.sym = s || ({ EUR: '€', USD: '$', GBP: '£', JPY: '¥' }[c] || c + ' '); try { localStorage.setItem('fd_ccy', JSON.stringify([this.code, this.sym])); } catch { } } };
+try { const c = JSON.parse(localStorage.getItem('fd_ccy') || 'null'); if (c) { Cur.code = c[0]; Cur.sym = c[1]; } } catch { }
 function money(v, sign = true) {
   if (v == null || isNaN(v)) return '–';
   const dg = Math.abs(v) < 100 && v !== 0 ? 2 : 0; const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dg, maximumFractionDigits: dg });
-  return (v < 0 ? '-' : sign && v > 0 ? '+' : '') + '$' + s;
+  return (v < 0 ? '-' : sign && v > 0 ? '+' : '') + Cur.sym + s;
 }
-function money2(v) { if (v == null || isNaN(v)) return '–'; return (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function money2(v) { if (v == null || isNaN(v)) return '–'; return (v < 0 ? '-' : '') + Cur.sym + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function pnlClass(v) { return v > 0 ? 'g' : v < 0 ? 'r' : 'm'; }
 function ago(ts) {
   const s = Date.now() / 1000 - ts; if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + 'm ago';
@@ -38,15 +41,30 @@ const Theme = {
     mono: { name: 'Monochrome', g: '#F2F2F2', r: '#8C8C8C', c: '#CFCFCF', panel: '#111111', a: 0.5, glow: 0.35 },
     matrix: { name: 'Matrix', g: '#39FF14', r: '#FF3B30', c: '#00FF9C', panel: '#04100a', a: 0.48, glow: 1.3 },
   },
+  /* full themes: palette + matching background scenes (+ light/dark mode) */
+  THEMES: {
+    neon: { name: 'Neon Augustus', sub: 'Dark · green flow', g: '#00FF66', r: '#EF4444', c: '#00D4FF', panel: '#101116', a: 0.42, glow: 1, scenes: ['augustus', 'antinoos', 'severus'] },
+    marble: { name: 'White Marble', sub: 'Light · gallery', light: true, g: '#0E9F5A', r: '#D6333F', c: '#2563EB', panel: '#FFFFFF', a: 0.66, glow: 0.35, scenes: ['marblewoman', 'marbleherodotos', 'marblewoman'] },
+    gold: { name: 'Gold & Bronze', sub: 'Dark · imperial gold', g: '#F5C451', r: '#E5484D', c: '#FFD98A', panel: '#15110a', a: 0.46, glow: 0.9, scenes: ['antoninus', 'herodotos', 'warrior'] },
+    crimson: { name: 'Crimson', sub: 'Dark · blood red', g: '#34D399', r: '#FF2E4D', c: '#FF6B81', panel: '#16090c', a: 0.46, glow: 1.05, scenes: ['verus', 'severus', 'warrior'] },
+    ocean: { name: 'Ocean', sub: 'Dark · deep blue', g: '#2EE6C5', r: '#FF5C7A', c: '#4FA8FF', panel: '#08111c', a: 0.44, glow: 1, scenes: ['ocean', 'severus', 'warrior'] },
+    emerald: { name: 'Emerald', sub: 'Dark · bronze patina', g: '#2CF59B', r: '#F0525F', c: '#9BE15D', panel: '#06130d', a: 0.46, glow: 1.1, scenes: ['emerald', 'herodotos', 'antinoos'] },
+  },
   cur: null,
   rgb(hex) { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(x => x + x).join('') : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); },
-  load() { const t = store.get('theme', null); this.cur = Object.assign({}, this.PALETTES.neon, t || {}); return this.cur; },
+  load() { const t = store.get('theme', null); this.cur = Object.assign({ theme: 'neon' }, this.THEMES.neon, t || {}); delete this.cur.name; return this.cur; },
   save(t) { this.cur = Object.assign({}, this.cur, t); store.set('theme', this.cur); this.apply(); },
+  /* pick a whole theme: palette + background scenes + light/dark; custom colours can still override afterwards */
+  setTheme(id) { const th = this.THEMES[id]; if (!th) return; const { name, sub, ...vals } = th; this.cur = Object.assign({ light: false }, vals, { theme: id, palette: id }); store.set('theme', this.cur); store.set('bg', 'auto'); this.apply(); },
+  get theme() { return this.THEMES[(this.cur || this.load()).theme] || this.THEMES.neon; },
+  get light() { return !!(this.cur || this.load()).light; },
   apply() {
     const t = this.cur || this.load(); const s = document.documentElement.style;
     s.setProperty('--g-rgb', this.rgb(t.g)); s.setProperty('--r-rgb', this.rgb(t.r)); s.setProperty('--c-rgb', this.rgb(t.c));
     s.setProperty('--panel-rgb', this.rgb(t.panel)); s.setProperty('--panel-a', t.a); s.setProperty('--gk', t.glow);
-    // re-tint the baked-in green eye glow of the background photo to match the palette
+    document.documentElement.classList.toggle('light', !!t.light);
+    const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = t.light ? '#eceae6' : '#050607';
+    // re-tint the baked-in green eye glow of the original two background photos to match the palette
     const hue = hx => { const [r, g, b] = this.rgb(hx).split(',').map(n => n / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return null;
       let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (h * 60 + 360) % 360; };
     const hg = hue(t.g); s.setProperty('--bg-filter', hg == null ? 'saturate(0)' : `hue-rotate(${Math.round(hg - 144)}deg)`);
