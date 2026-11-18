@@ -95,7 +95,7 @@ broker:
   max_positions: 15          # concurrent paper positions across all symbols
   daily_loss_limit_pct: 30.0  # stop opening trades after losing this % of day-start equity
   max_per_symbol: 2          # a 2nd position on a symbol only if it comes from a different setup
-  max_open_risk_pct: 80.0     # total risk of all open trades (to their stops) can't exceed this % of equity
+  max_open_risk_pct: 200.0    # total risk of all open trades (to their stops) can't exceed this % of equity (paper, very aggressive)
   tp1_close_pct: 50           # % of position closed at TP1, then stop to breakeven
   trail_atr: 1.0              # after TP1, trail stop at this many ATR
   spread_bps: {forex: 0.8, indices: 1.0, futures: 1.0, commodities: 2.0, crypto: 5.0, rates: 1.0, other: 2.0}

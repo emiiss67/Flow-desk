@@ -100,7 +100,7 @@ def test_no_unsolicited_telegram():
 
 def test_config_defaults():
     c = get_config()
-    assert c["broker"]["max_positions"] >= 15 and c["broker"]["max_open_risk_pct"] == 80
+    assert c["broker"]["max_positions"] >= 15 and c["broker"]["max_open_risk_pct"] == 200 and c["broker"]["daily_loss_limit_pct"] == 30
     syms = {w["symbol"] for w in c["watchlist"]}
     assert {"EURUSD=X", "GBPJPY=X", "NQ=F", "GC=F", "CL=F", "BTC-USD"} <= syms and len(syms) >= 15
 
@@ -124,3 +124,15 @@ def test_plan_shows_config_tier_range():
     from flowdesk.api import _risk_plan
     t = _risk_plan()
     assert "20-80%" in t and "35%" in t
+
+
+def test_open_risk_cap_from_config_allows_200pct():
+    from flowdesk.api import _plan
+    c = get_config()["broker"]
+    assert float(c["max_open_risk_pct"]) == 200
+    assert any("200% of equity" in x for x in _plan())
+    b = PaperBroker(Journal(":memory:"), dict(CFG, starting_balance=100, max_open_risk_pct=200, max_leverage=5000))
+    for s in ("EURUSD=X", "GBPUSD=X"):
+        assert b.open(s, "LONG", 100, 99, 101, 102, risk_pct=80)["risk_pct"] == 80
+    t = b.open("NQ=F", "LONG", 100, 99, 101, 102, risk_pct=80)       # 160% open -> cut to the remaining 40%
+    assert t and abs(t["risk_pct"] - 40) < 0.5
