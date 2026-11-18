@@ -1,0 +1,74 @@
+# FlowDesk paper desk. Secrets live in the environment, not here.
+owner_name: Trader
+
+database: data/flowdesk.sqlite
+desk_key_file: data/desk.key
+catalog: flowdesk/catalog.json
+
+server:
+  host: 127.0.0.1
+  port: 8787
+  # GitHub Pages origin, plus local preview origins for the static desk.
+  cors_origins:
+    - https://emiiss67.github.io
+    - http://127.0.0.1:8080
+    - http://localhost:8080
+    - http://127.0.0.1:4173
+    - http://localhost:4173
+
+paper:
+  starting_balance: 10000
+  currency: USD
+  # Percent of current paper balance risked at the stop, including stop slippage.
+  risk_per_trade_pct: 1.0
+  max_positions: 3
+  daily_loss_limit_pct: 3.0
+  trailing_enabled: true
+  # Trailing distance = this multiple of ATR. Set 0 to disable trailing.
+  trail_atr_mult: 1.5
+
+scanner:
+  enabled: true
+  interval_seconds: 120
+  timeframe: M15
+  higher_timeframe: H1
+  auto_trade: true
+  event_blackout_minutes: 30
+  min_score: 55
+  event_alert_minutes: 30
+
+strategy:
+  swing_left: 2
+  swing_right: 2
+  atr_period: 14
+  min_bars: 40
+
+watchlist:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+  - XAUUSD
+  - ES
+  - NQ
+  - GER40
+  - BTC
+
+market:
+  # auto uses OANDA practice for instruments that have an OANDA symbol when
+  # OANDA_API_KEY and OANDA_ACCOUNT_ID are set, and Yahoo Finance otherwise.
+  provider: auto
+  cache_seconds: 45
+
+calendar:
+  url: https://nfs.faireconomy.media/ff_calendar_thisweek.json
+  cache_seconds: 1800
+
+news:
+  cache_seconds: 600
+  feeds:
+    - https://www.forexlive.com/feed/
+    - https://www.fxstreet.com/rss/news
+    - https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258
+
+tunnel:
+  pages_base: https://emiiss67.github.io/Flow-desk/

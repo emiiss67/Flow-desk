@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="room" cx="50%" cy="48%" r="60%">
+      <stop offset="0%" stop-color="#1a2430"/>
+      <stop offset="55%" stop-color="#07080c"/>
+      <stop offset="100%" stop-color="#05060a"/>
+    </radialGradient>
+    <radialGradient id="iris" cx="50%" cy="48%" r="50%">
+      <stop offset="0%" stop-color="#d7f7ff"/>
+      <stop offset="18%" stop-color="#7fdfff"/>
+      <stop offset="46%" stop-color="#147a9a"/>
+      <stop offset="78%" stop-color="#0b2c38"/>
+      <stop offset="100%" stop-color="#061016"/>
+    </radialGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0c10"/>
+      <stop offset="100%" stop-color="#16181e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#room)"/>
+  <ellipse cx="800" cy="500" rx="560" ry="250" fill="#0e1218"/>
+  <path d="M280 500c150-220 890-220 1040 0-150 210-890 210-1040 0z" fill="#f3f1ec"/>
+  <path d="M340 500c140-160 780-160 920 0-140 150-780 150-920 0z" fill="url(#iris)"/>
+  <circle cx="800" cy="500" r="92" fill="#05070a"/>
+  <circle cx="868" cy="452" r="28" fill="#f7fbff" opacity="0.85"/>
+  <circle cx="740" cy="540" r="10" fill="#dff6ff" opacity="0.35"/>
+  <path d="M260 470c170-250 910-250 1080 20-40-80-250-160-540-160S320 400 260 470z" fill="url(#lid)" opacity="0.92"/>
+  <path d="M300 560c160 180 860 170 1040-30 20 40-80 120-250 160-220 54-620 40-790-130z" fill="#0c0e14" opacity="0.88"/>
+  <path d="M300 430c80 20 140 8 200-20" fill="none" stroke="#00D4FF" stroke-width="2" opacity="0.35"/>
+</svg>

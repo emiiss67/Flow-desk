@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141820"/>
+      <stop offset="45%" stop-color="#3a342c"/>
+      <stop offset="100%" stop-color="#07080c"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f4efe4"/>
+      <stop offset="70%" stop-color="#c8bba6"/>
+      <stop offset="100%" stop-color="#c8bba6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <circle cx="1120" cy="250" r="90" fill="url(#moon)"/>
+  <g fill="#07080c">
+    <path d="M760 860l20-250 18 70 70-40-30-90 46-120c16-40-10-70-48-62l-36 18-20-70c-8-28-30-40-52-28l-34 24-8-48c-6-30-28-36-44-16l-22 40-40-16c-24-8-40 10-32 32l28 70-36 20c-22 12-16 36 8 42l48 16-10 78 36 18-16 120z"/>
+    <path d="M690 430l-210-30 196 78z"/>
+    <path d="M500 392l-70 8 86 36z"/>
+  </g>
+  <g fill="#12151c" opacity="0.85">
+    <path d="M0 780c120-40 180-20 260 10 90 34 140 20 220-16 100-46 180-20 260 10 90 34 160 24 260-20 120-52 200-20 340 16v240H0z"/>
+    <path d="M0 860c180-30 260 10 420-20 140-26 220 16 380-8 150-22 250 20 420 8 140-10 220 16 380-24v184H0z"/>
+  </g>
+  <g fill="#d9d3c7" opacity="0.25">
+    <ellipse cx="420" cy="640" rx="180" ry="30"/>
+    <ellipse cx="980" cy="600" rx="220" ry="26"/>
+  </g>
+</svg>
