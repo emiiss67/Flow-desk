@@ -39,7 +39,8 @@ class Journal:
             if c not in cols:
                 self.db.execute(f"ALTER TABLE signals ADD COLUMN {c} {t}")
         tcols = {r[1] for r in self.db.execute("PRAGMA table_info(trades)").fetchall()}
-        for c, t in (("setup", "TEXT"), ("risk_pct", "REAL"), ("risk_reason", "TEXT")):
+        for c, t in (("setup", "TEXT"), ("risk_pct", "REAL"), ("risk_reason", "TEXT"), ("strategy", "TEXT"),
+                     ("features", "TEXT")):
             if c not in tcols:
                 self.db.execute(f"ALTER TABLE trades ADD COLUMN {c} {t}")
         self.db.commit()

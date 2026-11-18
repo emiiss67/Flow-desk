@@ -11,3 +11,4 @@ data/
 desk_key*
 .pytest_cache/
 node_modules/
+RESET_STATUS.txt

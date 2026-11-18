@@ -89,9 +89,11 @@ class Bot:
     # ---------- scanning ----------
     def scan_once(self) -> None:
         """Scan the whole watchlist; several positions can open in one cycle (limits: max_positions,
-        max_per_symbol with different setups, open-risk cap, daily loss limit)."""
-        from . import backtest, sizing
+        max_per_symbol with different setups, open-risk cap, daily loss limit). Every candidate passes the
+        learned rules (data/learned_rules.json) first: disabled strategies, blocked loss buckets, per-symbol edge."""
+        from . import backtest, learning, sizing, strategies as S
         sc = self.cfg.get("scanner", {})
+        rules = learning.load_rules()
         for w in self.cfg.get("watchlist", []):
             sym, tf = instruments.normalize(w["symbol"]), w.get("tf", "15m")
             try:
@@ -99,46 +101,109 @@ class Bot:
             except Exception as e:
                 log.warning("check %s failed: %s", sym, e)
                 continue
-            if not r.get("ok") or r["decision"] not in ("LONG", "SHORT"):
-                continue
-            setup = r.get("setup")
-            key = f"sig_{sym}_{tf}_{setup or 'structure'}"
-            if self.j.get(key) == [r["last_bar"], r["decision"]]:
-                continue  # same signal on the same bar already journaled
-            self.j.set(key, [r["last_bar"], r["decision"]])
-            try:  # cached win rate (pre-warmed in the background, never blocks the scan)
-                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="cached", setup=setup)
+            R = None
+            try:
+                R = S.rows(S.indicators(self.p.candles(sym, tf)))
             except Exception as e:
-                log.warning("winrate %s failed: %s", sym, e)
-                r["winrate"] = {"status": "unavailable"}
-            sz = sizing.choose(r["winrate"], self.cfg)
-            r["sizing"] = sz
+                log.debug("indicators %s failed: %s", sym, e)
+            if r.get("ok") and r["decision"] in ("LONG", "SHORT"):
+                setup = r.get("setup")
+                stream = learning.SETUP_KEYS.get(setup) if setup else learning.CORE
+                feats = S.features(R, len(R) - 1, r["decision"], None, r["confluence"]) if R else {}
+                key = f"sig_{sym}_{tf}_{setup or 'structure'}"
+                if self.j.get(key) != [r["last_bar"], r["decision"]]:
+                    self.j.set(key, [r["last_bar"], r["decision"]])
+                    try:  # cached win rate (pre-warmed in the background, never blocks the scan)
+                        r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="cached", setup=setup)
+                    except Exception as e:
+                        log.warning("winrate %s failed: %s", sym, e)
+                        r["winrate"] = {"status": "unavailable"}
+                    self._enter(r, sym, tf, setup, stream, feats, rules, sc)
+            if not R or not r.get("ok") or r.get("blackout"):
+                continue          # news-straddle avoidance: no extra-strategy entries in a high-impact event window
+            for name in S.STRATEGIES:
+                st = rules.get("strategies", {}).get(name) or {}
+                if not st.get("enabled"):
+                    continue
+                sg = S.signal(name, R, len(R) - 1, st.get("params"))
+                if not sg:
+                    continue
+                key = f"sig_{sym}_{tf}_{name}"
+                if self.j.get(key) == [r["last_bar"], sg["side"]]:
+                    continue
+                self.j.set(key, [r["last_bar"], sg["side"]])
+                from .strategy import decimals
+                dp = decimals(sg["entry"])
+                lv = {k: round(sg[k], dp) for k in ("entry", "sl", "tp1", "tp2")}
+                lv["rr2"] = round(sg["rr"], 2)
+                label = learning.NAMES[name]
+                res = {"symbol": sym, "tf": tf, "decision": sg["side"], "confluence": None, "price": r["price"], "levels": lv,
+                       "atr": sg["atr"], "setup": label,
+                       "reasons": [{"text": S.STRATEGIES[name]["desc"], "tag": label}],
+                       "winrate": learning.stats_for(rules, name, sym)}
+                self._enter(res, sym, tf, label, name, S.features(R, len(R) - 1, sg["side"], sg["sl_atr"]), rules, sc)
+
+    def _enter(self, r: dict, sym: str, tf: str, setup, stream: str, feats: dict, rules: dict, sc: dict) -> None:
+        from . import learning, sizing
+        sz = sizing.choose(r["winrate"], self.cfg)
+        r["sizing"] = sz
+        ok, why = learning.allow(rules, stream, sym, {k: v for k, v in feats.items()}, r.get("confluence"))
+        if ok:
             ok, why = self.b.can_open(sym, setup)
-            if ok and sc.get("require_killzone") and not killzone():
-                ok, why = False, "outside killzone"
-            if ok and sz["skip"]:
-                ok, why = False, sz["reason"]
-            t = None
-            mult = self.usd_mult(sym, r["levels"]["entry"]) if ok else None
-            if ok and not mult:
-                ok, why = False, f"no FX rate to convert {sym} into {self.b.ccy}"
-            if ok:
-                lv = r["levels"]
-                t = self.b.open(sym, r["decision"], lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], tf=tf, atr=r["atr"],
-                                reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
-                                usd_mult=mult, risk_pct=sz["risk_pct"], setup=setup,
-                                risk_reason=sz["reason"])
-                if not t:
-                    ok, why = False, self.b.last_reject or "order rejected"
-            if t:
-                r["sizing"] = {"risk_pct": t["risk_pct"], "reason": t["risk_reason"]}
-            sid = self.j.add_signal(r, acted=bool(t), note="" if t else why)
-            if t:
-                self.j.x("UPDATE trades SET signal_id=? WHERE id=?", (sid, t["id"]))
-                log.info("paper entry %s %s risk %.1f%% (%s)", sym, t["side"], t["risk_pct"] or 0, t["risk_reason"])
-                self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}"
-                           + (f" · 🎯 {esc(setup)}" if setup else "") + "\n"
-                           f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {fmt_money(t['risk_usd'], self.b.ccy, False)}")
+        if ok and sc.get("require_killzone") and not killzone():
+            ok, why = False, "outside killzone"
+        if ok and sz["skip"]:
+            ok, why = False, sz["reason"]
+        t = None
+        mult = self.usd_mult(sym, r["levels"]["entry"]) if ok else None
+        if ok and not mult:
+            ok, why = False, f"no FX rate to convert {sym} into {self.b.ccy}"
+        if ok:
+            lv = r["levels"]
+            t = self.b.open(sym, r["decision"], lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], tf=tf, atr=r["atr"],
+                            reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
+                            usd_mult=mult, risk_pct=sz["risk_pct"], setup=setup,
+                            risk_reason=sz["reason"], strategy=stream, features=feats)
+            if not t:
+                ok, why = False, self.b.last_reject or "order rejected"
+        if t:
+            r["sizing"] = {"risk_pct": t["risk_pct"], "reason": t["risk_reason"]}
+        sid = self.j.add_signal(r, acted=bool(t), note="" if t else why)
+        if t:
+            self.j.x("UPDATE trades SET signal_id=? WHERE id=?", (sid, t["id"]))
+            log.info("paper entry %s %s %s risk %.1f%% (%s)", sym, stream, t["side"], t["risk_pct"] or 0, t["risk_reason"])
+            self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}"
+                       + (f" · 🎯 {esc(setup)}" if setup else "") + "\n"
+                       f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {fmt_money(t['risk_usd'], self.b.ccy, False)}")
+
+    def learning_loop(self) -> None:
+        """Nightly learning cycle (~02:00 UTC) and on request from the desk (kv learn_request)."""
+        from . import learning
+        lc = self.cfg.get("learning", {}) or {}
+        hour = int(lc.get("nightly_hour_utc", 2))
+        while not self.stop.is_set():
+            try:
+                now = time.gmtime()
+                today = time.strftime("%Y-%m-%d", now)
+                req = self.j.get("learn_request")
+                due = lc.get("enabled", True) and now.tm_hour >= hour and self.j.get("learn_last_day") != today
+                if req or due:
+                    self.j.set("learn_status", {"state": "running", "since": int(time.time()), "by": "desk" if req else "nightly"})
+                    self.j.set("learn_request", None)
+                    try:
+                        rr = learning.run_cycle(journal=self.j, progress=lambda m: self.j.set(
+                            "learn_status", {"state": "running", "since": int(time.time()), "step": m}))
+                        self.j.set("learn_status", {"state": "done", "at": int(time.time()), "version": rr["version"],
+                                                    "changes": len(rr.get("changes", []))})
+                        log.info("learning cycle v%s: %s", rr["version"], rr.get("note"))
+                    except Exception as e:
+                        log.exception("learning cycle failed: %s", e)
+                        self.j.set("learn_status", {"state": "failed", "at": int(time.time()), "error": type(e).__name__})
+                    if due:
+                        self.j.set("learn_last_day", today)
+            except Exception as e:
+                log.warning("learning loop: %s", e)
+            self.stop.wait(30)
 
     def prewarm_loop(self) -> None:
         """Keep watchlist win rates fresh so entries and desk checks never wait for the ~1 min replay."""
@@ -251,6 +316,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, lambda *_: bot.stop.set())
     threading.Thread(target=bot.telegram_loop, daemon=True).start()
     threading.Thread(target=bot.prewarm_loop, daemon=True).start()
+    threading.Thread(target=bot.learning_loop, daemon=True).start()
     log.info("FlowDesk bot started (PAPER). Watchlist: %s", [w["symbol"] for w in bot.cfg.get("watchlist", [])])
     try:
         bot.loop()

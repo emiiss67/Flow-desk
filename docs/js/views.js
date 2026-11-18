@@ -350,6 +350,62 @@ Views.performance = async (v) => {
   FX.equity($('#eqc'), series, { base: p.start_balance, empty: 'No closed paper trades yet - the curve fills as the bot trades.' });
 };
 
+/* ================= LEARNING ================= */
+const fmtR = v => v == null ? '–' : (v >= 0 ? '+' : '') + Number(v).toFixed(2) + 'R';
+const wrTxt = v => v == null ? '–' : Math.round(v) + '%';
+Views.learning = async (v) => {
+  v.innerHTML = `<div class="page-title">Learning</div><div class="page-sub">The bot studies every backtest and paper trade, blocks what keeps losing and only trades strategies that showed an edge on data they were not tuned on.</div><div id="lrn"><div class="skeleton" style="height:520px"></div></div>`;
+  const [d, err] = await load('/api/learning'); if (!d) { $('#lrn').innerHTML = `<div class="panel">${unavailable('Learning', err)}</div>`; return; }
+  if (d.currency) Cur.set(d.currency, d.currency_symbol);
+  const r = d.rules || {}; const st = r.strategies || {}; const names = d.names || {}; const desc = d.descriptions || {};
+  const eur = d.eur_per_r; const e = x => (x == null || eur == null) ? '' : `<span class="m"> ≈ ${money(x * eur)}</span>`;
+  const sm = r.summary || {}; const b = sm.before || {}, a = sm.after || {};
+  const running = d.status?.state === 'running';
+  const cmp = (lab, x, y, f, better) => { const up = x != null && y != null && (better ? y > x : y < x); return `<div><div class="k">${lab}</div><div class="v ${y == null || x == null ? '' : y > x ? 'g' : y < x ? 'r' : ''}">${f(y)}</div><div class="sub">before ${f(x)}</div></div>`; };
+  const days = sm.test_from && sm.period ? Math.max(1, Math.round((sm.period[1] - sm.test_from) / 86400)) : null;
+  const order = Object.keys(st).sort((p, q) => (st[q].enabled - st[p].enabled) || ((st[q].stats?.val?.exp_r ?? -9) - (st[p].stats?.val?.exp_r ?? -9)));
+  const sRow = k => { const x = st[k], vv = x.stats?.val || {}, tt = x.stats?.test || {}, lv = r.live?.strategies?.[k];
+    return `<div class="lr-row"><div class="lr-n"><b>${esc(names[k] || k)}</b> ${x.enabled ? '<span class="badge-ok">ON</span>' : '<span class="badge-bad">OFF</span>'}<div class="sub">${esc(desc[k] || (k === 'core' ? 'The main confluence score (structure, liquidity, order-flow estimate, killzone).' : ''))}</div><div class="sub">${esc(x.reason || '')}</div></div>
+      <div class="lr-c"><div class="k">Validation</div><b class="${pnlClass(vv.exp_r)}">${fmtR(vv.exp_r)}</b>${e(vv.exp_r)}<div class="sub">${wrTxt(vv.win_rate)} win · n ${vv.n ?? 0}</div></div>
+      <div class="lr-c"><div class="k">Test</div><b class="${pnlClass(tt.exp_r)}">${fmtR(tt.exp_r)}</b>${e(tt.exp_r)}<div class="sub">${wrTxt(tt.win_rate)} win · n ${tt.n ?? 0}</div></div>
+      <div class="lr-c"><div class="k">Live paper</div>${lv ? `<b class="${pnlClass(lv.pnl)}">${money(lv.pnl)}</b><div class="sub">${wrTxt(lv.win_rate)} win · n ${lv.n}</div>` : '<span class="m">no trades</span>'}</div></div>`; };
+  const ch = (r.changes || []);
+  const blocks = r.blocks || [];
+  const syms = Object.keys(r.symbols || {}).sort();
+  const selSym = store.get('lrnSym', syms[0]);
+  const rankH = s => { const x = (r.symbols || {})[s]; if (!x) return '<div class="unavail">No data</div>';
+    return x.ranking.map((z, i) => { const blk = (x.blocked || []).includes(z.strategy); return `<div class="ev lr-rank"><span class="m num">#${i + 1}</span><b>${esc(z.name)}</b><span class="num ${pnlClass(z.exp_r)}">${fmtR(z.exp_r)}</span><span class="m num">n ${z.n}</span><span>${!z.enabled ? '<span class="m">off</span>' : blk ? '<span class="r">blocked here</span>' : (z.exp_r ?? 0) > 0 ? '<span class="g">trades</span>' : '<span class="m">trades*</span>'}</span></div>`; }).join(''); };
+  $('#lrn').innerHTML = `
+    <div class="panel"><div class="lr-top"><div><div class="label" style="margin:0">Rules version ${r.version ?? 0}${r.created ? ' · ' + dmy(r.created) + ' ' + hm(r.created) : ''}</div>
+      <div class="sub">${esc(r.note || '')}${d.status?.state ? ' · last run: ' + esc(d.status.state) + (d.status.step ? ' (' + esc(d.status.step) + ')' : '') : ''}. Runs every night automatically.</div></div>
+      ${API.demo ? '' : `<button class="btn pri" id="lrnRun" ${running || d.requested ? 'disabled' : ''}>${running ? 'Learning…' : d.requested ? 'Queued…' : 'Learn now'}</button>`}</div></div>
+    <div class="wr" style="margin-top:16px"><div class="wr-h"><span>Before vs after learning</span><span class="sub" style="font-weight:400">${days ? `newest ~${days} days, never used to make any decision` : 'not learned yet'}</span></div>
+      <div class="wr-grid">${cmp('Win rate', b.win_rate, a.win_rate, wrTxt, true)}${cmp('Avg per trade', b.exp_r, a.exp_r, fmtR, true)}
+        <div><div class="k">≈ per trade</div><div class="v ${pnlClass(a.exp_r)}">${eur != null && a.exp_r != null ? money(a.exp_r * eur) : '–'}</div><div class="sub">before ${eur != null && b.exp_r != null ? money(b.exp_r * eur) : '–'}</div></div>
+        <div><div class="k">Trades</div><div class="v">${a.n ?? '–'}</div><div class="sub">before ${b.n ?? '–'}</div></div>
+        <div><div class="k">Total</div><div class="v ${pnlClass(a.total_r)}">${fmtR(a.total_r)}</div><div class="sub">before ${fmtR(b.total_r)}</div></div></div>
+      <div class="sub" style="margin-top:8px">Data is split by time: oldest half to learn, next quarter to accept or reject each change, newest quarter (above) only to check it. 1R = the amount risked on a trade${eur != null ? ` (≈ ${money2(eur)} at the base risk of ${d.base_risk_pct}% of the balance)` : ''}. Win rate only counts trades that ended in profit. Past results do not guarantee future ones.</div></div>
+    <div class="panel" style="margin-top:16px"><h3>Strategies <span class="right">${order.filter(k => st[k].enabled).length} on · ${order.filter(k => !st[k].enabled).length} off</span></h3>
+      <div class="sub" style="margin-bottom:6px">A strategy is switched on only if it made money in the validation period with enough trades, and switched off when it clearly loses. Numbers are after the learned blocks.</div>
+      <div class="rows">${order.map(sRow).join('') || '<div class="unavail">Nothing learned yet</div>'}</div></div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="panel"><h3>Blocked combinations <span class="right">${blocks.length}</span></h3><div class="sub">Situations that lost in the learning data and kept losing in the validation data. The bot skips them.</div>
+        <div class="rows">${blocks.map(x => `<div class="lr-b"><span class="r">⛔</span><div>${esc(x.text)}</div></div>`).join('') || '<div class="unavail">No blocks</div>'}</div></div>
+      <div class="panel"><h3>Changes in this version <span class="right">${ch.length}</span></h3><div class="sub">At most one setting step per strategy and a few new blocks per night, so one bad night cannot swing everything.</div>
+        <div class="rows">${ch.map(x => `<div class="lr-b"><span>${{ param: '🔧', block: '⛔', unblock: '✅', enable: '🟢', disable: '🔴', rollback: '↩️' }[x.kind] || '•'}</span><div>${esc(x.text)}${x.kind === 'param' ? `<div class="sub">validation win ${wrTxt(x.val_before?.win_rate)} → ${wrTxt(x.val_after?.win_rate)}${eur != null ? ` · per trade ${money(x.val_before?.exp_r * eur)} → ${money(x.val_after?.exp_r * eur)}` : ''}</div>` : ''}</div></div>`).join('') || '<div class="unavail">No change passed validation</div>'}</div></div>
+    </div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="panel"><h3>Best strategies per instrument</h3><select id="lrnSym" class="lr-sel">${syms.map(s => `<option ${s === selSym ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><div class="rows" id="lrnRank">${rankH(syms.includes(selSym) ? selSym : syms[0])}</div><div class="sub" style="margin-top:6px">Ranked by average result per trade on that instrument (learning + validation data). A strategy that loses on an instrument is blocked there.</div></div>
+      <div class="panel"><h3>Where live paper losses came from</h3><div class="sub">From ${r.live?.n ?? 0} closed paper trades (small sample: shown for insight, decisions use the larger backtest).</div>
+        <div class="rows">${(r.live?.loss_buckets || []).map(x => `<div class="ev" style="grid-template-columns:1fr 70px 80px"><span>${esc(x.label)}</span><span class="m num">${x.n} trades · ${wrTxt(x.win_rate)}</span><b class="num r" style="text-align:right">${money(x.pnl)}</b></div>`).join('') || '<div class="unavail">No losing pattern yet</div>'}</div></div>
+    </div>
+    <div class="panel" style="margin-top:16px"><h3>History</h3><div class="sub">Every version is kept. Roll back if a new version behaves worse.</div>
+      <div class="rows">${(d.history || []).map(x => `<div class="ev" style="grid-template-columns:60px 1fr 90px 92px"><b>v${x.version}</b><span class="m">${dmy(x.created)} ${hm(x.created)} · ${esc(x.note)}</span><span class="num ${pnlClass(x.after?.exp_r)}">${fmtR(x.after?.exp_r)}</span>${x.version === r.version || API.demo ? '<span class="m" style="text-align:right">' + (x.version === r.version ? 'current' : '') + '</span>' : `<button class="btn" data-rb="${x.version}">Roll back</button>`}</div>`).join('') || '<div class="unavail">No versions yet</div>'}</div></div>`;
+  const sel = $('#lrnSym'); if (sel) sel.onchange = () => { store.set('lrnSym', sel.value); $('#lrnRank').innerHTML = rankH(sel.value); };
+  const run = $('#lrnRun'); if (run) run.onclick = async () => { run.disabled = true; run.textContent = 'Queued…'; try { await API.get('/api/learning/run', { confirm: 1 }); toast('Learning started - results in about a minute'); setTimeout(() => App.tab === 'learning' && Views.learning(v), 70000); } catch (e) { toast('Could not start: ' + (e.message || e)); run.disabled = false; run.textContent = 'Learn now'; } };
+  $$('[data-rb]').forEach(btn => btn.onclick = async () => { if (!confirm(`Roll back to rules version ${btn.dataset.rb}?`)) return; try { await API.get('/api/learning/rollback', { version: btn.dataset.rb, confirm: 1 }); toast('Rolled back'); Views.learning(v); } catch (e) { toast('Rollback failed: ' + (e.message || e)); } });
+};
+
 /* ================= SETTINGS ================= */
 Views.settings = async (v) => {
   const cur = store.get('bg', 'auto');

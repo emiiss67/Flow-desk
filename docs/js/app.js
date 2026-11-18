@@ -19,9 +19,9 @@ const App = {
     { id: 'none', name: 'Plain' },
   ],
   /* per-tab scene: a slot in the theme's scene list, or generated art on dark themes */
-  SCENE: { dashboard: 0, check: 1, chart: 'flow', signals: 'flow', positions: 2, news: 1, journal: 2, performance: 'ascend', settings: 0 },
+  SCENE: { dashboard: 0, check: 1, chart: 'flow', signals: 'flow', positions: 2, news: 1, journal: 2, performance: 'ascend', learning: 1, settings: 0 },
   scene(tab) { const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
-  TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'settings'],
+  TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'learning', 'settings'],
   async init() {
     await API.init(); Unlock.init();
     $('#demoBanner').hidden = !API.demo;

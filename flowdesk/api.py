@@ -298,6 +298,45 @@ def api_reset_daily(confirm: int = 0):
     return dict(r, ok=True, paper=True, **_cur())
 
 
+@app.get("/api/learning")
+def api_learning():
+    """Learned rules for the desk Learning tab: strategies (enabled, validation/test stats), blocks, changes, history."""
+    from . import learning
+    r = learning.load_rules()
+    j = J()
+    risk_eur = None
+    try:                                                  # rough € per 1R at the base risk, so R can be read as money
+        b = B()
+        base = float((get_config().get("sizing", {}) or {}).get("base_risk_pct", 15))
+        risk_eur = round(b.balance * base / 100, 2)
+    except Exception:
+        pass
+    return {"ok": True, "paper": True, "rules": r, "names": learning.NAMES, "descriptions": {k: v["desc"] for k, v in
+            learning.S.STRATEGIES.items()},
+            "history": learning.history(), "status": j.get("learn_status"), "requested": bool(j.get("learn_request")),
+            "eur_per_r": risk_eur, "base_risk_pct": float((get_config().get("sizing", {}) or {}).get("base_risk_pct", 15)), **_cur()}
+
+
+@app.get("/api/learning/run")
+def api_learning_run(confirm: int = 0):
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    J().set("learn_request", int(time.time()))
+    return {"ok": True, "queued": True, "note": "the bot runs the learning cycle within a minute (takes ~1 min)"}
+
+
+@app.get("/api/learning/rollback")
+def api_learning_rollback(version: int, confirm: int = 0):
+    from . import learning
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    try:
+        r = learning.rollback(version)
+    except FileNotFoundError:
+        raise HTTPException(404, "no such version")
+    return {"ok": True, "version": r["version"], "note": r["note"]}
+
+
 @app.get("/api/calendar")
 def api_calendar():
     return events.calendar()

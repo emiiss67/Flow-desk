@@ -201,6 +201,7 @@ const DEMO = (() => {
         '/api/check': () => check(params), '/api/winrate': () => demoWR(params.direction || 'LONG', +params.score || 60), '/api/chart': () => check(params), '/api/dashboard': dashboard, '/api/session': session, '/api/performance': perf,
         '/api/positions': () => ({ positions: positions(), paper: true }), '/api/signals': () => ({ signals: signals() }), '/api/journal': () => ({ trades: trades() }),
         '/api/calendar': calendar, '/api/news': news,
+        '/api/learning': () => ({ ok: true, demo: true, rules: { version: 0, note: 'Demo mode: connect your bot to see what it has learned', strategies: {}, blocks: [], changes: [], symbols: {}, summary: {} }, names: {}, history: [] }),
         '/api/instruments': () => ({ categories: ['Forex', 'Indices', 'Futures', 'Commodities', 'Crypto'], items: INSTRUMENTS }),
       }[path];
       return delay(m ? m() : {});
