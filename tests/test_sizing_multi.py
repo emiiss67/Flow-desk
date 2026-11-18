@@ -13,31 +13,31 @@ def wr(win, n, exp, setup_stats=None):
 
 def test_tiers():
     c = get_config()
-    assert sizing.choose(wr(75, 30, 0.8), c)["risk_pct"] == 20
-    assert sizing.choose(wr(65, 30, 0.5), c)["risk_pct"] == 15
-    assert sizing.choose(wr(55, 30, 0.2), c)["risk_pct"] == 10
-    assert sizing.choose(wr(45, 30, 0.05), c)["risk_pct"] == 5
-    assert sizing.choose(wr(35, 30, 0.01), c)["risk_pct"] == 3
+    assert sizing.choose(wr(75, 30, 0.8), c)["risk_pct"] == 30
+    assert sizing.choose(wr(65, 30, 0.5), c)["risk_pct"] == 25
+    assert sizing.choose(wr(55, 30, 0.2), c)["risk_pct"] == 20
+    assert sizing.choose(wr(45, 30, 0.05), c)["risk_pct"] == 15
+    assert sizing.choose(wr(35, 30, 0.01), c)["risk_pct"] == 10
 
 
 def test_negative_low_sample_and_skip():
     c = get_config()
-    assert sizing.choose(wr(55, 30, -0.1), c)["risk_pct"] == 3            # negative expectancy
+    assert sizing.choose(wr(55, 30, -0.1), c)["risk_pct"] == 10            # negative expectancy
     z = sizing.choose(wr(30, 60, -0.4), c)
     assert z["skip"] and z["risk_pct"] == 0                               # strongly negative, big sample
     assert not sizing.choose(wr(30, 30, -0.4), c)["skip"]                 # same but n < 50 -> 3%, not skipped
     low = sizing.choose(wr(90, 8, 2.0), c)
-    assert low["risk_pct"] == 5 and "low sample" in low["reason"]
-    assert sizing.choose({"status": "computing"}, c)["risk_pct"] == 5
+    assert low["risk_pct"] == 15 and "low sample" in low["reason"]
+    assert sizing.choose({"status": "computing"}, c)["risk_pct"] == 15
     assert "computing" in sizing.choose({"status": "computing"}, c)["reason"]
 
 
 def test_setup_history_preferred_when_big_enough():
     c = get_config()
     z = sizing.choose(wr(45, 100, 0.1, {"setup": "HVN Absorption", "n": 25, "win_rate": 66, "avg_r": 0.6}), c)
-    assert z["risk_pct"] == 15 and "HVN Absorption" in z["reason"]
+    assert z["risk_pct"] == 25 and "HVN Absorption" in z["reason"]
     z = sizing.choose(wr(45, 100, 0.1, {"setup": "HVN Absorption", "n": 5, "win_rate": 90, "avg_r": 2}), c)
-    assert z["risk_pct"] == 5 and "HVN" not in z["reason"]
+    assert z["risk_pct"] == 15 and "HVN" not in z["reason"]
 
 
 CFG = {"starting_balance": 1000, "risk_pct": 10, "max_positions": 15, "max_per_symbol": 2, "max_open_risk_pct": 80,
@@ -103,3 +103,10 @@ def test_config_defaults():
     assert c["broker"]["max_positions"] >= 15 and c["broker"]["max_open_risk_pct"] == 80
     syms = {w["symbol"] for w in c["watchlist"]}
     assert {"EURUSD=X", "GBPJPY=X", "NQ=F", "GC=F", "CL=F", "BTC-USD"} <= syms and len(syms) >= 15
+
+
+def test_thirty_percent_not_cut_on_tight_forex_stop():
+    from flowdesk.broker import PaperBroker as PB
+    lev = get_config()["broker"]["max_leverage"]
+    q = PB.position_size(50, 30.0, 1.1, 1.0994, 1.0, 1.0, max_leverage=lev)   # 6 pip stop
+    assert abs(q * 0.0006 - 15.0) < 0.02
