@@ -146,6 +146,10 @@ class Bot:
         if not self.tg.token:
             log.info("telegram disabled (no FLOWDESK_TELEGRAM_TOKEN)")
             return
+        if not self.tg.chat_id:
+            # don't consume getUpdates: scripts/discover_chat_id.py needs them to find the owner's chat
+            log.info("telegram polling off until FLOWDESK_TELEGRAM_CHAT_ID is set (run scripts/discover_chat_id.py --write)")
+            return
         while not self.stop.is_set():
             for u in self.tg.updates():
                 msg = u.get("message") or {}
