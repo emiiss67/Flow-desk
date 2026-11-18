@@ -91,7 +91,12 @@ async def auth_mw(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "paper": True, "version": __version__}
+    from .config import ROOT
+    try:
+        rev = (ROOT / ".deployed_rev").read_text().strip()[:7]       # written by deploy/autodeploy.sh
+    except OSError:
+        rev = None
+    return {"ok": True, "paper": True, "version": __version__, "rev": rev}
 
 
 _last_notify: dict = {}
