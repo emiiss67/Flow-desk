@@ -11,7 +11,7 @@ from .currency import fmt_money, account_ccy
 HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/check SYMBOL [tf] - long/short call with entry, SL, TP\n"
         "/positions - open paper positions\n/pnl - P&amp;L and stats\n"
-        "/pause, /resume - stop/start new entries\n/close SYMBOL - close a paper position\n"
+        "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n/close SYMBOL - close a paper position\n"
         "/watchlist, /news, /calendar, /status, /desk")
 
 
@@ -120,6 +120,12 @@ class Commands:
     def cmd_pause(self, a):
         self.j.set("paused", True)
         return "⏸ Paused. No new paper entries; open positions are still managed."
+
+    def cmd_resetlimit(self, a):
+        r = self.b.reset_daily_limit()
+        self.j.set("paused", False)
+        return (f"🔄 Daily loss limit reset. New baseline {fmt_money(r['baseline'], self.b.ccy, False)}; "
+                f"the bot stops again after -{r['limit_pct']:g}% from here. (paper)")
 
     def cmd_resume(self, a):
         self.j.set("paused", False)

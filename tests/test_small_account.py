@@ -86,3 +86,16 @@ def test_ten_percent_risk_not_cut_at_200x():
     # NQ-like: 25 point stop, $2/pt micro-style point value -> 0.1 contracts, well inside the cap
     qn = size(50, 10.0, 21000, 20975, 2.0, 1.0, max_leverage=200)
     assert abs(qn * 25 * 2.0 - 5.0) < 0.01
+
+
+def test_reset_daily_limit():
+    import time as _t
+    from flowdesk.broker import PaperBroker
+    from flowdesk.journal import Journal
+    j = Journal(":memory:")
+    b = PaperBroker(j, {"starting_balance": 50, "daily_loss_limit_pct": 30, "spread_bps": {"futures": 0}, "slippage_bps": 0, "max_leverage": 1000})
+    t = b.open("NQ=F", "LONG", 21000, 20990, 21010, 21020, risk_pct=40)
+    b.close(t["id"], 20990, ts=int(_t.time()) - 5)
+    assert b.daily_limit_hit() and b.can_open("ES=F")[0] is False
+    r = b.reset_daily_limit()
+    assert not r["hit"] and not b.daily_limit_hit() and b.can_open("ES=F")[0] and b.daily_loss_pct == 30

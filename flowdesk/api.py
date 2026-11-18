@@ -288,6 +288,16 @@ def api_dashboard():
     }
 
 
+@app.get("/api/reset_daily")
+def api_reset_daily(confirm: int = 0):
+    """Owner action from the desk: restart today's daily-loss window from the current balance (limit % unchanged)."""
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    r = B().reset_daily_limit()
+    J().set("paused", False)
+    return dict(r, ok=True, paper=True, **_cur())
+
+
 @app.get("/api/calendar")
 def api_calendar():
     return events.calendar()

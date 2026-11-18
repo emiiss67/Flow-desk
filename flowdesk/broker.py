@@ -60,8 +60,25 @@ class PaperBroker:
         r = self.j.q("SELECT COALESCE(SUM(pnl_usd),0) s FROM fills WHERE ts>=?", (day0,))
         return float(r[0]["s"])
 
+    def limit_window_start(self) -> int:
+        """Start of the daily-loss-limit window: UTC midnight, or a later manual reset (reset_daily_limit)."""
+        day0 = int(datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        return max(day0, int(self.j.get("daily_reset_ts", 0) or 0))
+
+    def realized_since(self, ts: int) -> float:
+        r = self.j.q("SELECT COALESCE(SUM(pnl_usd),0) s FROM fills WHERE ts>=?", (int(ts),))
+        return float(r[0]["s"])
+
     def daily_limit_hit(self) -> bool:
-        return self.realized_today() <= -self.balance_day_start() * self.daily_loss_pct / 100
+        r = self.realized_since(self.limit_window_start())
+        return r <= -(self.balance - r) * self.daily_loss_pct / 100
+
+    def reset_daily_limit(self) -> dict:
+        """Owner action: start a fresh daily-loss window from now (baseline = current balance). Limit % unchanged."""
+        now = int(time.time())
+        self.j.set("daily_reset_ts", now)
+        self.j.set("daily_reset_log", (self.j.get("daily_reset_log", []) or [])[-19:] + [{"ts": now, "balance": round(self.balance, 2)}])
+        return {"reset_ts": now, "baseline": round(self.balance, 2), "limit_pct": self.daily_loss_pct, "hit": self.daily_limit_hit()}
 
     def balance_day_start(self) -> float:
         return self.balance - self.realized_today()

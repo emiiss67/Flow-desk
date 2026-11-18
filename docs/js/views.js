@@ -31,7 +31,7 @@ Views.dashboard = async (v) => {
     <div class="hero"><div class="label">Net P&amp;L · 30 days</div><div class="huge num ${net30 > 0 ? 'glow-g' : net30 < 0 ? 'glow-r' : ''}">${money(net30)}</div>
       <div class="sub">Paper balance <b class="num hi">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span></div></div>
     <div class="grid cols-4" style="margin-top:26px">
-      <div class="panel stat"><div class="label">Status today</div><div class="v"><span class="dot-live ${stCls}"></span>${st === 'running' ? 'Clean' : st === 'paused' ? 'Paused' : 'Offline'}</div><div class="sub">${d.daily_limit_hit ? '<span class="r">Daily loss limit hit</span>' : 'Bot ' + esc(st) + (d.heartbeat ? ' · scan ' + ago(d.heartbeat) : '')}</div></div>
+      <div class="panel stat"><div class="label">Status today</div><div class="v"><span class="dot-live ${stCls}"></span>${st === 'running' ? 'Clean' : st === 'paused' ? 'Paused' : 'Offline'}</div><div class="sub">${d.daily_limit_hit ? `<span class="r">Daily loss limit hit</span>${API.demo ? '' : ' <button class="btn" id="resetDL" style="padding:6px 10px;margin-top:6px">Reset daily limit</button>'}` : 'Bot ' + esc(st) + (d.heartbeat ? ' · scan ' + ago(d.heartbeat) : '')}</div></div>
       <div class="panel stat"><div class="label">Net result · today</div><div class="v num ${pnlClass(d.today_pnl)}">${money(d.today_pnl)}</div><div class="sub">Realized, paper</div></div>
       <div class="panel stat"><div class="label">Win rate</div><div class="v num">${d.win_rate}%</div><div class="sub">${d.trades} closed trades · PF ${d.profit_factor ?? '–'}</div></div>
       <div class="panel stat"><div class="label">Risk blocks · 24h</div><div class="v num">${d.blocked_24h}</div><div class="sub">${d.signals_24h} signals · ${d.entries_24h} entries</div></div>
@@ -46,6 +46,7 @@ Views.dashboard = async (v) => {
   { const nowS = Math.floor(Date.now() / 1000); let ser = perf?.equity_curve?.length ? perf.equity_curve : (perf?.equity_snapshots?.length >= 2 ? perf.equity_snapshots : []);
     if (!ser.length) ser = [{ time: nowS - 7 * 86400, value: d.balance }, { time: nowS, value: d.balance }];
     FX.equity($('#eqd'), ser, { base: perf?.start_balance ?? ser[0].value, small: true, pad: { t: 30, r: 64 } }); }
+  const rb = $('#resetDL'); if (rb) rb.onclick = async () => { if (!confirm('Restart today\'s daily-loss window from the current balance? The ' + 'limit % stays the same.')) return; rb.disabled = true; try { const r = await API.get('/api/reset_daily', { confirm: 1 }); toast('Daily limit reset · new baseline ' + money2(r.baseline)); App.go('dashboard', false); } catch (e) { toast('Reset failed: ' + e.message); rb.disabled = false; } };
   const ev = d.upcoming_events || [];
   $('#dSide').innerHTML = sessionCard(d.session) + `
     <div class="panel"><h3>Today's plan</h3><ul class="plan">${d.plan.map(p => `<li><span class="ck">✓</span>${esc(p)}</li>`).join('')}</ul></div>
