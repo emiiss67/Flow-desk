@@ -344,9 +344,10 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
     # 2) blocks: feature buckets that lose in TRAIN and are still negative in VALIDATION
     blocks = list(new.get("blocks", []))
     kept = []
+    live_now = {k for k, v in old.get("strategies", {}).items() if v.get("enabled", k in (CORE, "setup_hvn", "setup_klar"))}
     for b in blocks:                                                    # re-check old blocks; lift if they now look fine
         tr = all_tr.get(b["strategy"])
-        if tr is None:
+        if tr is None or b["strategy"] not in live_now:                 # switched-off strategies are judged without blocks
             continue
         vv = summarize([t for t in tr["val"] if str(t["f"].get(b["feature"])) == str(b["bucket"])])
         if vv["n"] >= LIMITS["min_val_n"] + 2 and vv["exp_r"] > 0.10:
@@ -354,8 +355,13 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
                             "text": f"Lifted block: {b['text']} (now {vv['exp_r']:+.2f}R over {vv['n']} validation trades)"})
         else:
             kept.append(b)
+    dropped = sum(1 for b in blocks if b["strategy"] not in live_now)
+    if dropped:
+        changes.append({"kind": "unblock", "text": f"Cleared {dropped} block(s) of switched-off strategies - they are judged on all their trades."})
     cands = []
     for name, tr in all_tr.items():
+        if name not in live_now:                                        # only refine strategies that actually trade
+            continue
         for fk in S.FEATURE_KEYS:
             buckets = {str(t["f"].get(fk)) for t in tr["train"] if t["f"].get(fk) is not None}
             for bk in buckets:
