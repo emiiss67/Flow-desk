@@ -203,7 +203,7 @@ def killzone(now: datetime | None = None) -> str | None:
     return None
 
 
-def analyze(df: pd.DataFrame, k: int = 2, atr_period: int = 14) -> dict:
+def analyze(df: pd.DataFrame, k: int = 2, atr_period: int = 14, now: datetime | None = None) -> dict:
     a = atr(df, atr_period)
     highs, lows = swings(df, k)
     st = structure(df, highs, lows, k)
@@ -214,7 +214,7 @@ def analyze(df: pd.DataFrame, k: int = 2, atr_period: int = 14) -> dict:
     sw = sweeps(df, liq)
     dr = dealing_range(df, highs, lows)
     return {"atr": atr_now, "swing_highs": highs, "swing_lows": lows, "structure": st, "fvgs": fv,
-            "order_blocks": ob, "liquidity": liq, "sweeps": sw, "range": dr, "killzone": killzone()}
+            "order_blocks": ob, "liquidity": liq, "sweeps": sw, "range": dr, "killzone": killzone(now)}
 
 
 def session_boxes(df: pd.DataFrame, days: int = 3) -> list[dict]:

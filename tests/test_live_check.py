@@ -9,7 +9,7 @@ def test_live_check(sym):
     if not r.get("ok"):
         pytest.skip(f"live data unavailable: {r.get('detail')}")
     assert r["decision"] in ("LONG", "SHORT", "NO TRADE")
-    assert 0 <= r["confidence"] <= 100
+    assert 0 <= r["confluence"] <= 100
     assert r["chart"]["candles"] and r["orderflow_estimated"] is True
     if r["decision"] == "LONG":
         lv = r["levels"]

@@ -14,13 +14,27 @@ HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/watchlist, /news, /calendar, /status, /desk")
 
 
+def fmt_winrate(wr: dict | None, score=None) -> str:
+    sc = f"Confluence {score}/100 (a score, not a probability)" if score is not None else ""
+    if not wr or wr.get("status") != "ok":
+        msg = "computing…" if wr and wr.get("status") == "computing" else "unavailable"
+        return (sc + "\n" if sc else "") + f"📊 Backtest win rate: {msg}"
+    if not wr.get("n"):
+        return (sc + "\n" if sc else "") + f"📊 Backtest: no past {wr['direction'].lower()} setups in score band {wr['band'][0]}-{wr['band'][1]}"
+    line = (f"📊 Backtest win {wr['win_rate']:.0f}% (TP1 before SL) · TP2 {wr['tp2_rate']:.0f}% · n={wr['n']} · "
+            f"avg {wr['avg_r']:+.2f}R · exp {wr.get('expectancy_usd', 0):+.2f} USD/trade")
+    if wr.get("low_sample"):
+        line += "\n⚠️ low sample (n &lt; 20) - treat as anecdotal"
+    return (sc + "\n" if sc else "") + line
+
+
 def fmt_check(r: dict) -> str:
     if not r.get("ok"):
         return f"<b>{esc(r['symbol'])}</b>: data unavailable"
     d = r["decision"]
     icon = {"LONG": "🟢", "SHORT": "🔴"}.get(d, "⚪")
-    lines = [f"{icon} <b>{esc(r['symbol'])} {esc(r['tf'])} - {d}</b> ({r['confidence']}% conf) · PAPER",
-             f"Price {fmt(r['price'])}"]
+    lines = [f"{icon} <b>{esc(r['symbol'])} {esc(r['tf'])} - {d}</b> · PAPER",
+             f"Price {fmt(r['price'])}", fmt_winrate(r.get("winrate"), r.get("confluence"))]
     if "levels" in r:
         lv = r["levels"]
         lines.append(f"Entry {fmt(lv['entry'])} | SL {fmt(lv['sl'])}\nTP1 {fmt(lv['tp1'])} ({lv['rr1']}R) | "

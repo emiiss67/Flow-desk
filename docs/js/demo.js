@@ -93,7 +93,8 @@ const DEMO = (() => {
     const ov = overlays(cs);
     const out = {
       ok: true, demo: true, symbol: sym, name: (INSTRUMENTS.find(i => i.symbol === sym) || {}).name || sym, tf, paper: true,
-      source: 'DEMO sample data', source_note: 'Sample data for preview only', decision, confidence: conf, price: last,
+      source: 'DEMO sample data', source_note: 'Sample data for preview only', decision, confluence: conf, price: last,
+      winrate: demoWR(L ? 'LONG' : 'SHORT', conf),
       scores: { long: L ? conf : 30, short: L ? 30 : conf }, reasons: decision === 'NO TRADE' ? reasons.slice(0, 2) : reasons,
       against: [{ text: 'Higher timeframe (1h) structure is ' + (L ? 'bearish' : 'bullish'), tag: 'HTF bias', points: 15 }],
       warnings: [{ text: 'USD FOMC Meeting Minutes in 5.4 h (high impact)', minutes_away: 325 }],
@@ -103,6 +104,11 @@ const DEMO = (() => {
     if (decision !== 'NO TRADE') out.levels = { entry: last, sl, tp1, tp2, rr1: +((tp1 - last) * sgn / risk).toFixed(2), rr2: +((tp2 - last) * sgn / risk).toFixed(2), sl_basis: 'structure', tp1_basis: 'liquidity', tp2_basis: 'liquidity' };
     else out.watch = { bias: 'LONG', sl, tp1, note: 'Not enough confluence - reference levels only, no trade' };
     return out;
+  }
+
+  function demoWR(direction, score) {
+    const n = 14 + (score % 31); const w = 38 + (score % 17);
+    return { status: 'ok', demo: true, direction, band: [score - 10, score + 10], n, low_sample: n < 20, win_rate: w, tp2_rate: Math.round(w * 0.45), avg_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_usd: +(((w / 100) * 1.6 - 0.62) * 0.5).toFixed(2), risk_usd: 0.5, tf: '15m', period_from: Date.now() / 1000 - 86400 * 21, period_to: Date.now() / 1000, method: 'DEMO sample numbers', note: 'Sample data for preview only' };
   }
 
   let _trades = null;
@@ -161,7 +167,7 @@ const DEMO = (() => {
     return { ok: true, demo: true, source: 'DEMO sample headlines', items: H.map(([title, symbols, tone], i) => ({ title, symbols, tone, source: 'Sample feed', link: '#', ts: now() - i * 1700 - 300 })) };
   }
   function signals() {
-    return trades().slice(0, 25).map((t, i) => ({ id: 400 - i, ts: t.opened_ts, symbol: t.symbol, tf: '15m', decision: t.side, confidence: 58 + (i * 7) % 30, price: t.entry, sl: t.sl_initial, tp1: t.tp1, tp2: t.tp2, rr: 2.6, tags: t.tags, reasons: t.reasons, acted: i % 4 ? 1 : 0, note: i % 4 ? '' : 'high-impact event window' }));
+    return trades().slice(0, 25).map((t, i) => ({ id: 400 - i, ts: t.opened_ts, symbol: t.symbol, tf: '15m', decision: t.side, confluence: 58 + (i * 7) % 30, win_rate: 40 + (i * 3) % 18, bt_n: 12 + (i * 5) % 40, bt_avg_r: +(((i * 7) % 9) / 20 - 0.15).toFixed(2), price: t.entry, sl: t.sl_initial, tp1: t.tp1, tp2: t.tp2, rr: 2.6, tags: t.tags, reasons: t.reasons, acted: i % 4 ? 1 : 0, note: i % 4 ? '' : 'high-impact event window' }));
   }
   function dashboard() {
     const p = perf();
@@ -175,7 +181,7 @@ const DEMO = (() => {
   return {
     get(path, params) {
       const m = {
-        '/api/check': () => check(params), '/api/chart': () => check(params), '/api/dashboard': dashboard, '/api/performance': perf,
+        '/api/check': () => check(params), '/api/winrate': () => demoWR(params.direction || 'LONG', +params.score || 60), '/api/chart': () => check(params), '/api/dashboard': dashboard, '/api/performance': perf,
         '/api/positions': () => ({ positions: positions(), paper: true }), '/api/signals': () => ({ signals: signals() }), '/api/journal': () => ({ trades: trades() }),
         '/api/calendar': calendar, '/api/news': news,
         '/api/instruments': () => ({ categories: ['Forex', 'Indices', 'Futures', 'Commodities', 'Crypto'], items: INSTRUMENTS }),

@@ -45,7 +45,7 @@ def main() -> None:
             m = URL_RE.search(line)
             if m and not m.group(0).startswith("https://api."):
                 if on_url(m.group(0), j, tg):
-                    log.info("tunnel url changed; desk link sent")
+                    log.info("tunnel url changed; stored%s", " and desk link sent" if tg.enabled else " (telegram not configured, nothing sent)")
         p.wait()
         log.warning("cloudflared exited (%s); restarting in 10s", p.returncode)
         time.sleep(10)

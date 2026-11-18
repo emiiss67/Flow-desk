@@ -180,7 +180,7 @@ svg{display:block}
 .verdict .call.long{color:var(--green);text-shadow:0 0 calc(28px * var(--gk)) rgba(var(--g-rgb),calc(.55 * min(1.6, var(--gk))))}
 .verdict .call.short{color:var(--red);text-shadow:0 0 calc(28px * var(--gk)) rgba(var(--r-rgb),calc(.55 * min(1.6, var(--gk))))}
 .verdict .call.none{color:#D1D5DB;font-size:44px}
-.gauge{position:relative;width:132px;height:76px}
+.gauge{position:relative;width:132px;height:76px;margin-bottom:16px}
 .gauge svg{width:132px;height:76px}
 .gauge .gv{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:22px;font-weight:800}
 .gauge .gl{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
@@ -289,3 +289,13 @@ svg{display:block}
 .pal .sw{display:flex;gap:4px;margin-bottom:8px}.pal .sw i{width:18px;height:18px;border-radius:50%}
 input[type=color]{width:44px;height:30px;border:1px solid var(--line-2);border-radius:8px;background:none;padding:2px;cursor:pointer}
 input[type=range]{accent-color:var(--green)}
+
+/* historical win rate block */
+.wr { margin-top: 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(var(--c-rgb), .22); background: rgba(var(--c-rgb), .05); }
+.wr-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-weight: 600; color: #fff; margin-bottom: 10px; font-size: 14px; }
+.wr-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.wr-grid .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.wr-grid .v { font-size: 22px; font-weight: 700; margin: 2px 0; color: #fff; }
+.wr-grid .v.g { color: var(--green); } .wr-grid .v.r { color: var(--red); } .wr-grid .v.a { color: #F5B544; }
+.wr-grid .sub { margin: 0; font-size: 11px; }
+@media (max-width: 860px) { .wr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wr-grid > div:last-child { grid-column: 1 / -1; } }

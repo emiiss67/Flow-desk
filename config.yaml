@@ -26,6 +26,7 @@ orderflow:                    # FlowPro-style settings (applied to the ESTIMATED
   profile_bins: 40
 
 strategy:
+  lookback_bars: 300      # engine window (live and backtest use the same)
   min_score: 55               # minimum confluence score (0-100) to call LONG/SHORT
   min_margin: 15              # winning side must beat the other side by this many points
   swing_k: 2                  # fractal pivot width for swings

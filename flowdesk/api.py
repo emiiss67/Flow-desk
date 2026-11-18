@@ -56,14 +56,32 @@ def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m"):
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
     try:
-        return run_check(symbol, tf)
+        return run_check(symbol, tf, winrate="async")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/winrate")
+def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direction: str = "LONG",
+                score: float = Query(60, ge=0, le=100)):
+    """Historical walk-forward win rate for a direction + Confluence-score band (async: poll until status=ok)."""
+    from . import backtest
+    if tf not in TIMEFRAMES:
+        raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
+    direction = direction.upper()
+    if direction not in ("LONG", "SHORT"):
+        raise HTTPException(400, "direction must be LONG or SHORT")
+    try:
+        return backtest.winrate(symbol, tf, direction, score, mode="async")
     except ValueError as e:
         raise HTTPException(400, str(e))
 
 
 @app.get("/api/chart")
 def api_chart(symbol: str = Query(..., max_length=24), tf: str = "15m"):
-    r = api_check(symbol, tf)
+    if tf not in TIMEFRAMES:
+        raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
+    r = run_check(symbol, tf, winrate="off")
     return {k: r.get(k) for k in ("symbol", "name", "tf", "ok", "source", "source_note", "chart", "price",
                                   "decision", "levels", "error", "volume_source")}
 

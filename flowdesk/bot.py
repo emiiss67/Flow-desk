@@ -16,6 +16,7 @@ from .data import get_provider, DataUnavailable
 from .ict import killzone
 from .journal import Journal
 from .strategy import check, fmt
+from .commands import fmt_winrate
 from .telegram import Telegram, esc
 
 log = logging.getLogger("flowdesk.bot")
@@ -84,7 +85,7 @@ class Bot:
         for w in self.cfg.get("watchlist", []):
             sym, tf = instruments.normalize(w["symbol"]), w.get("tf", "15m")
             try:
-                r = check(sym, tf, with_chart=False)
+                r = check(sym, tf, with_chart=False, winrate="off")
             except Exception as e:
                 log.warning("check %s failed: %s", sym, e)
                 continue
@@ -94,6 +95,11 @@ class Bot:
             if self.j.get(key) == [r["last_bar"], r["decision"]]:
                 continue  # same signal on the same bar already journaled
             self.j.set(key, [r["last_bar"], r["decision"]])
+            try:  # historical win rate for this direction + score band (cached ~1h per symbol/tf)
+                from . import backtest
+                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="sync")
+            except Exception as e:
+                log.warning("winrate %s failed: %s", sym, e)
             note = ""
             ok, why = self.b.can_open(sym)
             if ok and sc.get("require_killzone") and not killzone():
@@ -110,7 +116,8 @@ class Bot:
             if t:
                 self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}\n"
                            f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {t['risk_usd']:,.0f} USD\n"
-                           + "\n".join(f"• {esc(x['text'])}" for x in r["reasons"][:4]))
+                           + "\n".join(f"• {esc(x['text'])}" for x in r["reasons"][:4])
+                           + "\n" + fmt_winrate(r.get("winrate"), r["confluence"]))
 
     def event_alerts(self) -> None:
         ccys = set()

@@ -106,7 +106,8 @@ function renderResult(r) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div><div class="label" style="margin-bottom:6px">${esc(r.name)} · ${esc(r.tf)} · ${esc(r.category || '')}</div>
           <div class="verdict"><div class="call ${cls}">${D === 'NO TRADE' ? 'NO TRADE' : D}</div>
-          <div class="gauge">${FX.gauge(r.confidence, col)}<div class="gv num" style="color:${col}">${r.confidence}%</div><div class="gl">confidence</div></div></div></div>
+          <div class="gauge" title="Confluence score: how many independent reasons line up, weighted. It is a score out of 100, not a probability of winning.">${FX.gauge(r.confluence, col)}<div class="gv num" style="color:${col}">${r.confluence}</div><div class="gl">confluence /100</div></div></div>
+          <div class="sub" style="margin-top:8px">Confluence score (0-100) · not a probability of winning</div></div>
         <div style="text-align:right"><div class="label" style="margin-bottom:6px">Last price</div><div class="big num mono">${fp(r.price)}</div><div class="sub">L ${r.scores.long} · S ${r.scores.short} · ATR ${fp(r.atr)}</div></div>
       </div>
       ${lv ? `<div class="levels">
@@ -116,6 +117,7 @@ function renderResult(r) {
         <div class="lv tp"><div class="k">TP2 · ${lv.rr2}R</div><div class="v">${fp(lv.tp2)}</div><div class="sub">${esc(lv.tp2_basis)}</div></div>
         <div class="lv"><div class="k">Risk : reward</div><div class="v">1 : ${lv.rr2}</div><div class="sub">50% off at TP1</div></div></div>`
       : `<div class="warn" style="margin-top:16px">⚪ ${esc(r.watch?.note || 'Not enough confluence')}${r.watch ? ` · lean ${esc(r.watch.bias.toLowerCase())}, ref SL ${fp(r.watch.sl)} / TP ${fp(r.watch.tp1)}` : ''}</div>`}
+      <div id="wrBox">${wrHTML(r.winrate, r)}</div>
       ${r.blackout ? `<div class="warn block">⛔ High-impact ${esc(r.blackout.ccy)} event "${esc(r.blackout.title)}" too close - standing aside.</div>` : ''}
       ${(r.warnings || []).map(w => `<div class="warn">⚠️ ${esc(w.text)}</div>`).join('')}
     </div>
@@ -128,6 +130,39 @@ function renderResult(r) {
         <div class="sub" style="margin-top:14px">Source: ${esc(r.source)}. ${esc(r.source_note || '')} Order flow: <span class="est">estimated</span> (${esc(r.volume_source || 'OHLCV')}).</div></div>
     </div>`;
   const c = Charts.create($('#ckChart')); Charts.set(c, r);
+  if (r.winrate && r.winrate.status === 'computing') pollWR(r);
+}
+
+function wrHTML(w, r) {
+  const side = r.decision === 'NO TRADE' ? (r.watch?.bias || 'LONG') : r.decision;
+  const head = `<div class="wr-h"><span>Historical win rate</span><span class="sub" style="margin:0">${esc(side.toLowerCase())} setups scoring ${w?.band ? w.band[0] + '-' + w.band[1] : '±10 of ' + r.confluence} · ${esc(r.tf)}</span></div>`;
+  if (!w || w.status === 'unavailable') return `<div class="wr">${head}<div class="sub">Backtest unavailable for this instrument.</div></div>`;
+  if (w.status === 'computing') return `<div class="wr">${head}<div class="sub"><span class="spin"></span>Replaying the rules over the available history (no lookahead)… ~30 s on first run, then cached 1 h.</div></div>`;
+  if (!w.n) return `<div class="wr">${head}<div class="sub">No comparable past setups in this score band.</div></div>`;
+  const pc = (x) => x == null ? '-' : Math.round(x) + '%';
+  const sg = (x, d = 2) => (x >= 0 ? '+' : '') + Number(x).toFixed(d);
+  const wc = w.win_rate >= 50 ? 'g' : w.win_rate >= 40 ? 'a' : 'r';
+  return `<div class="wr">${head}
+    <div class="wr-grid">
+      <div><div class="k">Win rate</div><div class="v num ${wc}">${pc(w.win_rate)}</div><div class="sub">TP1 before SL</div></div>
+      <div><div class="k">Full TP2</div><div class="v num">${pc(w.tp2_rate)}</div><div class="sub">ran to target</div></div>
+      <div><div class="k">Trades (n)</div><div class="v num">${w.n}</div><div class="sub">${w.period_from ? dmy(w.period_from) + ' → ' + dmy(w.period_to) : ''}</div></div>
+      <div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>
+      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${sg(w.expectancy_usd ?? 0)}</div><div class="sub">USD/trade at ${money(w.risk_usd ?? 0.5)} risk</div></div>
+    </div>
+    ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; 20) - treat this win rate as anecdotal.</div>' : ''}
+    <div class="sub" style="margin-top:8px">Walk-forward replay of the same rules on ${esc(r.source || 'the feed')} history, paper-broker exits (SL first on ambiguous bars, 50% at TP1 then breakeven, trail, TP2). ${esc(w.note || '')} Past results do not predict future ones.</div></div>`;
+}
+
+async function pollWR(r) {
+  const side = r.decision === 'NO TRADE' ? (r.watch?.bias || 'LONG') : r.decision;
+  for (let k = 0; k < 40; k++) {
+    await new Promise(res => setTimeout(res, 4000));
+    const box = $('#wrBox'); if (!box || box.dataset.sym && box.dataset.sym !== r.symbol) return;
+    const [w] = await load('/api/winrate', { symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence });
+    if (!$('#wrBox')) return;
+    if (w && w.status !== 'computing') { $('#wrBox').innerHTML = wrHTML(w, r); return; }
+  }
 }
 
 /* ================= LIVE CHART ================= */
@@ -163,11 +198,11 @@ Views.chart = async (v) => {
 Views.signals = async (v) => {
   v.innerHTML = `<div class="page-title">Signals</div><div class="page-sub">Every call the scanner made on the watchlist, taken or blocked.</div><div class="panel" id="sg"><div class="skeleton" style="height:300px"></div></div>`;
   const [r, err] = await load('/api/signals'); if (!r) { $('#sg').innerHTML = unavailable('Signals', err); return; }
-  $('#sg').innerHTML = `<div class="rows"><div class="row head"><div>Symbol</div><div>Call</div><div>Confluence</div><div class="r-right">Levels</div><div class="r-right">Status</div></div>${r.signals.map(s => `
+  $('#sg').innerHTML = `<div class="rows"><div class="row head"><div>Symbol</div><div>Call</div><div>Confluence</div><div class="r-right">Levels</div><div class="r-right">Score · win rate</div></div>${r.signals.map(s => `
     <div class="row"><div><div class="sym">${esc(s.symbol)}</div><div class="sub" style="margin:2px 0 0">${dmy(s.ts)} ${hm(s.ts)} · ${esc(s.tf)}</div></div><div>${sidePill(s.decision)}</div>
     <div class="tags">${(s.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
     <div class="r-right num mono" style="font-size:12px">${fp(s.price)}<div class="sub" style="margin:2px 0 0">SL ${fp(s.sl)} · TP ${fp(s.tp2)}</div></div>
-    <div class="r-right"><b class="num">${Math.round(s.confidence)}%</b><div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
+    <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
 };
 
 /* ================= POSITIONS ================= */

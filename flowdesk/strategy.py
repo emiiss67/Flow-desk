@@ -277,7 +277,27 @@ def level_candidates(direction: str, f: dict, ia: dict, flow) -> tuple[list[floa
     return sl, tp
 
 
-def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int = 300) -> dict:
+def analyze_frame(df: pd.DataFrame, tf: str, cfg: dict | None = None, now=None) -> dict:
+    """Run the full engine on a frame using ONLY the bars in it (the backtest feeds growing history slices)."""
+    cfg = cfg or get_config()
+    scfg = cfg.get("strategy", {})
+    ia = ict.analyze(df, scfg.get("swing_k", 2), scfg.get("atr_period", 14), now=now)
+    flow = get_orderflow_provider().analyze(df, FlowSettings.from_cfg(cfg.get("orderflow")))
+    htf_tf = HTF.get(tf, "1h")
+    htf_trend = 0
+    try:
+        hdf = resample(df, RULES[htf_tf]) if htf_tf != tf else df
+        if len(hdf) >= 30:
+            hs, ls = ict.swings(hdf, 2)
+            htf_trend = ict.structure(hdf, hs, ls, 2)["trend"]
+    except Exception as e:
+        log.debug("htf failed: %s", e)
+    f = extract_features(df, ia, flow, htf_trend, htf_tf)
+    return {"ia": ia, "flow": flow, "f": f, "sc": score_features(f), "htf_tf": htf_tf, "htf_trend": htf_trend}
+
+
+def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int = 300, winrate: str = "sync") -> dict:
+    """winrate: 'sync' = compute backtest now if not cached, 'async' = start in background, 'off' = skip."""
     cfg = get_config()
     scfg = cfg.get("strategy", {})
     sym = instruments.normalize(symbol)
@@ -295,19 +315,9 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
         out.update({"ok": False, "decision": "DATA UNAVAILABLE", "error": "data unavailable",
                     "detail": f"only {len(df)} bars returned"})
         return out
-    ia = ict.analyze(df, scfg.get("swing_k", 2), scfg.get("atr_period", 14))
-    flow = get_orderflow_provider().analyze(df, FlowSettings.from_cfg(cfg.get("orderflow")))
-    htf_tf = HTF.get(tf, "1h")
-    htf_trend = 0
-    try:
-        hdf = resample(df, RULES[htf_tf]) if htf_tf != tf else df
-        if len(hdf) >= 30:
-            hs, ls = ict.swings(hdf, 2)
-            htf_trend = ict.structure(hdf, hs, ls, 2)["trend"]
-    except Exception as e:
-        log.debug("htf failed: %s", e)
-    f = extract_features(df, ia, flow, htf_trend, htf_tf)
-    sc = score_features(f)
+    lookback = int(scfg.get("lookback_bars", 300))
+    ev = analyze_frame(df.iloc[-lookback:], tf, cfg)   # same window the backtest replays
+    ia, flow, f, sc, htf_tf, htf_trend = ev["ia"], ev["flow"], ev["f"], ev["sc"], ev["htf_tf"], ev["htf_trend"]
     bo = None
     warnings = []
     try:
@@ -330,7 +340,7 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
     dp = decimals(close)
     out.update({"ok": True, "decision": decision, "price": round(close, dp),
                 "last_bar": int(df.index[-1].timestamp()),
-                "confidence": round(max(sc.long, sc.short) if decision != "NO TRADE" else max(sc.long, sc.short)),
+                "confluence": round(max(sc.long, sc.short)),
                 "scores": {"long": round(sc.long), "short": round(sc.short)},
                 "reasons": reasons, "against": against, "warnings": warnings,
                 "blackout": bo and {"title": bo["title"], "ccy": bo["ccy"], "time": bo["time"]},
@@ -359,6 +369,14 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
                             for n in events.news_for(sym, 24, 4)]
     except Exception:
         out["headlines"] = []
+    if winrate != "off":
+        from . import backtest
+        wr_side = decision if decision in ("LONG", "SHORT") else side_key.upper()
+        try:
+            out["winrate"] = backtest.winrate(sym, tf, wr_side, out["confluence"], mode=winrate)
+        except Exception as e:
+            log.warning("winrate failed: %s", e)
+            out["winrate"] = {"status": "unavailable", "error": "backtest failed"}
     if with_chart:
         out["chart"] = chart_payload(df, ia, flow, bars_out)
     return out
