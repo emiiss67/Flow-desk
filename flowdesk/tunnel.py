@@ -10,7 +10,7 @@ import sys
 import time
 
 from .auth import desk_key
-from .config import get_config
+from .config import get_config, api_port
 from .journal import Journal
 from .telegram import Telegram
 
@@ -34,8 +34,8 @@ def on_url(url: str, j: Journal, tg: Telegram) -> bool:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    cf = shutil.which("cloudflared") or "/usr/local/bin/cloudflared"
-    port = get_config().get("api", {}).get("port", 8790)
+    cf = os.environ.get("FLOWDESK_CLOUDFLARED") or shutil.which("cloudflared") or "/usr/local/bin/cloudflared"
+    port = api_port()
     j, tg = Journal(), Telegram()
     while True:
         p = subprocess.Popen([cf, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"],

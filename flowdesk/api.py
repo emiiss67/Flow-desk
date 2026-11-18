@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from . import events, instruments, __version__
 from .auth import check_key, desk_key
 from .broker import PaperBroker
-from .config import get_config
+from .config import get_config, api_port
 from .data import get_provider, TIMEFRAMES, DataUnavailable
 from .journal import Journal
 from .stats import performance
@@ -165,7 +165,7 @@ def api_news(symbol: str | None = None):
 def main():
     import uvicorn
     a = cfg.get("api", {})
-    uvicorn.run(app, host=a.get("host", "127.0.0.1"), port=int(a.get("port", 8790)), log_level="info",
+    uvicorn.run(app, host=a.get("host", "127.0.0.1"), port=api_port(), log_level="info",
                 proxy_headers=False)
 
 

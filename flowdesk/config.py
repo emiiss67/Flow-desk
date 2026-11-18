@@ -45,3 +45,10 @@ def secret(name: str) -> str | None:
     load_dotenv()
     v = os.environ.get(name)
     return v if v else None
+
+
+def api_port() -> int:
+    """API port: FLOWDESK_API_PORT env overrides config.yaml (use when 8790 is taken on the host)."""
+    load_dotenv()
+    v = os.environ.get("FLOWDESK_API_PORT")
+    return int(v) if v else int(get_config().get("api", {}).get("port", 8790))
