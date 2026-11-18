@@ -299,3 +299,76 @@ input[type=range]{accent-color:var(--green)}
 .wr-grid .v.g { color: var(--green); } .wr-grid .v.r { color: var(--red); } .wr-grid .v.a { color: #F5B544; }
 .wr-grid .sub { margin: 0; font-size: 11px; }
 @media (max-width: 860px) { .wr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wr-grid > div:last-child { grid-column: 1 / -1; } }
+
+/* ================= responsive / touch pass ================= */
+.tabs .ts{display:none}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.view,.panel,.grid>*{min-width:0}
+.page-title,.page-sub,.n,.sym,.t{overflow-wrap:anywhere}
+.chart-box{touch-action:pan-y}            /* vertical swipe scrolls the page; horizontal drag + pinch go to the chart */
+img,canvas,svg{max-width:100%}
+@media (min-width:1600px){ .view{max-width:1640px} }
+@media (max-width:1366px) and (min-width:861px){
+  .top{gap:12px;padding-left:16px;padding-right:16px}
+  .tabs button{padding:8px 9px;font-size:12.5px;gap:6px}
+}
+@media (max-width:1100px) and (min-width:861px){ .tabs button svg{display:none} .brand-name{display:none} }
+
+/* phones + small tablets: one-handed bottom tab bar */
+@media (max-width:860px){
+  .top{grid-template-columns:1fr auto;grid-template-areas:"brand right";padding:calc(8px + var(--safe-top)) 14px 8px}
+  .brand{min-height:44px}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;margin:0;max-width:none;width:100%;border-radius:0;border:0;border-top:1px solid var(--line-2);
+    justify-content:flex-start;gap:2px;padding:6px max(8px, env(safe-area-inset-right,0px)) calc(6px + var(--safe-bot)) max(8px, env(safe-area-inset-left,0px));
+    background:rgba(6,7,9,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);scroll-snap-type:x proximity}
+  .tabs button{flex:0 0 auto;flex-direction:column;gap:3px;min-width:68px;min-height:52px;padding:6px 8px;font-size:10.5px;font-weight:600;border-radius:12px;scroll-snap-align:center;justify-content:center}
+  .tabs button svg{width:20px;height:20px}
+  .tabs button.on{color:var(--green);background:rgba(var(--g-rgb),.08);box-shadow:inset 0 0 0 1px rgba(var(--g-rgb),.25)}
+  .tabs .tl{display:none} .tabs .ts{display:inline}
+  .view{padding:14px 12px calc(96px + var(--safe-bot))}
+  .foot{padding-bottom:calc(84px + var(--safe-bot))}
+  .toast{bottom:calc(84px + var(--safe-bot))!important}
+  .icon-btn,.avatar{width:44px;height:44px}
+  .paper-badge{padding:6px 8px}
+  /* sticky Check button inside the instrument card */
+  .check-btn{position:sticky;bottom:calc(76px + var(--safe-bot));z-index:6;box-shadow:0 10px 30px rgba(0,0,0,.55),0 0 26px rgba(var(--g-rgb),.35)}
+  .inst-list{max-height:min(46vh,300px);overscroll-behavior:contain}
+  .selected-inst{flex-wrap:wrap;gap:10px}
+  .verdict{gap:14px}
+  .check-layout #res .panel > div:first-child > div:last-child{text-align:left!important}
+  .wr-h{font-size:13px}
+}
+@media (max-width:400px){
+  .levels{grid-template-columns:1fr 1fr;gap:8px}
+  .verdict .call{font-size:40px}
+  .page-title{font-size:25px}
+  .paper-badge{font-size:9.5px;letter-spacing:.12em}
+  .brand-name{font-size:18px}
+}
+/* comfortable touch targets */
+@media (pointer:coarse){
+  .chip{min-height:44px;padding:10px 14px;display:inline-flex;align-items:center}
+  .seg button{min-height:44px;min-width:44px}
+  .seg{padding:2px}
+  .inst{min-height:46px}
+  .search{min-height:46px}
+  .search input{font-size:16px}       /* no iOS zoom on focus */
+  input,select{font-size:16px}
+  .toggles .chip,.filters .chip{margin-bottom:2px}
+  .foot a{display:inline-flex;align-items:center;min-height:44px}
+  .news-item{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){ .bg-img{transform:none!important} .view.enter{animation:none} }
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .search input{align-self:stretch;height:auto}
+  .switch{box-sizing:content-box;width:44px;height:26px;border:9px solid transparent;border-left-width:0;border-right-width:0;background-clip:padding-box}
+  input[type=range]{height:44px}
+  input[type=color]{width:48px;height:44px}
+  #nm,.set-row select{height:44px!important}
+}
+/* backdrop-filter on the header would make it the containing block of the fixed tab bar */
+@media (max-width:860px){ .top{backdrop-filter:none;-webkit-backdrop-filter:none;background:linear-gradient(180deg,rgba(5,6,7,.94),rgba(5,6,7,.78))} }
+@media (max-width:860px){ .chart-box.tall{height:clamp(360px,58vh,720px)} .chart-box{height:clamp(300px,44vh,520px)} }
+@media (min-height:1000px) and (min-width:1600px){ .chart-box.tall{height:min(68vh,760px)} .chart-box{height:480px} }

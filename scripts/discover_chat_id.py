@@ -15,7 +15,16 @@ from flowdesk.config import secret, ROOT  # noqa: E402
 tok = secret("FLOWDESK_TELEGRAM_TOKEN")
 if not tok:
     sys.exit("FLOWDESK_TELEGRAM_TOKEN is not set")
-r = httpx.get(f"https://api.telegram.org/bot{tok}/getUpdates", timeout=20).json()
+r = None
+for _ in range(4):
+    try:
+        r = httpx.get(f"https://api.telegram.org/bot{tok}/getUpdates", timeout=20).json()
+        break
+    except Exception as e:  # never print the URL (contains the token)
+        err = type(e).__name__
+        import time; time.sleep(3)
+if r is None:
+    sys.exit(f"getUpdates error: {err}")
 if not r.get("ok"):
     sys.exit(f"getUpdates failed: {r.get('description')}")
 chats = {}

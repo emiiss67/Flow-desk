@@ -149,25 +149,58 @@ class Bot:
             self.stop.wait(max(5, interval - (time.time() - t0)))
 
     # ---------- telegram ----------
+    def _claim_owner(self, chat: str) -> None:
+        """No chat id configured yet: the first private chat that messages the bot becomes the owner (stored in
+        kv and .env). Every other chat is ignored afterwards."""
+        self.tg.chat_id = chat
+        self.j.set("owner_chat_id", chat)
+        try:
+            from .config import ROOT
+            env = ROOT / ".env"
+            lines = env.read_text().splitlines() if env.exists() else []
+            lines = [l for l in lines if not l.startswith("FLOWDESK_TELEGRAM_CHAT_ID=")] + [f"FLOWDESK_TELEGRAM_CHAT_ID={chat}"]
+            env.write_text("\n".join(lines) + "\n")
+            env.chmod(0o600)
+        except Exception as e:
+            log.warning("could not write chat id to .env: %s", type(e).__name__)
+        log.info("owner chat claimed (first private chat to message the bot)")
+
+    def handle_update(self, u: dict) -> bool:
+        msg = u.get("message") or {}
+        c = msg.get("chat") or {}
+        chat = str(c.get("id", ""))
+        text = (msg.get("text") or "").strip()
+        if not chat:
+            return False
+        if not self.tg.chat_id:
+            if c.get("type") != "private":
+                return False
+            self._claim_owner(chat)
+        if chat != self.tg.chat_id:
+            log.info("update %s ignored: not the owner chat", u.get("update_id"))
+            return False  # answer ONLY the owner's chat
+        cmd = text.split()[0].split("@")[0].lower() if text.startswith("/") else "(text)"
+        if cmd == "/check":
+            self.tg.send("🔎 Checking... (first check of a symbol also replays its history for the win rate, ~1 min)", chat)
+        reply = self.cmds.handle(text) if text.startswith("/") else self.cmds.handle("/help")
+        ok = self.tg.send(reply, chat)
+        log.info("handled update %s cmd=%s reply=%s", u.get("update_id"), cmd, "sent" if ok else "FAILED")
+        return ok
+
     def telegram_loop(self) -> None:
         if not self.tg.token:
             log.info("telegram disabled (no FLOWDESK_TELEGRAM_TOKEN)")
             return
-        if not self.tg.chat_id:
-            # don't consume getUpdates: scripts/discover_chat_id.py needs them to find the owner's chat
-            log.info("telegram polling off until FLOWDESK_TELEGRAM_CHAT_ID is set (run scripts/discover_chat_id.py --write)")
-            return
+        if not self.tg.chat_id and self.j.get("owner_chat_id"):
+            self.tg.chat_id = str(self.j.get("owner_chat_id"))
+        self.tg.call("deleteWebhook", drop_pending_updates=False)   # long polling needs no webhook
+        log.info("telegram polling started (%s)", "owner chat set" if self.tg.chat_id else "waiting for the owner to press Start")
         while not self.stop.is_set():
             for u in self.tg.updates():
-                msg = u.get("message") or {}
-                chat = str((msg.get("chat") or {}).get("id", ""))
-                text = msg.get("text") or ""
-                if not chat or chat != self.tg.chat_id:
-                    continue  # answer ONLY the owner's chat
-                if text.startswith("/"):
-                    if text.split()[0].split("@")[0].lower() == "/check":
-                        self.tg.send("🔎 Checking...", chat)
-                    self.tg.send(self.cmds.handle(text), chat)
+                try:
+                    self.handle_update(u)
+                except Exception as e:
+                    log.warning("update %s failed: %s", u.get("update_id"), type(e).__name__)
 
 
 def main() -> None:

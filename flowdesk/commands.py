@@ -67,9 +67,10 @@ class Commands:
             return f"Error: {esc(type(e).__name__)}"
 
     def cmd_start(self, a):
-        return HELP
+        return "👋 FlowDesk is connected to this chat (paper trading only).\n\n" + HELP
 
-    cmd_help = cmd_start
+    def cmd_help(self, a):
+        return HELP
 
     def cmd_check(self, a):
         if not a:

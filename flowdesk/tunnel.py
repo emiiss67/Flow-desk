@@ -37,6 +37,8 @@ def main() -> None:
     cf = os.environ.get("FLOWDESK_CLOUDFLARED") or shutil.which("cloudflared") or "/usr/local/bin/cloudflared"
     port = api_port()
     j, tg = Journal(), Telegram()
+    if not tg.chat_id and j.get("owner_chat_id"):
+        tg.chat_id = str(j.get("owner_chat_id"))
     while True:
         p = subprocess.Popen([cf, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

@@ -24,16 +24,18 @@ class Telegram:
     def _url(self, method: str) -> str:
         return f"https://api.telegram.org/bot{self.token}/{method}"
 
-    def call(self, method: str, **params):
-        try:
-            r = httpx.post(self._url(method), json=params, timeout=20)
-            data = r.json()
-            if not data.get("ok"):
-                log.warning("telegram %s failed: %s", method, data.get("description"))
-            return data
-        except Exception as e:  # never include the URL (it contains the token)
-            log.warning("telegram %s error: %s", method, type(e).__name__)
-            return {"ok": False}
+    def call(self, method: str, _tries: int = 3, **params):
+        for k in range(_tries):
+            try:
+                r = httpx.post(self._url(method), json=params, timeout=20)
+                data = r.json()
+                if not data.get("ok"):
+                    log.warning("telegram %s failed: %s", method, data.get("description"))
+                return data
+            except Exception as e:  # never include the URL (it contains the token)
+                log.warning("telegram %s error: %s (try %d/%d)", method, type(e).__name__, k + 1, _tries)
+                time.sleep(1.5 * (k + 1))
+        return {"ok": False}
 
     def send(self, text: str, chat_id: str | None = None, buttons: list | None = None) -> bool:
         if not self.token:

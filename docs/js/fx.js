@@ -2,12 +2,13 @@
 const FX = (() => {
   const DPR = () => Math.min(window.devicePixelRatio || 1, 2);
   const mobile = () => window.innerWidth < 860;
+  const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- floating dust over the background ---------- */
   function dust() {
     const c = $('#fx'), x = c.getContext('2d'); let W, H, P = [];
     const size = () => { W = c.width = innerWidth * DPR(); H = c.height = innerHeight * DPR(); c.style.width = innerWidth + 'px'; c.style.height = innerHeight + 'px';
-      const n = mobile() ? 35 : 80; P = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: (Math.random() * 1.4 + .3) * DPR(), vx: (Math.random() - .5) * .12, vy: -Math.random() * .25 - .04, a: Math.random() * .5 + .1, t: Math.random() * 6 })); };
+      const n = RM() ? 0 : mobile() ? 18 : 80; P = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: (Math.random() * 1.4 + .3) * DPR(), vx: (Math.random() - .5) * .12, vy: -Math.random() * .25 - .04, a: Math.random() * .5 + .1, t: Math.random() * 6 })); };
     size(); addEventListener('resize', size);
     (function loop() {
       if (store.get('particles', true)) {
@@ -18,6 +19,8 @@ const FX = (() => {
           x.beginPath(); x.arc(p.x, p.y, p.r, 0, 6.283); x.fillStyle = `rgba(200,255,225,${a})`; x.shadowBlur = 6 * DPR() * Theme.glow; x.shadowColor = `rgba(${Theme.G},.6)`; x.fill();
         }
       } else x.clearRect(0, 0, W, H);
+      if (RM() || !P.length) { x.clearRect(0, 0, W, H); return setTimeout(loop, 2000); }   // reduced motion: no drifting dust
+      if (document.hidden) return setTimeout(loop, 1000);
       requestAnimationFrame(loop);
     })();
   }
@@ -55,7 +58,7 @@ const FX = (() => {
 
   /* ---------- particle equity curve ---------- */
   function equity(canvas, series, opts = {}) {
-    const ctx = canvas.getContext('2d'); let W, H, pts = [], parts = [], hover = null, t0 = performance.now(), alive = true;
+    const ctx = canvas.getContext('2d'); let W, H, pts = [], parts = [], hover = null, t0 = RM() ? -1e9 : performance.now(), alive = true;
     const base = opts.base ?? (series[0]?.value || 0);
     const pad = { l: 16, r: 70, t: 92, b: 34 };
     function layout() {
@@ -65,7 +68,7 @@ const FX = (() => {
       const t1 = series[0].time, t2 = series[series.length - 1].time || t1 + 1;
       const X = t => (pad.l + (t - t1) / ((t2 - t1) || 1) * (rect.width - pad.l - pad.r)) * d, Y = v => (pad.t + (1 - (v - lo) / (hi - lo)) * (rect.height - pad.t - pad.b)) * d;
       pts = series.map(p => ({ x: X(p.time), y: Y(p.value), v: p.value, t: p.time })); layout.Y = Y; layout.lo = lo; layout.hi = hi;
-      const n = Math.round((mobile() ? 3200 : 9000) * Math.min(1.4, rect.width / 1200));
+      const n = Math.round((mobile() ? 1600 : 9000) * Math.min(1.4, rect.width / 1200));
       parts = [];
       for (let i = 0; i < n; i++) {
         const px = pts[0].x + Math.random() * (pts[pts.length - 1].x - pts[0].x); const cy = yAt(px); const bot = H - pad.b * d;
@@ -79,7 +82,7 @@ const FX = (() => {
       if (!alive || !canvas.isConnected) return;
       const d = DPR(), prog = Math.min(1, (now - t0) / 1400), ease = 1 - Math.pow(1 - prog, 3);
       ctx.clearRect(0, 0, W, H);
-      if (!pts.length) { ctx.fillStyle = '#9CA3AF'; ctx.font = `${13 * d}px Inter`; ctx.textAlign = 'center'; ctx.fillText(opts.empty || 'No closed trades yet', W / 2, H / 2); return requestAnimationFrame(frame); }
+      if (!pts.length) { ctx.fillStyle = '#9CA3AF'; ctx.font = `${13 * d}px Inter`; ctx.textAlign = 'center'; ctx.fillText(opts.empty || 'No closed trades yet', W / 2, H / 2); return RM() ? null : requestAnimationFrame(frame); }
       const up = pts[pts.length - 1].v >= base; const col = up ? Theme.G : Theme.R;
       // grid
       ctx.strokeStyle = 'rgba(255,255,255,.045)'; ctx.lineWidth = 1; for (let i = 0; i < 5; i++) { const y = (pad.t * d) + i * ((H - (pad.t + pad.b) * d) / 4); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
@@ -111,6 +114,8 @@ const FX = (() => {
       // x labels
       ctx.fillStyle = '#6B7280'; ctx.font = `${11 * d}px Inter`; ctx.textAlign = 'center';
       const nl = mobile() ? 3 : 6; for (let i = 0; i < nl; i++) { const p = pts[Math.round(i * (pts.length - 1) / (nl - 1))]; ctx.fillText(dmy(p.t), Math.min(W - 30 * d, Math.max(30 * d, p.x)), H - 10 * d); }
+      if (RM()) return;                       // reduced motion: static frame, redrawn on hover/resize
+      if (document.hidden) return setTimeout(() => requestAnimationFrame(frame), 1000);
       requestAnimationFrame(frame);
     }
     function badge(x0, y0, text, col, end) {
@@ -122,9 +127,10 @@ const FX = (() => {
     }
     function roundRect(x0, y0, w, h, r) { ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.arcTo(x0 + w, y0, x0 + w, y0 + h, r); ctx.arcTo(x0 + w, y0 + h, x0, y0 + h, r); ctx.arcTo(x0, y0 + h, x0, y0, r); ctx.arcTo(x0, y0, x0 + w, y0, r); ctx.closePath(); }
     layout(); requestAnimationFrame(frame);
-    const ro = new ResizeObserver(() => layout()); ro.observe(canvas);
-    canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); hover = (e.clientX - r.left) * DPR(); });
-    canvas.addEventListener('pointerleave', () => hover = null);
+    const kick = () => { if (RM()) requestAnimationFrame(frame); };
+    const ro = new ResizeObserver(() => { layout(); kick(); }); ro.observe(canvas);
+    canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); hover = (e.clientX - r.left) * DPR(); kick(); });
+    canvas.addEventListener('pointerleave', () => { hover = null; kick(); });
     return { destroy() { alive = false; ro.disconnect(); } };
   }
 
