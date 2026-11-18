@@ -36,8 +36,11 @@ const App = {
     $('#bellBtn').onclick = () => this.go('news');
     addEventListener('popstate', () => this.go(this.fromUrl(), false));
     this.go(this.fromUrl(), false);
-    this.bell();
+    this.bell(); this.loadCfg();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.loadCfg(); });
   },
+  cfg: null,
+  async loadCfg() { try { this.cfg = await API.get('/api/config'); } catch { } return this.cfg; },
   fromUrl() { const t = new URLSearchParams(location.search).get('tab'); return this.TABS.includes(t) ? t : store.get('tab', 'dashboard'); },
   timer(fn, ms) { this.timers.push(setInterval(fn, ms)); },
   async go(tab, push = true) {

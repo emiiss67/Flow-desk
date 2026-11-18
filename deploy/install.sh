@@ -22,11 +22,11 @@ if ! command -v cloudflared >/dev/null; then
   curl -fsSL -o /tmp/cloudflared.deb "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}.deb"
   sudo dpkg -i /tmp/cloudflared.deb >/dev/null
 fi
-sudo cp deploy/flowdesk-bot.service deploy/flowdesk-api.service deploy/flowdesk-tunnel.service /etc/systemd/system/
+sudo cp deploy/flowdesk-bot.service deploy/flowdesk-api.service deploy/flowdesk-tunnel.service deploy/flowdesk-autodeploy.service deploy/flowdesk-autodeploy.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 venv/bin/python -m pytest -q tests -k "not live" || { echo "tests failed"; exit 1; }
 if [ "${1:-}" = "--start" ]; then
-  sudo systemctl enable --now flowdesk-api flowdesk-bot flowdesk-tunnel
+  sudo systemctl enable --now flowdesk-api flowdesk-bot flowdesk-tunnel flowdesk-autodeploy.timer
   sleep 3; systemctl --no-pager status flowdesk-api flowdesk-bot flowdesk-tunnel | grep -E "Active|●"
 else
   echo "==> Installed. Start with: sudo systemctl enable --now flowdesk-api flowdesk-bot flowdesk-tunnel"

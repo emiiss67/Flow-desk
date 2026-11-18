@@ -4,12 +4,12 @@ from __future__ import annotations
 DEFAULT = {
     "enabled": True,
     "low_sample_n": 20,          # n below this -> base risk
-    "base_risk_pct": 15.0,        # low sample / win rate not computed yet
+    "base_risk_pct": 35.0,        # low sample / win rate not computed yet
     "skip_expectancy_r": -0.25,  # skip the trade if expectancy <= this AND n >= skip_min_n
     "skip_min_n": 50,
-    "negative_risk_pct": 10.0,    # expectancy < 0 (not bad enough to skip)
+    "negative_risk_pct": 20.0,    # expectancy < 0 (not bad enough to skip)
     "tiers": [                   # [min win %, risk %] - first match from the top
-        [70, 30.0], [60, 25.0], [50, 20.0], [40, 15.0], [0, 10.0]],
+        [70, 80.0], [60, 65.0], [50, 50.0], [40, 35.0], [0, 20.0]],
 }
 
 

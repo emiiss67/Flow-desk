@@ -1,0 +1,12 @@
+[Unit]
+Description=FlowDesk auto-deploy (pull main, test, install, restart, roll back on failure)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=grokbot
+WorkingDirectory=/home/grokbot/flowdesk-repo
+# run a copy: the script in the repo may change while git updates the checkout
+ExecStart=/bin/bash -c 'cp /home/grokbot/flowdesk-repo/deploy/autodeploy.sh /tmp/flowdesk-autodeploy.sh && exec /bin/bash /tmp/flowdesk-autodeploy.sh'
+TimeoutStartSec=900

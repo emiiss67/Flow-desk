@@ -173,7 +173,7 @@ function wrHTML(w, r) {
       <div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>
       <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${money(w.expectancy_usd ?? 0)}</div><div class="sub">per trade at ${money2(w.risk_usd ?? 5)} risk</div></div>
     </div>
-    ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; 20) - treat this win rate as anecdotal.</div>' : ''}
+    ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; ${App.cfg?.sizing?.low_sample_n ?? 20}) - treat this win rate as anecdotal.</div>' : ''}
     ${w.setup_stats ? `<div class="wr-setup">🎯 <b>${esc(w.setup_stats.setup)}</b> on its own: ${w.setup_stats.n ? `win <b class="num">${Math.round(w.setup_stats.win_rate)}%</b> · n ${w.setup_stats.n} · avg <span class="num">${sg(w.setup_stats.avg_r)}R</span>${w.setup_stats.low_sample ? ' · <span class="a">low sample</span>' : ''}` : 'no past occurrences in this history'}</div>` : ''}
     <div class="sub" style="margin-top:8px">Walk-forward replay of the same rules on ${esc(r.source || 'the feed')} history, paper-broker exits (SL first on ambiguous bars, 50% at TP1 then breakeven, trail, TP2). ${esc(w.note || '')} Past results do not predict future ones.</div></div>`;
 }
@@ -195,7 +195,7 @@ function sessionCard(s) {
   if (!s) return '';
   const c = s.net > 0 ? 'glow-g' : s.net < 0 ? 'glow-r' : '';
   return `<div class="panel sess-card"><div class="label">Session summary · today (UTC)</div>
-    <div class="sess-net num ${c}">${s.net >= 0 ? '+' : '-'}$${Math.abs(s.net).toFixed(2)}</div>
+    <div class="sess-net num ${c}">${fmtMoney(s.net, { sign: true })}</div>
     <div class="sub" style="margin-top:2px">Net PnL (closed ${money2(s.closed_pnl)} · open ${money2(s.open_pnl)})</div>
     <div class="sess-grid">
       <div><div class="k">Trades</div><div class="v num">${s.trades}</div></div>
@@ -208,9 +208,10 @@ const PnlWidget = {
     const el = $('#pnlw'); if (!el || el.hidden) return;
     const [s] = await load('/api/session'); if (!s) return;
     const o = $('#pnlwOpen'), c = $('#pnlwClosed');
-    o.textContent = (s.in_trade && s.open_pnl < 0 ? '-' : '') + Math.abs(s.in_trade ? s.open_pnl : 0).toFixed(2);
+    if (s.currency) Cur.set(s.currency, s.currency_symbol);
+    o.textContent = fmtMoney(s.in_trade ? s.open_pnl : 0, { sign: true });
     o.className = 'num ' + (!s.in_trade ? 'flat' : s.open_pnl > 0 ? 'g' : s.open_pnl < 0 ? 'r' : 'flat');
-    c.textContent = (s.closed_pnl < 0 ? '-' : '') + Math.abs(s.closed_pnl).toFixed(2);
+    c.textContent = fmtMoney(s.closed_pnl, { sign: true });
     c.className = 'num ' + (s.closed_pnl > 0 ? 'g' : s.closed_pnl < 0 ? 'r' : 'flat');
     el.title = s.in_trade ? `${s.open_positions} open paper position(s)` : 'Flat - no open paper positions';
   },
@@ -430,6 +431,7 @@ Views.settings = async (v) => {
       <div class="set-row"><span>${API.demo ? '<span class="a">DEMO mode</span> - sample data' : '<span class="g">Connected</span> to your FlowDesk API'}</span>${API.demo ? '' : '<button class="btn" id="disc">Use demo</button>'}</div>
       <div class="sub">To connect, open the desk link FlowDesk sends in Telegram (/desk). It carries the API address and your desk key; the key stays in this browser.</div>
     </div></div>
+    <div class="panel" style="margin-top:16px" id="rulesP"><h3>Trading rules <span class="right">live from the server config</span></h3><div class="skeleton" style="height:120px"></div></div>
     <div class="panel" style="margin-top:16px"><h3>Colours <span class="right">applies live to every tab, chart and particle</span></h3>
       <div class="pal" id="pal">${Object.entries(Theme.PALETTES).map(([k, p]) => `<button data-p="${k}" class="${Theme.cur.palette === k || (!Theme.cur.palette && k === 'neon') ? 'on' : ''}"><div class="sw"><i style="background:${p.g};box-shadow:0 0 8px ${p.g}"></i><i style="background:${p.r}"></i><i style="background:${p.c}"></i><i style="background:${p.panel};border:1px solid #333"></i></div>${esc(p.name)}</button>`).join('')}</div>
       <div class="grid cols-2" style="margin-top:12px;gap:0 24px">
@@ -443,6 +445,14 @@ Views.settings = async (v) => {
       <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap"><span class="pill long">▲ LONG</span><span class="pill short">▼ SHORT</span><span class="glow-g big num">${money(12.4)}</span><span class="glow-r big num">${money(-3.1)}</span><button class="btn" id="resetTheme" style="margin-left:auto">Reset to theme colours</button></div>
     </div>`;
   $$('#bgo canvas').forEach(c => FX.drawArt(c, c.dataset.art, 300, 184));
+  App.loadCfg().then(c => { const el = $('#rulesP'); if (!el) return; if (!c || !c.ok) { el.innerHTML = '<h3>Trading rules</h3>' + (API.demo ? '<div class="sub">Demo mode - connect your bot to see its live rules.</div>' : unavailable('Server config')); return; }
+    const z = c.sizing || {}, b = c.broker || {}, row = (k, val) => `<div class="set-row"><span>${esc(k)}</span><b class="num">${esc(val)}</b></div>`;
+    const tiers = (z.tiers || []).map(([w, r], i, a) => row(i === a.length - 1 ? `Backtest win rate below ${a[i - 1]?.[0] ?? w}%` : `Backtest win rate ≥ ${w}%`, r + '% risk')).join('');
+    const strat = Object.values(c.learning?.strategies || {}).map(x => `<span class="tag" style="${x.enabled ? '' : 'opacity:.55'}">${x.enabled ? '🟢' : '⚪'} ${esc(x.name)}</span>`).join(' ');
+    el.innerHTML = `<h3>Trading rules <span class="right">live from the server config</span></h3><div class="grid cols-2" style="gap:0 24px"><div>
+      <div class="label" style="margin:4px 0">Risk per trade (paper)</div>${tiers}${row('Negative expectancy', z.negative_risk_pct + '% risk')}${row(`Low sample (< ${z.low_sample_n} trades) / not ready`, z.base_risk_pct + '% risk')}${row(`Skip if expectancy ≤ ${z.skip_expectancy_r}R with ${z.skip_min_n}+ trades`, 'no trade')}</div><div>
+      <div class="label" style="margin:4px 0">Limits</div>${row('Total open risk cap', b.max_open_risk_pct + '% of equity')}${row('Daily loss limit', '-' + b.daily_loss_limit_pct + '% of the day\'s balance')}${row('Max open positions', b.max_positions)}${row('Per symbol', b.max_per_symbol + ' (different setups)')}${row('Min confluence', (c.strategy?.min_score ?? '–') + '/100')}${row('News blackout', (c.events?.block_minutes_before ?? '–') + ' min before high impact')}</div></div>
+      <div class="label" style="margin:12px 0 6px">Strategies (learning v${c.learning?.version ?? 0})</div><div>${strat || '<span class="m">–</span>'}</div>`; });
   $('#bgo').onclick = e => { const o = e.target.closest('.bg-opt'); if (!o) return; store.set('bg', o.dataset.b); $$('#bgo .bg-opt').forEach(x => x.classList.toggle('on', x === o)); App.applyBg('settings'); };
   $$('.switch').forEach(s => s.onclick = () => { const k = s.dataset.s; const nv = !store.get(k, true); store.set(k, nv); s.classList.toggle('on', nv); });
   $('#pd').oninput = e => { store.set('pdensity', +e.target.value); $('#pdV').textContent = e.target.value + '%'; };

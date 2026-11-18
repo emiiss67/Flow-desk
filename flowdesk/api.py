@@ -276,16 +276,55 @@ def api_dashboard():
         "status": "paused" if j.get("paused", False) else ("running" if hb and time.time() - hb < 900 else "offline"),
         "heartbeat": hb, "daily_limit_hit": b.daily_limit_hit(),
         "signals_24h": today_sig["n"] or 0, "entries_24h": today_sig["a"] or 0, "blocked_24h": blocked,
-        "plan": [f"Risk {bc.get('risk_pct', 10)}% per trade",
-                 f"Max {bc.get('max_positions', 4)} open positions",
-                 f"Stop after -{bc.get('daily_loss_limit_pct', 30)}% day",
-                 f"No entries {cfg.get('events', {}).get('block_minutes_before', 30)} min before high-impact news",
-                 f"Min confluence {cfg.get('strategy', {}).get('min_score', 55)}/100",
-                 f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"],
+        "plan": _plan(),
         "upcoming_events": ev, "watchlist": cfg.get("watchlist", []),
         "source": get_provider().name,
         "session": _session(), **_cur(),
     }
+
+
+def _plan() -> list[str]:
+    """Today's plan lines, built from the live config on every request (so config changes show instantly)."""
+    c = get_config()
+    bc = c.get("broker", {}) or {}
+    return [_risk_plan(c),
+            f"Max {bc.get('max_positions', 4)} open positions · total open risk ≤ {float(bc.get('max_open_risk_pct', 0) or 0):g}% of equity",
+            f"Stop after -{float(bc.get('daily_loss_limit_pct', 30)):g}% day",
+            f"No entries {(c.get('events', {}) or {}).get('block_minutes_before', 30)} min before high-impact news",
+            f"Min confluence {(c.get('strategy', {}) or {}).get('min_score', 55)}/100 (learning may raise it)",
+            f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"]
+
+
+@app.get("/api/config")
+def api_config():
+    """Trading settings the desk displays (read-only, from config.yaml + learned rules). No secrets, no keys."""
+    from . import learning, sizing
+    c = get_config()
+    bc, sc = c.get("broker", {}) or {}, c.get("strategy", {}) or {}
+    sz = sizing.settings(c)
+    rules = learning.load_rules()
+    keys = ("account_currency", "starting_balance", "max_positions", "max_per_symbol", "max_open_risk_pct", "daily_loss_limit_pct",
+            "max_leverage", "tp1_close_pct", "trail_atr", "slippage_bps", "spread_bps")
+    return {"ok": True, "paper": True, "plan": _plan(), "sizing": {k: sz.get(k) for k in (
+                "enabled", "low_sample_n", "base_risk_pct", "negative_risk_pct", "skip_expectancy_r", "skip_min_n", "tiers")},
+            "broker": {k: bc.get(k) for k in keys}, "strategy": {k: sc.get(k) for k in ("min_score", "min_margin", "lookback_bars")},
+            "events": {k: (c.get("events", {}) or {}).get(k) for k in ("block_minutes_before", "block_minutes_after", "warn_hours")},
+            "learning": {"version": rules.get("version", 0), "strategies": {k: {"name": learning.NAMES.get(k, k), "enabled": bool(v.get("enabled")),
+                         "params": v.get("params", {})} for k, v in rules.get("strategies", {}).items()}},
+            "scanner": {k: (c.get("scanner", {}) or {}).get(k) for k in ("interval_seconds", "require_killzone")},
+            "watchlist": c.get("watchlist", []), **_cur()}
+
+
+def _risk_plan(c: dict | None = None) -> str:
+    """Risk line for Today's plan, from the live win-rate sizing tiers (not the legacy broker.risk_pct)."""
+    c = c or get_config()
+    sz = c.get("sizing", {}) or {}
+    tiers = sz.get("tiers") or []
+    if not sz.get("enabled", True) or not tiers:
+        return f"Risk {c.get('broker', {}).get('risk_pct', 10)}% per trade"
+    pcts = [float(t[1]) for t in tiers] + [float(sz.get("negative_risk_pct", min(float(t[1]) for t in tiers)))]
+    return (f"Risk {min(pcts):g}-{max(pcts):g}% per trade by backtest win rate "
+            f"({float(sz.get('base_risk_pct', 15)):g}% until a setup has {int(sz.get('low_sample_n', 20))}+ trades)")
 
 
 @app.get("/api/reset_daily")

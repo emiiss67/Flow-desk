@@ -1,0 +1,11 @@
+[Unit]
+Description=FlowDesk auto-deploy every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=flowdesk-autodeploy.service
+
+[Install]
+WantedBy=timers.target

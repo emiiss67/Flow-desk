@@ -191,7 +191,7 @@ const DEMO = (() => {
     return { demo: true, paper: true, balance: p.balance, equity: p.equity, start_balance: 50, today_pnl: 6.2, session: session(), net: p.net, win_rate: p.win_rate, profit_factor: p.profit_factor, trades: p.trades,
       streak: p.streak, best_streak: p.best_streak, last_trades: p.last_trades, daily_30: p.daily_30, heatmap: p.heatmap, open_positions: positions(), status: 'running', heartbeat: now() - 40,
       signals_24h: 9, entries_24h: 3, blocked_24h: 2, daily_limit_hit: false,
-      plan: ['Risk 10% per trade', 'Max 4 open positions', 'Stop after -30% day', 'No entries 30 min before high-impact news', 'Min confluence 55/100', 'TP1 closes 50%, stop to breakeven'],
+      plan: ['Demo plan (connect your bot for the live rules)', 'Risk 20-80% per trade by backtest win rate', 'Stop after -30% day', 'No entries 30 min before high-impact news'],
       upcoming_events: calendar().events.filter(e => e.impact === 'High' && e.ts > now()).slice(0, 5), watchlist: SYMS.map(s => ({ symbol: s, tf: '15m' })), source: 'DEMO' };
   }
   const delay = v => new Promise(r => setTimeout(() => r(v), 250 + Math.random() * 300));

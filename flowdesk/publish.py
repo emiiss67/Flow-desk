@@ -37,7 +37,14 @@ def endpoint_doc(url: str) -> str:
 def publish(url: str, c: dict | None = None) -> str:
     """Returns 'pushed', 'unchanged' or raises. Safe to call repeatedly."""
     c = c or _cfg()
-    with _lock:
+    import fcntl
+    with _lock, open(Path(c["repo_dir"]) / ".git" / "flowdesk.lock", "w") as lockf:   # shared with deploy/autodeploy.sh
+        fcntl.flock(lockf, fcntl.LOCK_EX)
+        return _publish_locked(url, c)
+
+
+def _publish_locked(url: str, c: dict) -> str:
+    if True:
         f = Path(c["repo_dir"]) / c["path"]
         _git(c, "fetch", "-q", c["remote"], c["branch"])
         ff = _git(c, "merge", "-q", "--ff-only", "FETCH_HEAD", check=False)

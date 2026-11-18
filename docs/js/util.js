@@ -8,12 +8,16 @@ function fp(p, d) { if (p == null || isNaN(p)) return '–'; return Number(p).to
 /* account currency (EUR by default); the API reports it with every money response */
 const Cur = { code: 'EUR', sym: '€', set(c, s) { if (!c) return; this.code = c; this.sym = s || ({ EUR: '€', USD: '$', GBP: '£', JPY: '¥' }[c] || c + ' '); try { localStorage.setItem('fd_ccy', JSON.stringify([this.code, this.sym])); } catch { } } };
 try { const c = JSON.parse(localStorage.getItem('fd_ccy') || 'null'); if (c) { Cur.code = c[0]; Cur.sym = c[1]; } } catch { }
-function money(v, sign = true) {
+/* ONE account-money formatter for the whole desk (currency from the API, EUR by default).
+   dp: decimals (null = 2 below 100, 0 above); sign: show + for gains. */
+function fmtMoney(v, { sign = false, dp = 2 } = {}) {
   if (v == null || isNaN(v)) return '–';
-  const dg = Math.abs(v) < 100 && v !== 0 ? 2 : 0; const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dg, maximumFractionDigits: dg });
-  return (v < 0 ? '-' : sign && v > 0 ? '+' : '') + Cur.sym + s;
+  v = Number(v); const d = dp == null ? (Math.abs(v) < 100 && v !== 0 ? 2 : 0) : dp;
+  const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  return (v < 0 && s.replace(/[0.,]/g, '') !== '' ? '-' : '') + (sign && v > 0 && s.replace(/[0.,]/g, '') !== '' ? '+' : '') + Cur.sym + s;
 }
-function money2(v) { if (v == null || isNaN(v)) return '–'; return (v < 0 ? '-' : '') + Cur.sym + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function money(v, sign = true) { return fmtMoney(v, { sign, dp: null }); }
+function money2(v) { return fmtMoney(v, { dp: 2 }); }
 function pnlClass(v) { return v > 0 ? 'g' : v < 0 ? 'r' : 'm'; }
 function ago(ts) {
   const s = Date.now() / 1000 - ts; if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + 'm ago';

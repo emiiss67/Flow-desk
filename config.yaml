@@ -36,11 +36,11 @@ telegram:
 sizing:                       # win-rate based risk per trade (from the walk-forward backtest of that symbol / setup / score band)
   enabled: true
   low_sample_n: 20            # n below this -> base risk
-  base_risk_pct: 15.0        # low sample (n < low_sample_n) or win rate not ready yet
-  negative_risk_pct: 10.0    # expectancy below 0R
+  base_risk_pct: 35.0        # low sample (n < low_sample_n) or win rate not ready yet
+  negative_risk_pct: 20.0    # expectancy below 0R
   skip_expectancy_r: -0.25    # skip entirely when expectancy <= this ...
   skip_min_n: 50              # ... and the sample has at least this many trades
-  tiers: [[70, 30.0], [60, 25.0], [50, 20.0], [40, 15.0], [0, 10.0]]   # [win % at least, risk %]
+  tiers: [[70, 80.0], [60, 65.0], [50, 50.0], [40, 35.0], [0, 20.0]]   # [win % at least, risk %] - very aggressive, paper only
   prewarm_minutes: 50         # bot recomputes watchlist win rates in the background this often
 
 scanner:
@@ -91,7 +91,7 @@ broker:
   risk_pct: 10.0              # % of equity risked per trade (10% of €50 = €5) - aggressive, paper only
   min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
   qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
-  max_leverage: 1000          # paper notional cap = equity x this; high so 30% risk on a tight forex stop isn't cut
+  max_leverage: 5000          # paper notional cap = equity x this; high so 80% risk on a tight forex stop isn't cut
   max_positions: 15          # concurrent paper positions across all symbols
   daily_loss_limit_pct: 30.0  # stop opening trades after losing this % of day-start equity
   max_per_symbol: 2          # a 2nd position on a symbol only if it comes from a different setup
