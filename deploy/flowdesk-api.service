@@ -1,0 +1,18 @@
+[Unit]
+Description=FlowDesk paper API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grokbot
+Group=grokbot
+WorkingDirectory=/home/grokbot/flowdesk
+EnvironmentFile=-/home/grokbot/flowdesk/.env
+ExecStart=/home/grokbot/flowdesk/.venv/bin/python -m flowdesk.server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

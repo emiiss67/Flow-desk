@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="burst" cx="50%" cy="18%" r="70%">
+      <stop offset="0%" stop-color="#f7f1e4"/>
+      <stop offset="18%" stop-color="#c9a56a"/>
+      <stop offset="48%" stop-color="#3a3428"/>
+      <stop offset="100%" stop-color="#07080c"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="#07080c"/>
+  <rect width="1600" height="1000" fill="url(#burst)"/>
+  <g fill="#f6edd8" opacity="0.18">
+    <polygon points="800,40 860,1000 740,1000"/>
+    <polygon points="800,40 1040,1000 920,1000"/>
+    <polygon points="800,40 680,1000 560,1000"/>
+    <polygon points="800,40 1160,980 1080,1000"/>
+    <polygon points="800,40 500,980 420,1000"/>
+  </g>
+  <g fill="#07080c">
+    <path d="M770 980l8-360 24-20 10 80 36-16-18-96 40-70c14-24 6-48-22-52l-40 8-14-64c-6-24-24-32-40-18l-18 28-6-40c-4-22-22-26-32-8l-14 36-28-10c-16-6-28 8-22 24l16 48-26 14c-14 8-10 24 6 28l34 10-6 52 22 8-8 78 28 12-12 176z"/>
+    <path d="M742 470l-8-150 18-70 16 78 22 36z"/>
+  </g>
+  <g fill="#f4efe4" opacity="0.45">
+    <circle cx="620" cy="300" r="1.5"/>
+    <circle cx="700" cy="240" r="1.2"/>
+    <circle cx="880" cy="280" r="1.6"/>
+    <circle cx="960" cy="360" r="1.1"/>
+    <circle cx="540" cy="420" r="1.3"/>
+    <circle cx="1040" cy="220" r="1.4"/>
+    <circle cx="760" cy="180" r="1.2"/>
+  </g>
+</svg>

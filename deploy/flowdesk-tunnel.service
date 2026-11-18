@@ -1,0 +1,18 @@
+[Unit]
+Description=FlowDesk cloudflared quick tunnel
+After=network-online.target flowdesk-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grokbot
+Group=grokbot
+WorkingDirectory=/home/grokbot/flowdesk
+EnvironmentFile=-/home/grokbot/flowdesk/.env
+ExecStart=/home/grokbot/flowdesk/deploy/run-tunnel.sh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
