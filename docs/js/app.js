@@ -24,7 +24,7 @@ const App = {
     { id: 'tfeye', name: 'TradeFortis · the gaze', src: 'assets/bg/tf-eye.jpg?v=2', msrc: 'assets/bg/tf-eye-m.jpg?v=2' },
     { id: 'tfsamurai', name: 'TradeFortis · samurai', src: 'assets/bg/tf-samurai.jpg?v=2', msrc: 'assets/bg/tf-samurai-m.jpg?v=2' },
     { id: 'tfburst', name: 'TradeFortis · into the light', src: 'assets/bg/tf-burst.jpg?v=2', msrc: 'assets/bg/tf-burst-m.jpg?v=2' },
-    { id: 'tfswirl', name: 'TradeFortis · swirl', src: 'assets/bg/tf-swirl.jpg?v=2', msrc: 'assets/bg/tf-swirl-m.jpg?v=2' },
+    { id: 'tfswirl', name: 'TradeFortis · swirl', src: 'assets/bg/tf-swirl.jpg?v=3', msrc: 'assets/bg/tf-swirl-m.jpg?v=3' },
     { id: 'ascend', name: 'Ascend (generated)', art: 'ascend' },
     { id: 'flow', name: 'Order flow (generated)', art: 'flow' },
     { id: 'none', name: 'Plain' },
