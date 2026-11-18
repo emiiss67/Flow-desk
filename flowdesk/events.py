@@ -124,10 +124,13 @@ def _parse_date(s: str) -> int:
             return int(time.time())
 
 
+NEWS_V = 2  # bump when filtering/tagging changes so old caches are ignored
+
+
 def news(limit: int = 60) -> dict:
     cfg = get_config().get("events", {})
     cached = _cache_get("news", cfg.get("news_cache_minutes", 5) * 60)
-    if cached is not None:
+    if cached is not None and cached.get("v") == NEWS_V:
         return cached
     import feedparser
     items, errors = [], []
@@ -159,13 +162,13 @@ def news(limit: int = 60) -> dict:
         tone = "up" if TONE_UP.search(it["title"]) else "down" if TONE_DOWN.search(it["title"]) else ""
         it["tone"] = tone  # simple keyword tone, not a sentiment model
         uniq.append(it)
-    val = {"ok": bool(uniq), "items": uniq[:limit], "errors": errors, "fetched": int(time.time()), "filtered_out": dropped,
+    val = {"ok": bool(uniq), "items": uniq[:limit], "errors": errors, "fetched": int(time.time()), "filtered_out": dropped, "v": NEWS_V,
            "source": "RSS: " + ", ".join(u.split("/")[2] for u in cfg.get("rss_feeds", []))}
     if uniq:
         _cache_put("news", val)
     else:
         old = _stale("news")
-        if old:
+        if old and old.get("v") == NEWS_V:
             old["stale"] = True
             return old
         val["error"] = "data unavailable"
