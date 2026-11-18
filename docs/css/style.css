@@ -578,3 +578,90 @@ html.light .lr-sel option{background:#fff;color:#111}
 .simple .check-btn,.simple .est,.simple .gl,.simple .badge-ok,.simple .badge-bad,.simple .day-h{text-transform:none;letter-spacing:.02em}
 label.mode-row{flex-wrap:nowrap;gap:10px;font-size:13.5px;line-height:1.4}
 label.mode-row input{accent-color:var(--green);width:18px;height:18px;flex:none;margin:0}
+
+/* ================= TradeFortis theme (html.tf): monochrome glass over a clearly visible statue ================= */
+html.tf{--bg:#0a0a0b;--text:#F5F5F4;--muted:#A1A1AA;--dim:#71717A;--line:rgba(255,255,255,.085);--line-2:rgba(255,255,255,.14);--track:rgba(255,255,255,.1);
+  --blue:#3B82F6;--serif:"Cormorant Garamond","Playfair Display",Georgia,"Times New Roman",serif;--blur:3px;--radius:14px}
+html.tf #bg{background:#0a0a0b}
+html.tf .bg-img.on{animation-duration:70s}
+/* the picture stays clear: only a soft edge vignette, no veil over the middle */
+html.tf .bg-shade{background:radial-gradient(130% 95% at 57% 42%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%),linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,0) 16%,rgba(0,0,0,0) 78%,rgba(0,0,0,.5) 100%)!important}
+/* very transparent dark glass, thin hairline border, no heavy shadow */
+html.tf .panel{background:rgba(10,10,11,.16);border:1px solid rgba(255,255,255,.09);box-shadow:none;
+  backdrop-filter:blur(3px) saturate(105%);-webkit-backdrop-filter:blur(3px) saturate(105%)}
+html.tf .panel.glass-lite{background:rgba(10,10,11,.12)}
+html.tf .panel::after{opacity:.35}
+html.tf .view{text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 14px rgba(0,0,0,.55)}
+html.tf .view .grid{gap:20px}
+html.tf .cols-main{gap:22px}
+/* small uppercase tracked labels, like STATUS TODAY / NET RESULT / COMPLIANCE */
+html.tf .panel h3,html.tf .label,html.tf .stat .label,html.tf .lv .k,html.tf.simple .panel h3,html.tf.simple .label{text-transform:uppercase;letter-spacing:.2em;font-size:10px;font-weight:600;color:#A1A1AA}
+html.tf .panel h3 .right,html.tf.simple .panel h3 .right{text-transform:none;letter-spacing:.04em}
+/* serif headings + wordmark */
+html.tf .page-title,html.tf .greet h1,html.tf .brand-name,html.tf .splash-name,html.tf .unlock h2{font-family:var(--serif);font-weight:700;letter-spacing:.2px}
+html.tf .greet h1{font-size:34px}
+html.tf .page-title{font-size:38px}
+html.tf .brand-name em,html.tf .splash-name em{background:none;-webkit-background-clip:initial;background-clip:initial;color:#9DB4FF;font-style:normal}
+html.tf .brand img{filter:grayscale(1) brightness(1.6);opacity:.85}
+/* big bold white numbers; colour only where it means something */
+html.tf .hero{padding:44px 10px 26px}
+html.tf .hero .huge{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.6);animation:none}
+html.tf .hero .huge::after{opacity:.25}
+html.tf .stat .v,html.tf .big{font-weight:800}
+html.tf .glow-g{text-shadow:0 0 10px rgba(34,197,94,.35)} html.tf .glow-r{text-shadow:0 0 10px rgba(239,68,68,.35)}
+html.tf .dot-live{box-shadow:0 0 8px rgba(34,197,94,.7)}
+/* blue primary buttons */
+html.tf .check-btn,html.tf .btn.pri{background:#3B82F6;color:#fff;border:1px solid rgba(147,180,255,.5);box-shadow:0 6px 24px rgba(59,130,246,.35);text-shadow:none;letter-spacing:.06em}
+html.tf .check-btn:hover,html.tf .btn.pri:hover{background:#4C8DF8;box-shadow:0 6px 30px rgba(59,130,246,.5)}
+html.tf .check-btn .spin{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+html.tf .btn{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12)}
+html.tf .seg{background:rgba(255,255,255,.03)} html.tf .seg button.on{background:rgba(255,255,255,.12);color:#fff}
+html.tf .chip.on,html.tf .chip:hover{border-color:rgba(59,130,246,.55);background:rgba(59,130,246,.12)}
+/* streak squares red / grey / blue; session bars red / white */
+html.tf .streak{gap:5px}
+html.tf .streak i{width:16px;height:16px;border-radius:3px;background:rgba(255,255,255,.12);box-shadow:none}
+html.tf .streak i.w{background:#3B82F6;box-shadow:none} html.tf .streak i.l{background:#EF4444;box-shadow:none}
+html.tf .bars .b.p,html.tf .bars-mid .col i.p{background:linear-gradient(180deg,#F5F5F0,rgba(245,245,240,.55));box-shadow:none}
+html.tf .bars .b.n,html.tf .bars-mid .col i.n{background:linear-gradient(0deg,#EF4444,rgba(239,68,68,.55));box-shadow:none}
+html.tf .bars .b.z{background:rgba(255,255,255,.1)}
+html.tf .paper-badge{color:#E5E7EB;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.05);box-shadow:none}
+html.tf .avatar{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.22);color:#fff}
+html.tf .icon-btn{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.1)}
+/* top bar: quiet black glass, tabs with small icons */
+html.tf .top{background:linear-gradient(180deg,rgba(10,10,11,.78),rgba(10,10,11,.38));border-bottom:1px solid rgba(255,255,255,.07)}
+html.tf .tabs{background:none;border:0}
+html.tf .tabs button{color:#A1A1AA;font-size:12.5px}
+html.tf .tabs button.on{color:#fff;background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+html.tf .tabs button.on svg{filter:none}
+#splash{transition:opacity .7s ease, visibility .7s}
+html.tf #splash{background:radial-gradient(800px 500px at 50% 45%,#141416,#0a0a0b 70%)}
+html.tf .splash-logo{filter:grayscale(1) brightness(1.6)}
+html.tf .splash-bar i{background:linear-gradient(90deg,transparent,#fff,transparent)}
+/* desktop: tabs either side of a centered serif wordmark, like TradeFortis */
+@media (min-width:1200px){
+  html.tf .top{display:flex;align-items:center;justify-content:center;gap:2px;padding-left:18px;padding-right:18px}
+  html.tf .tabs{display:contents}
+  html.tf .tabs button{order:1;padding:7px 10px;gap:6px}
+  html.tf .tabs button[data-tab="news"],html.tf .tabs button[data-tab="journal"],html.tf .tabs button[data-tab="performance"],html.tf .tabs button[data-tab="learning"],html.tf .tabs button[data-tab="settings"]{order:3}
+  html.tf .brand{order:2;margin:0 18px;gap:0}
+  html.tf .brand img{display:none}
+  html.tf .brand-name{font-size:24px;display:inline}
+  html.tf .top-right{order:4;flex:1 1 0;justify-content:flex-end}
+  html.tf .top::before{content:"";flex:1 1 0;order:0}
+}
+@media (min-width:1200px) and (max-width:1560px){ html.tf .tabs .tl{display:none} html.tf .tabs .ts{display:inline} html.tf .top-right .paper-badge{display:none} }
+/* phone: lighter bottom bar, keep the picture showing between cards */
+@media (max-width:860px){
+  html.tf .tabs{background:rgba(10,10,11,.8);border-top:1px solid rgba(255,255,255,.08)}
+  html.tf .tabs button.on{color:#fff;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+  html.tf .top{background:linear-gradient(180deg,rgba(10,10,11,.85),rgba(10,10,11,.4))}
+  html.tf .hero{padding:30px 6px 18px}
+  html.tf .view .grid{gap:14px}
+  html.tf .greet h1{font-size:30px}
+}
+/* phone: show the whole statue in the upper part of the screen instead of a giant crop */
+@media (max-width:860px){ html.tf .bg-img{background-size:auto 72vh;background-repeat:no-repeat;background-color:#0a0a0b} }
+html.tf .view{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 16px rgba(0,0,0,.65)}
+html.tf .panel h3,html.tf .label,html.tf .stat .label{color:#B8B8C0}
+html.tf .sub{color:#B0B0B8}
+@media (max-width:860px){ html.tf .bg-img{-webkit-mask-image:linear-gradient(180deg,#000 0,#000 52vh,transparent 75vh);mask-image:linear-gradient(180deg,#000 0,#000 52vh,transparent 75vh)} }

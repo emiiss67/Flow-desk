@@ -14,7 +14,7 @@ const tagH = x => `<span class="tag${isSetup(x) ? ' setup' : ''}">${isSetup(x) ?
 const tagsH = (arr, setup, side) => { if (Mode.simple()) return whyH(arr, side, setup); const a = [...new Set([...(setup ? [setup] : []), ...(arr || [])])]; return a.sort((p, q) => isSetup(q) - isSetup(p)).map(tagH).join(''); };
 
 Views.dashboard = async (v) => {
-  v.innerHTML = `<div class="greet"><div><h1>${greeting()}, ${esc(store.get('name', 'Emis'))}.</h1>
+  v.innerHTML = `<div class="greet"><div><h1>${Theme.theme.tf ? 'Welcome back' : greeting()}, ${esc(store.get('name', 'Emis'))}.</h1>
     <div class="sub">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} · <span id="mkt"></span></div>${Quotes.on() ? `<div class="quote">“${esc(Quotes.today())}”</div>` : ''}</div>
     <div class="seg" id="dashRange"><button class="on">30D</button></div></div>
     <div class="grid cols-main" style="margin-top:8px"><div id="dMain"><div class="skeleton" style="height:420px"></div></div><div id="dSide"></div></div>`;

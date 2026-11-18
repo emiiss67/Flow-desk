@@ -35,7 +35,7 @@ const FX = (() => {
       const fps = mobile() ? 30 : 60; if (now - last < 1000 / fps - 2) return requestAnimationFrame(loop); const dt = Math.min(3, (now - last) / 16.7 || 1); last = now;
       x.clearRect(0, 0, W, H);
       if (store.get('particles', true) && P.length) {
-        const d = DPR(), L = Theme.light; const main = L ? '150,120,70' : Theme.G, white = L ? '90,90,100' : '225,245,255', acc = L ? '37,99,235' : Theme.C;
+        const d = DPR(), L = Theme.light; const tf = Theme.theme.tf; const main = L ? '150,120,70' : tf ? '214,218,226' : Theme.G, white = L ? '90,90,100' : '225,245,255', acc = L ? '37,99,235' : tf ? '170,178,192' : Theme.C;
         const sp0 = sprite(white, 0), sp1 = sprite(main, 1), sp2 = sprite(acc, 0), sp3 = sprite(main, 0);
         x.globalCompositeOperation = L ? 'source-over' : 'lighter';
         for (const p of P) {

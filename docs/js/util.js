@@ -60,6 +60,7 @@ const Theme = {
   },
   /* full themes: palette + matching background scenes (+ light/dark mode) */
   THEMES: {
+    tradefortis: { name: 'TradeFortis', sub: 'Dark · silver, statue in view', g: '#22C55E', r: '#EF4444', c: '#3B82F6', panel: '#0a0a0b', a: 0.16, glow: 0.35, tf: true, scenes: ['tfbust', 'tfface', 'tfsamurai', 'tfdust'] },
     neon: { name: 'Neon Augustus', sub: 'Dark · green flow', g: '#00FF66', r: '#EF4444', c: '#00D4FF', panel: '#101116', a: 0.42, glow: 1, scenes: ['augustus', 'antinoos', 'severus'] },
     marble: { name: 'White Marble', sub: 'Light · gallery', light: true, g: '#0E9F5A', r: '#D6333F', c: '#2563EB', panel: '#FFFFFF', a: 0.66, glow: 0.35, scenes: ['marblewoman', 'marbleherodotos', 'marblewoman'] },
     gold: { name: 'Gold & Bronze', sub: 'Dark · imperial gold', g: '#F5C451', r: '#E5484D', c: '#FFD98A', panel: '#15110a', a: 0.46, glow: 0.9, scenes: ['antoninus', 'herodotos', 'warrior'] },
@@ -71,17 +72,21 @@ const Theme = {
   },
   cur: null,
   rgb(hex) { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(x => x + x).join('') : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); },
-  load() { const t = store.get('theme', null); this.cur = Object.assign({ theme: 'neon' }, this.THEMES.neon, t || {}); delete this.cur.name; return this.cur; },
+  load() {
+    // TradeFortis is the default look; switch everyone to it once (other themes stay selectable in Settings)
+    if (!store.get('tfDefault', false)) { store.set('tfDefault', true); const { name, sub, ...v } = this.THEMES.tradefortis; store.set('theme', Object.assign({ light: false }, v, { theme: 'tradefortis', palette: 'tradefortis' })); store.set('bg', 'auto'); }
+    const t = store.get('theme', null); this.cur = Object.assign({ theme: 'tradefortis' }, this.THEMES.tradefortis, t || {}); delete this.cur.name; return this.cur; },
   save(t) { this.cur = Object.assign({}, this.cur, t); store.set('theme', this.cur); this.apply(); },
   /* pick a whole theme: palette + background scenes + light/dark; custom colours can still override afterwards */
   setTheme(id) { const th = this.THEMES[id]; if (!th) return; const { name, sub, ...vals } = th; this.cur = Object.assign({ light: false }, vals, { theme: id, palette: id }); store.set('theme', this.cur); store.set('bg', 'auto'); this.apply(); },
-  get theme() { return this.THEMES[(this.cur || this.load()).theme] || this.THEMES.neon; },
+  get theme() { return this.THEMES[(this.cur || this.load()).theme] || this.THEMES.tradefortis; },
   get light() { return !!(this.cur || this.load()).light; },
   apply() {
     const t = this.cur || this.load(); const s = document.documentElement.style;
     s.setProperty('--g-rgb', this.rgb(t.g)); s.setProperty('--r-rgb', this.rgb(t.r)); s.setProperty('--c-rgb', this.rgb(t.c));
     s.setProperty('--panel-rgb', this.rgb(t.panel)); s.setProperty('--panel-a', t.a); s.setProperty('--gk', t.glow);
     document.documentElement.classList.toggle('light', !!t.light);
+    document.documentElement.classList.toggle('tf', t.theme === 'tradefortis');
     const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = t.light ? '#eceae6' : '#050607';
     // re-tint the baked-in green eye glow of the original two background photos to match the palette
     const hue = hx => { const [r, g, b] = this.rgb(hx).split(',').map(n => n / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return null;
