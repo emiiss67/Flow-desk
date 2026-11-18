@@ -408,6 +408,7 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         if name in S.STRATEGIES:
             st["reason"] = (f"On: {vt} and positive over learning + validation combined" if en else
                             f"Off: {vt} - needs at least {LIMITS['enable_min_n']}" if v["n"] < LIMITS["enable_min_n"] else
+                            f"Off: lost money in validation ({vt})" if v["exp_r"] <= 0 else
                             f"Off: {vt} - too small an edge" if v["exp_r"] <= LIMITS["enable_min_exp"] else
                             f"Off: {vt}, but it lost {both['exp_r']:+.2f}R/trade over learning + validation combined")
         elif name == CORE:
