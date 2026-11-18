@@ -25,6 +25,12 @@ def fmt_winrate(wr: dict | None, score=None) -> str:
             f"avg {wr['avg_r']:+.2f}R · exp {wr.get('expectancy_usd', 0):+.2f} USD/trade")
     if wr.get("low_sample"):
         line += "\n⚠️ low sample (n &lt; 20) - treat as anecdotal"
+    ss = wr.get("setup_stats")
+    if ss and ss.get("n"):
+        line += (f"\n🎯 {esc(ss['setup'])} history: win {ss['win_rate']:.0f}% · n={ss['n']} · avg {ss['avg_r']:+.2f}R"
+                 + (" (low sample)" if ss.get("low_sample") else ""))
+    elif ss:
+        line += f"\n🎯 {esc(ss['setup'])}: no past occurrences in this history"
     return (sc + "\n" if sc else "") + line
 
 
@@ -34,7 +40,8 @@ def fmt_check(r: dict) -> str:
     d = r["decision"]
     icon = {"LONG": "🟢", "SHORT": "🔴"}.get(d, "⚪")
     lines = [f"{icon} <b>{esc(r['symbol'])} {esc(r['tf'])} - {d}</b> · PAPER",
-             f"Price {fmt(r['price'])}", fmt_winrate(r.get("winrate"), r.get("confluence"))]
+             f"Price {fmt(r['price'])}" + (f"\n🎯 Setup: <b>{esc(r['setup'])}</b>" if r.get("setup") else ""),
+             fmt_winrate(r.get("winrate"), r.get("confluence"))]
     if "levels" in r:
         lv = r["levels"]
         lines.append(f"Entry {fmt(lv['entry'])} | SL {fmt(lv['sl'])}\nTP1 {fmt(lv['tp1'])} ({lv['rr1']}R) | "

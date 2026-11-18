@@ -14,6 +14,7 @@ from . import ict, instruments, events
 from .config import get_config
 from .data import get_provider, resample, DataUnavailable, HTF
 from .orderflow import FlowSettings, get_orderflow_provider
+from . import setups as setups_mod
 
 log = logging.getLogger("flowdesk.strategy")
 RULES = {"1m": "1min", "5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "4h": "4h", "1d": "1D"}
@@ -113,6 +114,12 @@ def score_features(f: dict) -> Score:
     if ps:
         add("psych", ps, 3, f"{'Holding above' if ps == 'long' else 'Rejected below'} round number {fmt(f.get('psych_level'))}",
             "Round number")
+
+    for st in f.get("setups", []):
+        pts = setups_mod.HVN_POINTS if st["name"] == setups_mod.HVN_NAME else setups_mod.KLAR_POINTS
+        if st.get("ny_open"):
+            pts += setups_mod.NY_OPEN_BONUS
+        add("setup", st["side"], pts, st["text"], st["name"])
 
     if f.get("killzone"):
         add("kz", "both", 5, f"{f['killzone']} killzone is active (higher-probability window)", "Killzone")
@@ -277,6 +284,18 @@ def level_candidates(direction: str, f: dict, ia: dict, flow) -> tuple[list[floa
     return sl, tp
 
 
+def trade_levels(direction: str, ev: dict, scfg: dict) -> dict:
+    """Levels for a direction: a named setup's own stop/target when one fired on that side, else structural levels."""
+    f, ia, flow = ev["f"], ev["ia"], ev["flow"]
+    for st in f.get("setups", []):
+        if st["side"] == direction.lower():
+            lv = setups_mod.setup_levels(st, ia["atr"], scfg)
+            if lv:
+                return lv
+    slc, tpc = level_candidates(direction, f, ia, flow)
+    return compute_levels(direction, f["close"], ia["atr"], slc, tpc, scfg)
+
+
 def analyze_frame(df: pd.DataFrame, tf: str, cfg: dict | None = None, now=None) -> dict:
     """Run the full engine on a frame using ONLY the bars in it (the backtest feeds growing history slices)."""
     cfg = cfg or get_config()
@@ -293,6 +312,7 @@ def analyze_frame(df: pd.DataFrame, tf: str, cfg: dict | None = None, now=None) 
     except Exception as e:
         log.debug("htf failed: %s", e)
     f = extract_features(df, ia, flow, htf_trend, htf_tf)
+    f["setups"] = setups_mod.detect(df, ia, flow, tf)
     return {"ia": ia, "flow": flow, "f": f, "sc": score_features(f), "htf_tf": htf_tf, "htf_trend": htf_trend}
 
 
@@ -350,9 +370,11 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
     if bo:
         out["reasons"].insert(0, {"text": f"High-impact {bo['ccy']} event '{bo['title']}' is too close - standing aside",
                                   "tag": "Event risk", "points": 0, "side": "both"})
+    out["setups"] = [{"name": x["name"], "side": x["side"], "text": x["text"]} for x in f.get("setups", [])]
     if decision in ("LONG", "SHORT"):
-        slc, tpc = level_candidates(decision, f, ia, flow)
-        lv = compute_levels(decision, close, ia["atr"], slc, tpc, scfg)
+        lv = trade_levels(decision, ev, scfg)
+        if lv.get("setup"):
+            out["setup"] = lv["setup"]
         for k in ("entry", "sl", "tp1", "tp2"):
             lv[k] = round(lv[k], dp)
         lv["risk"] = round(lv["risk"], dp + 1)
@@ -360,8 +382,7 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
         out["rr"] = lv["rr2"]
     else:
         # still give the user the reference levels for the stronger side, flagged as not a trade
-        slc, tpc = level_candidates(side_key.upper(), f, ia, flow)
-        lv = compute_levels(side_key.upper(), close, ia["atr"], slc, tpc, scfg)
+        lv = trade_levels(side_key.upper(), ev, scfg)
         out["watch"] = {"bias": side_key.upper(), "sl": round(lv["sl"], dp), "tp1": round(lv["tp1"], dp),
                         "note": "Not enough confluence - reference levels only, no trade"}
     try:
@@ -373,7 +394,8 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
         from . import backtest
         wr_side = decision if decision in ("LONG", "SHORT") else side_key.upper()
         try:
-            out["winrate"] = backtest.winrate(sym, tf, wr_side, out["confluence"], mode=winrate)
+            wr_setup = next((x["name"] for x in out.get("setups", []) if x["side"] == wr_side.lower()), None)
+            out["winrate"] = backtest.winrate(sym, tf, wr_side, out["confluence"], mode=winrate, setup=wr_setup)
         except Exception as e:
             log.warning("winrate failed: %s", e)
             out["winrate"] = {"status": "unavailable", "error": "backtest failed"}
@@ -402,4 +424,21 @@ def chart_payload(df: pd.DataFrame, ia: dict, flow, bars_out: int = 300) -> dict
         "sessions": ict.session_boxes(tail),
         "psych": flow.psych_levels,
         "range": ia["range"],
+        **_keylevel_payload(df, ia, flow, t0),
     }
+
+
+def _keylevel_payload(df, ia, flow, t0) -> dict:
+    b, atr = flow.bars, ia.get("atr") or 0
+    if b is None:
+        return {"imbalances": [], "hvn_zones": [], "heavy_abs": []}
+    tf_guess = {60: "1m", 300: "5m", 900: "15m", 1800: "30m", 3600: "1h", 14400: "4h", 86400: "1d"}
+    step = int((df.index[-1] - df.index[-2]).total_seconds()) if len(df) > 1 else 900
+    sess = setups_mod.bars_per_session(tf_guess.get(step, "15m"))
+    return {"imbalances": setups_mod.imbalance_levels(b, atr),
+            "hvn_zones": setups_mod.hvn_zones(b, sess, proxy=flow.volume_source.startswith("range")),
+            "heavy_abs": [{k: m[k] for k in ("time", "side", "price", "label", "vol_ratio")}
+                          for m in setups_mod.heavy_absorption(b, 1.5, 300) if m["time"] >= t0]
+            if not flow.volume_source.startswith("range") else
+            [dict({k: m[k] for k in ("time", "side", "price", "vol_ratio")}, label=f"{m['vol_ratio']:.1f}x")
+             for m in setups_mod.heavy_absorption(b, 1.5, 300) if m["time"] >= t0]}

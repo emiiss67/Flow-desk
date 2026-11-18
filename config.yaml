@@ -51,12 +51,12 @@ events:
 
 broker:
   starting_balance: 50        # USD paper balance
-  risk_pct: 1.0               # % of equity risked per trade (1% of $50 = $0.50)
+  risk_pct: 10.0              # % of equity risked per trade (10% of $50 = $5) - aggressive, paper only
   min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
   qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
-  max_leverage: 30            # notional cap = equity x this; size is reduced (never increased) to fit
+  max_leverage: 200           # paper notional cap = equity x this; size is reduced (never increased) to fit
   max_positions: 4
-  daily_loss_limit_pct: 2.0   # stop opening trades after losing this % of day-start equity
+  daily_loss_limit_pct: 30.0  # stop opening trades after losing this % of day-start equity
   tp1_close_pct: 50           # % of position closed at TP1, then stop to breakeven
   trail_atr: 1.0              # after TP1, trail stop at this many ATR
   spread_bps: {forex: 0.8, indices: 1.0, futures: 1.0, commodities: 2.0, crypto: 5.0, rates: 1.0, other: 2.0}

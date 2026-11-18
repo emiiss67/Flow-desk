@@ -65,7 +65,15 @@ const DEMO = (() => {
       });
     }
     const delta = cs.map(b => ({ time: b.time, value: b.volume * ((b.close - b.low) - (b.high - b.close)) / ((b.high - b.low) || 1), surge: 0, absorb: 0 }));
-    return { fvgs: fvgs.slice(-6), order_blocks: obs, structure: st, liquidity: liq, sweeps: [], sessions, profile: { poc, vah: poc + (hi - lo) * .18, val: poc - (hi - lo) * .18, hvn: [], bins }, psych: [], delta };
+    // sample ProfitPro-style key levels
+    const avgR = cs.slice(-120).reduce((a, b) => a + b.high - b.low, 0) / 120;
+    const imbalances = [];
+    for (let i = n - 110; i < n - 3 && imbalances.length < 3; i += 1) { const b = cs[i]; const body = Math.abs(b.close - b.open);
+      if (body > 1.7 * avgR) { imbalances.push({ side: b.close > b.open ? 'buy' : 'sell', top: Math.max(b.open, b.close), bottom: Math.max(b.open, b.close) - body * .35, time: b.time, label: `${3 + (i % 5)}x | ${8 + (i % 17)}` }); i += 12; } }
+    const top2 = bins.map((b, i) => ({ ...b, i })).sort((a, b) => b.vol - a.vol).slice(0, 2); const totV = bins.reduce((a, b) => a + b.vol, 0) || 1; const bh = (hi - lo) / 40;
+    const hvn_zones = top2.map(b => ({ bottom: b.price - bh * 1.5, top: b.price + bh * 1.5, time: cs[n - 96].time, label: `${Math.round(b.vol * 3 / 1000)}k | ${Math.round(b.vol * 3 / totV * 100)}%` }));
+    const heavy_abs = []; for (let i = n - 90; i < n; i += 9) { const b = cs[i]; const up = (i / 9) % 2 > 1; heavy_abs.push({ time: b.time, side: up ? 'trapped_buyers' : 'trapped_sellers', price: up ? b.high : b.low, label: String(40 + (i * 7) % 160), vol_ratio: 1.6 + (i % 5) * .3 }); }
+    return { imbalances, hvn_zones, heavy_abs, fvgs: fvgs.slice(-6), order_blocks: obs, structure: st, liquidity: liq, sweeps: [], sessions, profile: { poc, vah: poc + (hi - lo) * .18, val: poc - (hi - lo) * .18, hvn: [], bins }, psych: [], delta };
   }
 
   function check({ symbol, tf = '15m' }) {
@@ -79,12 +87,14 @@ const DEMO = (() => {
     const L = decision !== 'SHORT';
     const reasons = (L ? [
       ['Sell-side liquidity at Asia low was swept and price closed back above it (stop hunt)', 'Liquidity sweep', 15],
+      ['HVN Absorption: impulse up (3.1 ATR), pullback into high-volume node, wick absorption on 2.2x volume - continuation toward the prior high', 'HVN Absorption', 22],
       ['Change of character (CHoCH) up through the last lower high', 'CHoCH', 15],
       ['Estimated buying pressure surge: 412% of normal delta on 2.7x volume', 'Pressure surge', 15],
       ['Price is reacting inside a bullish fair value gap', 'FVG', 10],
       ['Price is in the discount half of the range (34%)', 'Discount', 8],
       ['London killzone is active (higher-probability window)', 'Killzone', 5]] : [
       ['Buy-side liquidity at PDH was swept and price closed back below it (stop hunt)', 'Liquidity sweep', 15],
+      ['Key Level Absorption Reversal: imbalance level (5x | 19), 2 heavy absorption prints (trapped buyers) and a rejection - New York open', 'Key Level Absorption Reversal', 25],
       ['Break of structure (BOS) down through the last higher low', 'BOS', 15],
       ['Buying absorbed near the highs (2.1x volume, small body, long wick)', 'Absorption', 10],
       ['Price is at a bearish order block', 'Order block', 10],
@@ -94,7 +104,8 @@ const DEMO = (() => {
     const out = {
       ok: true, demo: true, symbol: sym, name: (INSTRUMENTS.find(i => i.symbol === sym) || {}).name || sym, tf, paper: true,
       source: 'DEMO sample data', source_note: 'Sample data for preview only', decision, confluence: conf, price: last,
-      winrate: demoWR(L ? 'LONG' : 'SHORT', conf),
+      winrate: Object.assign(demoWR(L ? 'LONG' : 'SHORT', conf), { setup_stats: { setup: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', n: 11 + conf % 9, win_rate: 52 + conf % 11, avg_r: 0.31, low_sample: true } }),
+      setup: decision === 'NO TRADE' ? null : (L ? 'HVN Absorption' : 'Key Level Absorption Reversal'), setups: decision === 'NO TRADE' ? [] : [{ name: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', side: L ? 'long' : 'short' }],
       scores: { long: L ? conf : 30, short: L ? 30 : conf }, reasons: decision === 'NO TRADE' ? reasons.slice(0, 2) : reasons,
       against: [{ text: 'Higher timeframe (1h) structure is ' + (L ? 'bearish' : 'bullish'), tag: 'HTF bias', points: 15 }],
       warnings: [{ text: 'USD FOMC Meeting Minutes in 5.4 h (high impact)', minutes_away: 325 }],
@@ -108,7 +119,7 @@ const DEMO = (() => {
 
   function demoWR(direction, score) {
     const n = 14 + (score % 31); const w = 38 + (score % 17);
-    return { status: 'ok', demo: true, direction, band: [score - 10, score + 10], n, low_sample: n < 20, win_rate: w, tp2_rate: Math.round(w * 0.45), avg_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_usd: +(((w / 100) * 1.6 - 0.62) * 0.5).toFixed(2), risk_usd: 0.5, tf: '15m', period_from: Date.now() / 1000 - 86400 * 21, period_to: Date.now() / 1000, method: 'DEMO sample numbers', note: 'Sample data for preview only' };
+    return { status: 'ok', demo: true, direction, band: [score - 10, score + 10], n, low_sample: n < 20, win_rate: w, tp2_rate: Math.round(w * 0.45), avg_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_r: +((w / 100) * 1.6 - 0.62).toFixed(2), expectancy_usd: +(((w / 100) * 1.6 - 0.62) * 5).toFixed(2), risk_usd: 5, tf: '15m', period_from: Date.now() / 1000 - 86400 * 21, period_to: Date.now() / 1000, method: 'DEMO sample numbers', note: 'Sample data for preview only' };
   }
 
   let _trades = null;
@@ -119,7 +130,7 @@ const DEMO = (() => {
       t += 3600 * (2 + r() * 14); const d = new Date(t * 1000); if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
       const sym = SYMS[Math.floor(r() * SYMS.length)]; const side = r() < .55 ? 'LONG' : 'SHORT';
       const win = r() < .5; const R = win ? (r() < .6 ? 1.1 + r() * .6 : 2.2 + r() * .6) : -(r() < .25 ? .1 : 1);
-      const risk = 0.5; const pnl = Math.round(R * risk * 100) / 100; const e = base(sym) * (1 + (r() - .5) * .01);
+      const risk = 5; const pnl = Math.round(R * risk * 100) / 100; const e = base(sym) * (1 + (r() - .5) * .01);
       const tags = [...new Set([TAGS[Math.floor(r() * TAGS.length)], TAGS[Math.floor(r() * TAGS.length)], TAGS[Math.floor(r() * 4)]])];
       out.push({ id: id++, symbol: sym, tf: '15m', side, entry: e, exit_price: e * (1 + (side === 'LONG' ? 1 : -1) * R * .0012), sl_initial: e * (1 - (side === 'LONG' ? 1 : -1) * .0012),
         tp1: e * (1 + (side === 'LONG' ? 1 : -1) * .0016), tp2: e * (1 + (side === 'LONG' ? 1 : -1) * .003), qty: 1, risk_usd: risk, pnl_usd: pnl, r_multiple: R,
@@ -147,8 +158,8 @@ const DEMO = (() => {
 
   function positions() {
     return [
-      { id: 91, symbol: 'NQ=F', tf: '15m', side: 'LONG', qty: 0.0011, qty_open: 0.0011, entry: 27198.5, sl: 27152.25, tp1: 27265, tp2: 27340, last_price: 27236, opened_ts: now() - 5400, unrealized: 0.38, realized: 0, tp1_hit: 0, tags: ['Liquidity sweep', 'Order block', 'OTE'], reasons: ['Sample: sell-side liquidity at London low swept'] },
-      { id: 92, symbol: 'EURUSD=X', tf: '15m', side: 'SHORT', qty: 410, qty_open: 205, entry: 1.09912, sl: 1.09912, tp1: 1.09790, tp2: 1.09610, last_price: 1.09745, opened_ts: now() - 9800, unrealized: 0.34, realized: 0.25, tp1_hit: 1, tags: ['BOS', 'Premium', 'Pressure surge'], reasons: ['Sample: estimated selling pressure surge'] },
+      { id: 91, symbol: 'NQ=F', tf: '15m', side: 'LONG', qty: 0.0011, qty_open: 0.0011, entry: 27198.5, sl: 27152.25, tp1: 27265, tp2: 27340, last_price: 27236, opened_ts: now() - 5400, unrealized: 3.8, realized: 0, tp1_hit: 0, tags: ['Liquidity sweep', 'Order block', 'OTE'], reasons: ['Sample: sell-side liquidity at London low swept'] },
+      { id: 92, symbol: 'EURUSD=X', tf: '15m', side: 'SHORT', qty: 410, qty_open: 205, entry: 1.09912, sl: 1.09912, tp1: 1.09790, tp2: 1.09610, last_price: 1.09745, opened_ts: now() - 9800, unrealized: 3.4, realized: 2.5, tp1_hit: 1, tags: ['BOS', 'Premium', 'Pressure surge'], reasons: ['Sample: estimated selling pressure surge'] },
     ];
   }
 
@@ -169,19 +180,24 @@ const DEMO = (() => {
   function signals() {
     return trades().slice(0, 25).map((t, i) => ({ id: 400 - i, ts: t.opened_ts, symbol: t.symbol, tf: '15m', decision: t.side, confluence: 58 + (i * 7) % 30, win_rate: 40 + (i * 3) % 18, bt_n: 12 + (i * 5) % 40, bt_avg_r: +(((i * 7) % 9) / 20 - 0.15).toFixed(2), price: t.entry, sl: t.sl_initial, tp1: t.tp1, tp2: t.tp2, rr: 2.6, tags: t.tags, reasons: t.reasons, acted: i % 4 ? 1 : 0, note: i % 4 ? '' : 'high-impact event window' }));
   }
+  function session() {
+    const pos = positions(); const open = +pos.reduce((a, p) => a + p.unrealized, 0).toFixed(2);
+    return { demo: true, paper: true, open_pnl: open, closed_pnl: 6.2, in_trade: pos.length > 0, open_positions: pos.length, net: +(6.2 + open).toFixed(2), trades: 5, wins: 3, losses: 2, win_rate: 60, since: Math.floor(now() / 86400) * 86400 };
+  }
+
   function dashboard() {
     const p = perf();
-    return { demo: true, paper: true, balance: p.balance, equity: p.equity, start_balance: 50, today_pnl: 0.62, net: p.net, win_rate: p.win_rate, profit_factor: p.profit_factor, trades: p.trades,
+    return { demo: true, paper: true, balance: p.balance, equity: p.equity, start_balance: 50, today_pnl: 6.2, session: session(), net: p.net, win_rate: p.win_rate, profit_factor: p.profit_factor, trades: p.trades,
       streak: p.streak, best_streak: p.best_streak, last_trades: p.last_trades, daily_30: p.daily_30, heatmap: p.heatmap, open_positions: positions(), status: 'running', heartbeat: now() - 40,
       signals_24h: 9, entries_24h: 3, blocked_24h: 2, daily_limit_hit: false,
-      plan: ['Risk 1% per trade', 'Max 4 open positions', 'Stop after -2.0% day', 'No entries 30 min before high-impact news', 'Min confluence 55/100', 'TP1 closes 50%, stop to breakeven'],
+      plan: ['Risk 10% per trade', 'Max 4 open positions', 'Stop after -30% day', 'No entries 30 min before high-impact news', 'Min confluence 55/100', 'TP1 closes 50%, stop to breakeven'],
       upcoming_events: calendar().events.filter(e => e.impact === 'High' && e.ts > now()).slice(0, 5), watchlist: SYMS.map(s => ({ symbol: s, tf: '15m' })), source: 'DEMO' };
   }
   const delay = v => new Promise(r => setTimeout(() => r(v), 250 + Math.random() * 300));
   return {
     get(path, params) {
       const m = {
-        '/api/check': () => check(params), '/api/winrate': () => demoWR(params.direction || 'LONG', +params.score || 60), '/api/chart': () => check(params), '/api/dashboard': dashboard, '/api/performance': perf,
+        '/api/check': () => check(params), '/api/winrate': () => demoWR(params.direction || 'LONG', +params.score || 60), '/api/chart': () => check(params), '/api/dashboard': dashboard, '/api/session': session, '/api/performance': perf,
         '/api/positions': () => ({ positions: positions(), paper: true }), '/api/signals': () => ({ signals: signals() }), '/api/journal': () => ({ trades: trades() }),
         '/api/calendar': calendar, '/api/news': news,
         '/api/instruments': () => ({ categories: ['Forex', 'Indices', 'Futures', 'Commodities', 'Crypto'], items: INSTRUMENTS }),

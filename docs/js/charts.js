@@ -29,7 +29,7 @@ const Charts = (() => {
   function idxOf(cs, t) { let lo = 0, hi = cs.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cs[m].time < t) lo = m + 1; else hi = m; } return lo; }
 
   function set(st, payload, opts = {}) {
-    st.data = payload; st.opts = Object.assign({ fvg: true, ob: true, liq: true, vp: true, sess: true, struct: true }, opts);
+    st.data = payload; st.opts = Object.assign({ fvg: true, ob: true, liq: true, vp: true, sess: true, struct: true, imb: true, hvz: true, habs: true }, opts);
     const cs = payload.chart?.candles || [];
     st.candles.setData(cs.map(b => ({ time: T(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
     const dl = payload.chart?.delta || [];
@@ -48,7 +48,7 @@ const Charts = (() => {
     const marks = [];
     const seen = new Set();
     (payload.chart?.sweeps || []).forEach(s => { const i = idxOf(cs, s.time); if (!cs[i] || seen.has(i + s.dir)) return; seen.add(i + s.dir); marks.push({ time: T(cs[i].time), position: s.dir === 'bull' ? 'belowBar' : 'aboveBar', color: s.dir === 'bull' ? Theme.g : Theme.r, shape: s.dir === 'bull' ? 'arrowUp' : 'arrowDown', text: 'sweep' }); });
-    dl.forEach(d => { if (d.absorb) marks.push({ time: T(d.time), position: d.absorb > 0 ? 'belowBar' : 'aboveBar', color: Theme.c, shape: 'circle', text: 'abs' }); });
+    if (!st.opts.habs) dl.forEach(d => { if (d.absorb) marks.push({ time: T(d.time), position: d.absorb > 0 ? 'belowBar' : 'aboveBar', color: Theme.c, shape: 'circle', text: 'abs' }); });
     marks.sort((a, b) => a.time - b.time); st.candles.setMarkers(marks);
     if (opts.fit !== false) { const n = cs.length; st.chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - (innerWidth < 860 ? 70 : 140)), to: n + 6 }); }
     st.redraw();
@@ -92,6 +92,22 @@ const Charts = (() => {
     if (opts.struct) (ch.structure || []).slice(W < 600 ? -4 : -12).forEach(e => { const x1 = X(e.from_time), x2 = X(e.time), y = Y(e.level); if (x1 == null || x2 == null || y == null) return;
       const c = e.dir === 'bull' ? `rgba(${Theme.G},.75)` : `rgba(${Theme.R},.75)`; x.strokeStyle = c; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(x1, y); x.lineTo(x2, y); x.stroke(); x.setLineDash([]);
       x.fillStyle = c; x.textAlign = 'center'; x.fillText(e.type, (x1 + x2) / 2, e.dir === 'bull' ? y - 4 : y + 12); x.textAlign = 'left'; });
+    // ---- ProfitPro-style key levels ----
+    const pill = (txt, yy, fg, bg) => { x.font = '700 10px JetBrains Mono, monospace'; const tw = x.measureText(txt).width + 10; const px = plotW - tw - 4;
+      x.fillStyle = bg; x.beginPath(); x.roundRect ? x.roundRect(px, yy - 8, tw, 16, 4) : x.rect(px, yy - 8, tw, 16); x.fill(); x.fillStyle = fg; x.fillText(txt, px + 5, yy + 4); x.font = '600 10px Inter'; };
+    const band = (z, fill, stroke, lfg, lbg) => { const y1 = Y(z.top), y2 = Y(z.bottom); if (y1 == null || y2 == null) return; const x1 = Math.max(0, X(z.time) ?? 0);
+      const top = Math.min(y1, y2), hh = Math.max(3, Math.abs(y2 - y1)); x.fillStyle = fill; x.fillRect(x1, top, plotW - x1, hh); x.strokeStyle = stroke; x.lineWidth = 1; x.beginPath(); x.moveTo(x1, top + .5); x.lineTo(plotW, top + .5); x.moveTo(x1, top + hh - .5); x.lineTo(plotW, top + hh - .5); x.stroke();
+      if (z.label) pill(z.label, top + hh / 2, lfg, lbg); };
+    if (opts.imb) (ch.imbalances || []).slice(small ? -3 : -8).forEach(z => band(z, 'rgba(150,20,70,.22)', 'rgba(225,50,120,.55)', '#ffd6e6', 'rgba(120,10,55,.92)'));
+    if (opts.hvz) (ch.hvn_zones || []).slice(small ? -3 : -4).forEach(z => band(z, 'rgba(230,150,30,.16)', 'rgba(245,181,68,.6)', '#1a1000', 'rgba(245,170,50,.95)'));
+    if (opts.habs) {
+      const bw = Math.max(4, plotW / Math.max(20, (ts.getVisibleLogicalRange()?.to ?? 100) - (ts.getVisibleLogicalRange()?.from ?? 0)));
+      (ch.heavy_abs || []).forEach(m => { const cx = X(m.time); const py = Y(m.price); if (cx == null || py == null || cx > plotW) return;
+        const r = Math.min(small ? 10 : 13, Math.max(7, bw * .55 + (m.vol_ratio || 1.5) * 1.2)); const up = m.side === 'trapped_buyers';
+        const cy = up ? py - r - 4 : py + r + 4; const col = up ? `rgba(${Theme.G},1)` : `rgba(${Theme.R},1)`;
+        x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fillStyle = 'rgba(5,6,7,.55)'; x.fill(); x.lineWidth = 1.6; x.strokeStyle = col; x.stroke();
+        if (r >= 8) { x.fillStyle = col; x.font = `700 ${r >= 11 ? 9 : 8}px JetBrains Mono, monospace`; x.textAlign = 'center'; x.fillText(m.label, cx, cy + 3); x.textAlign = 'left'; x.font = '600 10px Inter'; } });
+    }
     x.restore();
   }
   return { create, set };

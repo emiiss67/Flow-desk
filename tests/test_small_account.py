@@ -72,3 +72,17 @@ def test_sizes_always_positive_finite(b):
             assert q > 0 and math.isfinite(q)
             assert q * entry * pv <= 50 * 30 * (1 + 1e-6)
             assert q * abs(entry - sl) * pv <= 0.5 + 1e-9
+
+
+def test_ten_percent_risk_not_cut_at_200x():
+    """10% risk on a tight EURUSD stop (6 pips) on $50: notional ~ $9.2k < 200x cap ($10k), so not reduced."""
+    from flowdesk.config import get_config
+    b = get_config()["broker"]
+    assert b["risk_pct"] == 10.0 and b["max_leverage"] == 200 and b["daily_loss_limit_pct"] == 30.0
+    q = size(50, 10.0, 1.1, 1.0994, 1.0, 1.0, max_leverage=200)
+    assert abs(q * 0.0006 - 5.0) < 0.01          # loses exactly $5 (10%) at the stop
+    q30 = size(50, 10.0, 1.1, 1.0994, 1.0, 1.0, max_leverage=30)
+    assert q30 < q                                 # the old 30x cap would have cut it
+    # NQ-like: 25 point stop, $2/pt micro-style point value -> 0.1 contracts, well inside the cap
+    qn = size(50, 10.0, 21000, 20975, 2.0, 1.0, max_leverage=200)
+    assert abs(qn * 25 * 2.0 - 5.0) < 0.01

@@ -97,7 +97,7 @@ class Bot:
             self.j.set(key, [r["last_bar"], r["decision"]])
             try:  # historical win rate for this direction + score band (cached ~1h per symbol/tf)
                 from . import backtest
-                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="sync")
+                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="sync", setup=r.get("setup"))
             except Exception as e:
                 log.warning("winrate %s failed: %s", sym, e)
             note = ""
@@ -114,7 +114,7 @@ class Bot:
                             reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
                             signal_id=sid, usd_mult=self.usd_mult(sym, lv["entry"]))
             if t:
-                self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}\n"
+                self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}" + (f" · 🎯 {esc(r['setup'])}" if r.get("setup") else "") + "\n"
                            f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {t['risk_usd']:,.0f} USD\n"
                            + "\n".join(f"• {esc(x['text'])}" for x in r["reasons"][:4])
                            + "\n" + fmt_winrate(r.get("winrate"), r["confluence"]))

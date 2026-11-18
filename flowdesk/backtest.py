@@ -19,7 +19,7 @@ from .config import get_config, data_dir
 from .data import get_provider, DataUnavailable
 
 log = logging.getLogger("flowdesk.backtest")
-VERSION = 1
+VERSION = 2
 _lock = threading.Lock()
 _running: dict = {}
 _pool = ThreadPoolExecutor(max_workers=2)
@@ -64,7 +64,7 @@ def simulate(direction: str, entry: float, sl: float, tp1: float, tp2: float, fu
 def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None = None, max_evals: int = 1500,
         max_hold: int = 96) -> list[dict]:
     """Evaluate the engine on every bar (walk-forward) and simulate both directions. Pure function of df."""
-    from .strategy import analyze_frame, level_candidates, compute_levels
+    from .strategy import analyze_frame, trade_levels
     cfg = cfg or get_config()
     scfg, bcfg = cfg.get("strategy", {}), cfg.get("broker", {})
     window = window or int(scfg.get("lookback_bars", 300))
@@ -81,9 +81,10 @@ def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None =
         f, sc, ia, flow = ev["f"], ev["sc"], ev["ia"], ev["flow"]
         rec = {"i": i, "t": int(df.index[i].timestamp()), "long": round(sc.long, 1), "short": round(sc.short, 1)}
         future = df.iloc[i + 1:]
+        for st in f.get("setups", []):
+            rec["setup_" + st["side"]] = st["name"]
         for side in ("LONG", "SHORT"):
-            slc, tpc = level_candidates(side, f, ia, flow)
-            lv = compute_levels(side, f["close"], ia["atr"], slc, tpc, scfg)
+            lv = trade_levels(side, ev, scfg)
             o = simulate(side, lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], future, ia["atr"],
                          bcfg.get("tp1_close_pct", 50) / 100, bcfg.get("trail_atr", 1.0), max_hold)
             rec[side.lower() + "_o"] = o and {k: (round(v, 3) if isinstance(v, float) else v) for k, v in o.items()}
@@ -91,8 +92,12 @@ def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None =
     return out
 
 
-def stats(records: list[dict], direction: str, score: float, band: float = 10.0, min_score: float | None = None) -> dict:
+def stats(records: list[dict], direction: str, score: float, band: float = 10.0, min_score: float | None = None,
+          setup: str | None = None) -> dict:
     side = direction.lower()
+    if setup:   # every past bar where this named setup fired on this side, any score
+        records = [r for r in records if r.get("setup_" + side) == setup]
+        score, band = 50, 1000
     lo, hi = score - band, score + band
     if min_score is not None:
         lo = max(lo, min_score)
@@ -108,7 +113,9 @@ def stats(records: list[dict], direction: str, score: float, band: float = 10.0,
         taken.append(o)
         busy_until = r["i"] + o["exit"]
     n = len(taken)
-    res = {"direction": direction, "band": [round(lo), round(hi)], "n": n, "low_sample": n < 20}
+    res = {"direction": direction, "band": [max(0, round(lo)), min(100, round(hi))], "n": n, "low_sample": n < 20}
+    if setup:
+        res["setup"] = setup
     if not n:
         return dict(res, win_rate=None, tp2_rate=None, avg_r=None, expectancy_r=None)
     wins = sum(1 for o in taken if o["tp1"])
@@ -161,7 +168,7 @@ def _bg(symbol: str, tf: str) -> None:
             _running.pop((symbol, tf), None)
 
 
-def winrate(symbol: str, tf: str, direction: str, score: float, mode: str = "sync") -> dict:
+def winrate(symbol: str, tf: str, direction: str, score: float, mode: str = "sync", setup: str | None = None) -> dict:
     """mode 'sync' computes if needed; 'async' starts a background job and returns status=computing."""
     cfg = get_config().get("strategy", {})
     sym = instruments.normalize(symbol)
@@ -176,8 +183,11 @@ def winrate(symbol: str, tf: str, direction: str, score: float, mode: str = "syn
     if not d.get("ok"):
         return {"status": "unavailable", "error": "data unavailable"}
     st = stats(d["records"], direction, score, band=10, min_score=None)
+    if setup:
+        ss = stats(d["records"], direction, score, setup=setup)
+        st["setup_stats"] = {k: ss.get(k) for k in ("setup", "n", "win_rate", "tp2_rate", "avg_r", "low_sample")}
     b = get_config().get("broker", {})
-    risk_usd = b.get("starting_balance", 50) * b.get("risk_pct", 1.0) / 100
+    risk_usd = b.get("starting_balance", 50) * b.get("risk_pct", 10.0) / 100
     if st.get("expectancy_r") is not None:
         st["expectancy_usd"] = round(st["expectancy_r"] * risk_usd, 2)
         st["risk_usd"] = risk_usd

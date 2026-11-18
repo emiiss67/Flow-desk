@@ -37,6 +37,8 @@ const App = {
     const on = $(`#tabs button[data-tab="${tab}"]`); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     if (push) { const u = new URL(location); u.searchParams.set('tab', tab); u.hash = API.hash(); history.pushState(null, '', u); }
     this.applyBg(tab);
+    PnlWidget.show(tab === 'dashboard' || tab === 'chart');
+    if (tab === 'dashboard' || tab === 'chart') this.timer(() => PnlWidget.refresh(), 15000);
     const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
     window.scrollTo({ top: 0 });
     try { await Views[tab](v); } catch (e) { console.error(e); v.innerHTML = `<div class="panel">${unavailable(tab, e.message)}</div>`; }

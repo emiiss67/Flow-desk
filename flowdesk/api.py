@@ -68,7 +68,7 @@ def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m"):
 
 @app.get("/api/winrate")
 def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direction: str = "LONG",
-                score: float = Query(60, ge=0, le=100)):
+                score: float = Query(60, ge=0, le=100), setup: str | None = Query(None, max_length=60)):
     """Historical walk-forward win rate for a direction + Confluence-score band (async: poll until status=ok)."""
     from . import backtest
     if tf not in TIMEFRAMES:
@@ -77,7 +77,7 @@ def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direct
     if direction not in ("LONG", "SHORT"):
         raise HTTPException(400, "direction must be LONG or SHORT")
     try:
-        return backtest.winrate(symbol, tf, direction, score, mode="async")
+        return backtest.winrate(symbol, tf, direction, score, mode="async", setup=setup)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -105,6 +105,28 @@ def _positions():
         u = (t["last_price"] - t["entry"]) * sgn * t["qty_open"] * t["point_value"] * t["usd_mult"] if t["last_price"] else 0
         out.append(dict(t, unrealized=round(u, 2), realized=round(t["pnl_usd"] or 0, 2)))
     return out
+
+
+def _session():
+    """Today's session (UTC day): live PnL widget + session summary card."""
+    b, j = B(), J()
+    from datetime import datetime, timezone
+    day0 = int(datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    closed = j.q("SELECT pnl_usd FROM trades WHERE status='closed' AND closed_ts>=?", (day0,))
+    pos = _positions()
+    wins = sum(1 for t in closed if (t["pnl_usd"] or 0) > 0)
+    losses = sum(1 for t in closed if (t["pnl_usd"] or 0) < 0)
+    n = len(closed)
+    open_pnl = round(sum(p["unrealized"] for p in pos), 2)
+    closed_pnl = round(b.realized_today(), 2)
+    return {"since": day0, "open_pnl": open_pnl, "closed_pnl": closed_pnl, "in_trade": bool(pos), "open_positions": len(pos),
+            "net": round(closed_pnl + open_pnl, 2), "trades": n, "wins": wins, "losses": losses,
+            "win_rate": round(100 * wins / n, 1) if n else None, "paper": True}
+
+
+@app.get("/api/session")
+def api_session():
+    return _session()
 
 
 @app.get("/api/positions")
@@ -160,14 +182,15 @@ def api_dashboard():
         "status": "paused" if j.get("paused", False) else ("running" if hb and time.time() - hb < 900 else "offline"),
         "heartbeat": hb, "daily_limit_hit": b.daily_limit_hit(),
         "signals_24h": today_sig["n"] or 0, "entries_24h": today_sig["a"] or 0, "blocked_24h": blocked,
-        "plan": [f"Risk {bc.get('risk_pct', 0.5)}% per trade",
+        "plan": [f"Risk {bc.get('risk_pct', 10)}% per trade",
                  f"Max {bc.get('max_positions', 4)} open positions",
-                 f"Stop after -{bc.get('daily_loss_limit_pct', 2)}% day",
+                 f"Stop after -{bc.get('daily_loss_limit_pct', 30)}% day",
                  f"No entries {cfg.get('events', {}).get('block_minutes_before', 30)} min before high-impact news",
                  f"Min confluence {cfg.get('strategy', {}).get('min_score', 55)}/100",
                  f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"],
         "upcoming_events": ev, "watchlist": cfg.get("watchlist", []),
         "source": get_provider().name,
+        "session": _session(),
     }
 
 

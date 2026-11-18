@@ -7,6 +7,11 @@ const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good n
 async function load(path, params) { try { return [await API.get(path, params), null]; } catch (e) { return [null, e.message || String(e)]; } }
 
 /* ================= DASHBOARD ================= */
+const SETUP_NAMES = ['HVN Absorption', 'Key Level Absorption Reversal'];
+const isSetup = x => SETUP_NAMES.includes(x);
+const tagH = x => `<span class="tag${isSetup(x) ? ' setup' : ''}">${isSetup(x) ? '🎯 ' : ''}${esc(x)}</span>`;
+const tagsH = (arr, setup) => { const a = [...new Set([...(setup ? [setup] : []), ...(arr || [])])]; return a.sort((p, q) => isSetup(q) - isSetup(p)).map(tagH).join(''); };
+
 Views.dashboard = async (v) => {
   v.innerHTML = `<div class="greet"><div><h1>${greeting()}, ${esc(store.get('name', 'Emis'))}.</h1>
     <div class="sub">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} · <span id="mkt"></span></div></div>
@@ -38,7 +43,7 @@ Views.dashboard = async (v) => {
     </div>
     <div class="panel" style="margin-top:16px"><h3>When it works · hour by weekday <span class="right">UTC hours · entries</span></h3>${heatmap(d.heatmap)}</div>`;
   const ev = d.upcoming_events || [];
-  $('#dSide').innerHTML = `
+  $('#dSide').innerHTML = sessionCard(d.session) + `
     <div class="panel"><h3>Today's plan</h3><ul class="plan">${d.plan.map(p => `<li><span class="ck">✓</span>${esc(p)}</li>`).join('')}</ul></div>
     <div class="panel" style="margin-top:16px"><h3>Open positions <span class="right">${d.open_positions.length}</span></h3>${d.open_positions.length ? d.open_positions.map(p => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)"><div><b>${esc(p.symbol)}</b> ${sidePill(p.side)}<div class="sub">@ ${fp(p.entry)} · SL ${fp(p.sl)}</div></div><div class="num ${pnlClass(p.unrealized)}" style="font-weight:800">${money(p.unrealized)}</div></div>`).join('') : '<div class="m" style="font-size:13px">Flat. Waiting for confluence.</div>'}</div>
@@ -105,6 +110,7 @@ function renderResult(r) {
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div><div class="label" style="margin-bottom:6px">${esc(r.name)} · ${esc(r.tf)} · ${esc(r.category || '')}</div>
+          ${r.setup ? `<div class="setup-badge" style="margin-bottom:10px">🎯 ${esc(r.setup)}</div>` : (r.setups || []).length ? `<div class="sub" style="margin:0 0 8px">Setup seen on the other side: ${esc(r.setups.map(x => x.name + ' (' + x.side + ')').join(', '))}</div>` : ''}
           <div class="verdict"><div class="call ${cls}">${D === 'NO TRADE' ? 'NO TRADE' : D}</div>
           <div class="gauge" title="Confluence score: how many independent reasons line up, weighted. It is a score out of 100, not a probability of winning.">${FX.gauge(r.confluence, col)}<div class="gv num" style="color:${col}">${r.confluence}</div><div class="gl">confluence /100</div></div></div>
           <div class="sub" style="margin-top:8px">Confluence score (0-100) · not a probability of winning</div></div>
@@ -121,17 +127,20 @@ function renderResult(r) {
       ${r.blackout ? `<div class="warn block">⛔ High-impact ${esc(r.blackout.ccy)} event "${esc(r.blackout.title)}" too close - standing aside.</div>` : ''}
       ${(r.warnings || []).map(w => `<div class="warn">⚠️ ${esc(w.text)}</div>`).join('')}
     </div>
-    <div class="panel" style="margin-top:16px;padding:12px"><div class="chart-box" id="ckChart"></div>
-      <div class="legend"><span><i style="background:rgba(${Theme.G},.35)"></i>Bull FVG</span><span><i style="background:rgba(${Theme.R},.35)"></i>Bear FVG</span><span><i style="background:rgba(${Theme.C},.45)"></i>Bull OB</span><span><i style="background:rgba(245,181,68,.45)"></i>Bear OB · POC</span><span><i style="background:rgba(110,139,255,.4)"></i>Killzones</span><span>$$$ liquidity</span></div></div>
+    <div class="panel" style="margin-top:16px;padding:12px"><div class="toggles" id="ckTg" style="margin-bottom:8px">${[['imb', 'Imbalance levels'], ['hvz', 'HVN zones'], ['habs', 'Heavy absorption']].map(([k, n]) => `<button class="chip ${ckTg()[k] ? 'on' : ''}" data-k="${k}">${n}</button>`).join('')}</div><div class="chart-box" id="ckChart"></div>
+      <div class="legend"><span><i style="background:rgba(${Theme.G},.35)"></i>Bull FVG</span><span><i style="background:rgba(${Theme.R},.35)"></i>Bear FVG</span><span><i style="background:rgba(${Theme.C},.45)"></i>Bull OB</span><span><i style="background:rgba(245,181,68,.45)"></i>Bear OB · POC</span><span><i style="background:rgba(110,139,255,.4)"></i>Killzones</span><span>$$$ liquidity</span><span><i style="background:rgba(225,50,120,.6)"></i>Imbalance (ratio | count)</span><span><i style="background:rgba(245,170,50,.8)"></i>HVN (volume | % session)</span><span>◯ heavy absorption: <b class="g">green</b> trapped buyers · <b class="r">red</b> trapped sellers</span></div></div>
     <div class="grid cols-2" style="margin-top:16px">
-      <div class="panel"><h3>Why ${D === 'NO TRADE' ? '(strongest side)' : esc(D.toLowerCase())}</h3><ul class="reasons">${r.reasons.map(x => `<li><span class="pt">+${x.points}</span><div>${esc(x.text)}<div><span class="tag">${esc(x.tag)}</span></div></div></li>`).join('') || '<li class="m">No confluence found</li>'}</ul></div>
+      <div class="panel"><h3>Why ${D === 'NO TRADE' ? '(strongest side)' : esc(D.toLowerCase())}</h3><ul class="reasons">${r.reasons.map(x => `<li class="${isSetup(x.tag) ? 'is-setup' : ''}"><span class="pt">+${x.points}</span><div>${esc(x.text)}<div>${tagH(x.tag)}</div></div></li>`).join('') || '<li class="m">No confluence found</li>'}</ul></div>
       <div class="panel"><h3>Against it</h3><ul class="reasons against">${(r.against || []).map(x => `<li><span class="pt">-${x.points}</span><div>${esc(x.text)}<div><span class="tag">${esc(x.tag)}</span></div></div></li>`).join('') || '<li class="m" style="font-size:13px">Nothing meaningful against it.</li>'}</ul>
         ${(r.headlines || []).length ? `<h3 style="margin-top:16px">Related headlines</h3>${r.headlines.map(n => `<a class="news-item" href="${esc(n.link)}" target="_blank" rel="noopener"><div class="t">${esc(n.title)}</div><div class="meta">${esc(n.source)} · ${ago(n.ts)}</div></a>`).join('')}` : ''}
         <div class="sub" style="margin-top:14px">Source: ${esc(r.source)}. ${esc(r.source_note || '')} Order flow: <span class="est">estimated</span> (${esc(r.volume_source || 'OHLCV')}).</div></div>
     </div>`;
-  const c = Charts.create($('#ckChart')); Charts.set(c, r);
+  const c = Charts.create($('#ckChart')); Charts.set(c, r, ckTg());
+  $('#ckTg').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; const t = ckTg(); t[b.dataset.k] = !t[b.dataset.k]; store.set('ckToggles', t); b.classList.toggle('on', t[b.dataset.k]); c.opts[b.dataset.k] = t[b.dataset.k]; Charts.set(c, r, Object.assign({ fit: false }, t)); });
   if (r.winrate && r.winrate.status === 'computing') pollWR(r);
 }
+
+function ckTg() { return Object.assign({ imb: true, hvz: true, habs: true }, store.get('ckToggles', {})); }
 
 function wrHTML(w, r) {
   const side = r.decision === 'NO TRADE' ? (r.watch?.bias || 'LONG') : r.decision;
@@ -151,6 +160,7 @@ function wrHTML(w, r) {
       <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${sg(w.expectancy_usd ?? 0)}</div><div class="sub">USD/trade at ${money(w.risk_usd ?? 0.5)} risk</div></div>
     </div>
     ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; 20) - treat this win rate as anecdotal.</div>' : ''}
+    ${w.setup_stats ? `<div class="wr-setup">🎯 <b>${esc(w.setup_stats.setup)}</b> on its own: ${w.setup_stats.n ? `win <b class="num">${Math.round(w.setup_stats.win_rate)}%</b> · n ${w.setup_stats.n} · avg <span class="num">${sg(w.setup_stats.avg_r)}R</span>${w.setup_stats.low_sample ? ' · <span class="a">low sample</span>' : ''}` : 'no past occurrences in this history'}</div>` : ''}
     <div class="sub" style="margin-top:8px">Walk-forward replay of the same rules on ${esc(r.source || 'the feed')} history, paper-broker exits (SL first on ambiguous bars, 50% at TP1 then breakeven, trail, TP2). ${esc(w.note || '')} Past results do not predict future ones.</div></div>`;
 }
 
@@ -159,16 +169,44 @@ async function pollWR(r) {
   for (let k = 0; k < 40; k++) {
     await new Promise(res => setTimeout(res, 4000));
     const box = $('#wrBox'); if (!box || box.dataset.sym && box.dataset.sym !== r.symbol) return;
-    const [w] = await load('/api/winrate', { symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence });
+    const su = (r.setups || []).find(x => x.side === side.toLowerCase());
+    const [w] = await load('/api/winrate', { symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence, setup: su ? su.name : '' });
     if (!$('#wrBox')) return;
     if (w && w.status !== 'computing') { $('#wrBox').innerHTML = wrHTML(w, r); return; }
   }
 }
 
+/* ---- session summary card + floating live PnL widget (ATAS / NinjaTrader style) ---- */
+function sessionCard(s) {
+  if (!s) return '';
+  const c = s.net > 0 ? 'glow-g' : s.net < 0 ? 'glow-r' : '';
+  return `<div class="panel sess-card"><div class="label">Session summary · today (UTC)</div>
+    <div class="sess-net num ${c}">${s.net >= 0 ? '+' : '-'}$${Math.abs(s.net).toFixed(2)}</div>
+    <div class="sub" style="margin-top:2px">Net PnL (closed ${money2(s.closed_pnl)} · open ${money2(s.open_pnl)})</div>
+    <div class="sess-grid">
+      <div><div class="k">Trades</div><div class="v num">${s.trades}</div></div>
+      <div><div class="k">Win rate</div><div class="v num">${s.win_rate == null ? '–' : Math.round(s.win_rate) + '%'}</div></div>
+      <div><div class="k">W / L</div><div class="v num"><span class="g">${s.wins}</span> / <span class="r">${s.losses}</span></div></div>
+    </div></div>`;
+}
+const PnlWidget = {
+  async refresh() {
+    const el = $('#pnlw'); if (!el || el.hidden) return;
+    const [s] = await load('/api/session'); if (!s) return;
+    const o = $('#pnlwOpen'), c = $('#pnlwClosed');
+    o.textContent = (s.in_trade && s.open_pnl < 0 ? '-' : '') + Math.abs(s.in_trade ? s.open_pnl : 0).toFixed(2);
+    o.className = 'num ' + (!s.in_trade ? 'flat' : s.open_pnl > 0 ? 'g' : s.open_pnl < 0 ? 'r' : 'flat');
+    c.textContent = (s.closed_pnl < 0 ? '-' : '') + Math.abs(s.closed_pnl).toFixed(2);
+    c.className = 'num ' + (s.closed_pnl > 0 ? 'g' : s.closed_pnl < 0 ? 'r' : 'flat');
+    el.title = s.in_trade ? `${s.open_positions} open paper position(s)` : 'Flat - no open paper positions';
+  },
+  show(on) { const el = $('#pnlw'); if (!el) return; el.hidden = !on || !store.get('pnlWidget', true); if (!el.hidden) this.refresh(); },
+};
+
 /* ================= LIVE CHART ================= */
 Views.chart = async (v) => {
-  let sym = store.get('chartSym', 'NQ=F'), tf = store.get('chartTf', '15m'); const tg = store.get('chartToggles', { fvg: true, ob: true, liq: true, vp: true, sess: true, struct: true });
-  const names = { fvg: 'FVG', ob: 'Order blocks', liq: 'Liquidity', vp: 'Volume profile', sess: 'Killzones', struct: 'BOS / CHoCH' };
+  let sym = store.get('chartSym', 'NQ=F'), tf = store.get('chartTf', '15m'); const tg = Object.assign({ fvg: true, ob: true, liq: true, vp: true, sess: true, struct: true, imb: true, hvz: true, habs: true }, store.get('chartToggles', {}));
+  const names = { fvg: 'FVG', ob: 'Order blocks', liq: 'Liquidity', vp: 'Volume profile', sess: 'Killzones', struct: 'BOS / CHoCH', imb: 'Imbalance levels', hvz: 'HVN zones', habs: 'Heavy absorption' };
   v.innerHTML = `<div class="page-title">Live chart</div><div class="page-sub" id="chSub">Candles with ICT and estimated order-flow overlays.</div>
     <div class="panel" style="padding:12px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -200,7 +238,7 @@ Views.signals = async (v) => {
   const [r, err] = await load('/api/signals'); if (!r) { $('#sg').innerHTML = unavailable('Signals', err); return; }
   $('#sg').innerHTML = `<div class="rows"><div class="row head"><div>Symbol</div><div>Call</div><div>Confluence</div><div class="r-right">Levels</div><div class="r-right">Score · win rate</div></div>${r.signals.map(s => `
     <div class="row"><div><div class="sym">${esc(s.symbol)}</div><div class="sub" style="margin:2px 0 0">${dmy(s.ts)} ${hm(s.ts)} · ${esc(s.tf)}</div></div><div>${sidePill(s.decision)}</div>
-    <div class="tags">${(s.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+    <div class="tags">${tagsH(s.tags, s.setup)}</div>
     <div class="r-right num mono" style="font-size:12px">${fp(s.price)}<div class="sub" style="margin:2px 0 0">SL ${fp(s.sl)} · TP ${fp(s.tp2)}</div></div>
     <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
 };
@@ -262,7 +300,7 @@ Views.journal = async (v) => {
       <div class="num ${pnlClass(tot)}" style="font-weight:800">${ts.length} trades · ${money(tot)}</div></div>
       <div class="rows"><div class="row head"><div>Symbol</div><div>Side</div><div>Confluence</div><div class="r-right">Time</div><div class="r-right">P&amp;L</div></div>
       ${ts.map(t => `<div class="row" title="${esc((t.reasons || []).join('\n'))}"><div><div class="sym">${esc(t.symbol)}</div><div class="sub" style="margin:2px 0 0">${esc(t.exit_reason || t.status)}</div></div><div>${sidePill(t.side)}</div>
-        <div class="tags">${(t.tags || []).map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
+        <div class="tags">${tagsH(t.tags)}</div>
         <div class="r-right m num" style="font-size:12px">${dmy(t.opened_ts)}<div>${hm(t.opened_ts)}</div></div>
         <div class="r-right"><b class="num ${pnlClass(t.pnl_usd)}">${money(t.pnl_usd)}</b><div class="sub num" style="margin:2px 0 0">${t.r_multiple != null ? (t.r_multiple >= 0 ? '+' : '') + Number(t.r_multiple).toFixed(2) + 'R' : 'open'}</div></div></div>`).join('') || '<div class="unavail">No trades yet.</div>'}</div>`;
     $$('#jr .chip[data-f]').forEach(b => b.onclick = () => { if (b.dataset.f === 'side') side = b.dataset.v; else res = b.dataset.v; draw(); });
@@ -305,6 +343,7 @@ Views.settings = async (v) => {
     <div class="panel"><h3>Background</h3><div class="bg-opts" id="bgo">${App.BGS.map(b => `<div class="bg-opt ${b.id === cur ? 'on' : ''}" data-b="${b.id}" style="${b.src ? `background-image:url(${b.src})` : ''}">${b.art ? `<canvas data-art="${b.art}"></canvas>` : ''}${b.id === 'auto' ? '<canvas data-art="flow"></canvas>' : ''}<span>${esc(b.name)}</span></div>`).join('')}</div>
       <div class="sub" style="margin-top:12px">"Cinematic" changes the scene per tab. Photos: The Metropolitan Museum of Art, Open Access (CC0).</div></div>
     <div class="panel"><h3>Display</h3>
+      <div class="set-row"><span>Live PnL widget (Dashboard, Live chart)</span><button class="switch ${store.get('pnlWidget', true) ? 'on' : ''}" data-s="pnlWidget"></button></div>
       <div class="set-row"><span>Floating particles</span><button class="switch ${store.get('particles', true) ? 'on' : ''}" data-s="particles"></button></div>
       <div class="set-row"><span>Splash screen</span><button class="switch ${store.get('splash', true) ? 'on' : ''}" data-s="splash"></button></div>
       <div class="set-row"><span>Background dim</span><input type="range" min="0" max="80" value="${store.get('dim', 25)}" id="dim" style="width:160px"></div>

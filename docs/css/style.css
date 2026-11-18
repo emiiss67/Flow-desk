@@ -391,3 +391,27 @@ body.locked{overflow:hidden}
 .link-btn{color:var(--cyan);text-decoration:underline;font-size:13px;min-height:44px;padding:0 6px;background:none;border:0}
 .demo-banner .link-btn{color:#1a1200;font-weight:800;min-height:44px}
 .unlock .link-btn{margin-top:8px}
+
+/* floating PnL | Closed PnL widget */
+.pnlw{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(22px + var(--safe-bot));z-index:30;width:230px;border-radius:6px;overflow:hidden;
+  background:rgba(12,13,16,.94);border:1px solid rgba(255,255,255,.55);box-shadow:0 12px 40px rgba(0,0,0,.6);font-family:var(--sans)}
+.pnlw[hidden]{display:none}
+.pnlw-h,.pnlw-v{display:grid;grid-template-columns:1fr 1fr}
+.pnlw-h span{padding:7px 10px;font-size:12px;font-weight:600;color:#e5e7eb;text-align:center;border-bottom:1px solid rgba(255,255,255,.18)}
+.pnlw-h span+span,.pnlw-v b+b{border-left:1px solid rgba(255,255,255,.18)}
+.pnlw-h i{font-style:normal;font-size:9px;opacity:.7}
+.pnlw-v b{padding:9px 10px;font-size:15px;text-align:center;font-weight:600}
+.pnlw-v b.flat{color:#e5e7eb}
+.pnlw-v b.g{color:var(--green)} .pnlw-v b.r{color:var(--red)}
+@media (max-width:860px){ .pnlw{bottom:calc(80px + var(--safe-bot));right:10px;width:200px} .pnlw-v b{font-size:14px;padding:8px} }
+
+/* session summary */
+.sess-card{margin-bottom:16px}
+.sess-net{font-size:40px;font-weight:800;letter-spacing:-.01em;margin-top:6px;line-height:1.1}
+.sess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.sess-grid .k{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.12em;font-weight:700}
+.sess-grid .v{font-size:20px;font-weight:700;margin-top:3px}
+.setup-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#1a1000;background:linear-gradient(90deg,#F5B544,#ffd27a);box-shadow:0 0 18px rgba(245,181,68,.35)}
+.tag.setup{color:#1a1000;background:linear-gradient(90deg,#F5B544,#ffd27a);border-color:transparent;font-weight:700}
+.reasons li.is-setup{background:rgba(245,181,68,.07);border-radius:10px;box-shadow:inset 3px 0 0 #F5B544}
+.wr-setup{margin-top:10px;font-size:13px;color:var(--text);padding:8px 10px;border-radius:10px;background:rgba(245,181,68,.08);border:1px solid rgba(245,181,68,.25)}
