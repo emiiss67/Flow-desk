@@ -523,3 +523,4 @@ html.light .a{color:#B7791F}
 @media (prefers-reduced-motion:reduce){ .bg-img.on{animation:none} .panel.pin,.panel.pin::after{animation:none} .bg-img{translate:none} .check-btn::before,.dot-live::after{display:none} }
 @media (min-width:861px){ .check-btn{position:relative} }
 .unlock .check-btn.unlock-go{position:relative}
+.unlock p.ul-ios{font-size:12.5px;color:var(--dim);margin-top:-6px}

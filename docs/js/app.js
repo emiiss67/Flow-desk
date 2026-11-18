@@ -22,8 +22,8 @@ const App = {
   SCENE: { dashboard: 0, check: 1, chart: 'flow', signals: 'flow', positions: 2, news: 1, journal: 2, performance: 'ascend', settings: 0 },
   scene(tab) { const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
   TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'settings'],
-  init() {
-    API.init(); Unlock.init();
+  async init() {
+    await API.init(); Unlock.init();
     $('#demoBanner').hidden = !API.demo;
     $('#unlockOpen')?.addEventListener('click', () => Unlock.show());
     if (API.demo && (new URLSearchParams(location.search).get('unlock') === '1' || (API.standalone() && !store.get('demoChosen', false)))) Unlock.show();
@@ -83,7 +83,7 @@ const Unlock = {
       const b = $('#ulGo'); b.disabled = true; b.textContent = 'Checking…';
       const err = await API.verify(p.api, p.key);
       b.disabled = false; b.textContent = 'Unlock desk';
-      if (err && !$('#ulErr').dataset.force) { $('#ulErr').hidden = false; $('#ulErr').textContent = err + ' Tap Unlock again to save it anyway.'; $('#ulErr').dataset.force = '1'; return; }
+      if (err && /rejected/.test(err) && !$('#ulErr').dataset.force) { $('#ulErr').hidden = false; $('#ulErr').textContent = err + ' Tap Unlock again to save it anyway.'; $('#ulErr').dataset.force = '1'; return; }
       API.save(p.api, p.key); location.reload();
     };
     $('#ulGo').onclick = go;

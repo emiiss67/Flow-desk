@@ -1,5 +1,5 @@
 """Runs a cloudflared quick tunnel to the local API and, whenever the public URL changes,
-sends the owner the desk link via Telegram. Run: python -m flowdesk.tunnel"""
+publishes it (URL only) to docs/endpoint.json so saved desks follow it; Telegram only if auto_alerts. Run: python -m flowdesk.tunnel"""
 from __future__ import annotations
 import logging
 import os
@@ -24,6 +24,8 @@ def desk_link(url: str) -> str:
 
 
 def on_url(url: str, j: Journal, tg: Telegram) -> bool:
+    from .publish import publish_async
+    publish_async(url)          # always (idempotent): keeps docs/endpoint.json = current address, URL only
     if j.get("tunnel_url") == url:
         return False
     j.set("tunnel_url", url)

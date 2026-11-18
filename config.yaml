@@ -78,6 +78,13 @@ events:
     - https://www.cnbc.com/id/20910258/device/rss/rss.html
     - https://feeds.content.dowjones.io/public/rss/mw_topstories
 
+endpoint_publish:            # tunnel URL changes -> docs/endpoint.json (URL only, never the key) so the saved desk reconnects
+  enabled: true
+  repo_dir: ~/flowdesk-repo
+  ssh_key: ~/.ssh/flowdesk_deploy
+  remote: git@github.com:emiiss67/Flow-desk.git
+  branch: main
+
 broker:
   account_currency: EUR       # balance, sizing and P&L are kept in this currency (live FX from the data provider)
   starting_balance: 50        # paper balance in the account currency (€50)
