@@ -398,7 +398,18 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
             t_ = seg["train"]
             en = not (v["n"] >= LIMITS["min_val_n"] and v["exp_r"] < 0 and (t_["exp_r"] or 0) < 0)
         st["stats"], st["enabled"] = seg, en
-        st["reason"] = (f"validation {v['exp_r']:+.2f}R over {v['n']} trades" if v["n"] else "no validation trades yet")
+        vt = f"validation {v['exp_r']:+.2f}R over {v['n']} trades" if v["n"] else "no validation trades"
+        if name in S.STRATEGIES:
+            st["reason"] = (f"On: {vt} and positive over learning + validation combined" if en else
+                            f"Off: {vt} - needs at least {LIMITS['enable_min_n']}" if v["n"] < LIMITS["enable_min_n"] else
+                            f"Off: {vt} - too small an edge" if v["exp_r"] <= LIMITS["enable_min_exp"] else
+                            f"Off: {vt}, but it lost {both['exp_r']:+.2f}R/trade over learning + validation combined")
+        elif name == CORE:
+            st["reason"] = f"{'On' if en else 'Off'}: {vt}"
+        else:
+            st["reason"] = (f"Off: lost in both learning ({seg['train']['exp_r']:+.2f}R) and validation ({v['exp_r']:+.2f}R)" if not en else
+                            f"On: {vt}" if (v["exp_r"] or 0) >= 0 else
+                            f"Kept on: {vt} but {seg['train']['exp_r']:+.2f}R in learning - mixed, not clearly negative; its losing buckets are blocked")
         if en != was:
             changes.append({"kind": "enable" if en else "disable", "strategy": name, "val": v,
                             "text": f"{'Enabled' if en else 'Disabled'} {NAMES[name]}: {st['reason']} (test {seg['test']['exp_r'] if seg['test']['exp_r'] is not None else 0:+.2f}R over {seg['test']['n']})"})

@@ -358,7 +358,7 @@ Views.learning = async (v) => {
   const [d, err] = await load('/api/learning'); if (!d) { $('#lrn').innerHTML = `<div class="panel">${unavailable('Learning', err)}</div>`; return; }
   if (d.currency) Cur.set(d.currency, d.currency_symbol);
   const r = d.rules || {}; const st = r.strategies || {}; const names = d.names || {}; const desc = d.descriptions || {};
-  const eur = d.eur_per_r; const e = x => (x == null || eur == null) ? '' : `<span class="m"> ≈ ${money(x * eur)}</span>`;
+  const eur = d.eur_per_r; const e = x => (x == null || eur == null) ? '' : `<div class="sub">≈ ${money(x * eur)} / trade</div>`;
   const sm = r.summary || {}; const b = sm.before || {}, a = sm.after || {};
   const running = d.status?.state === 'running';
   const cmp = (lab, x, y, f, better) => { const up = x != null && y != null && (better ? y > x : y < x); return `<div><div class="k">${lab}</div><div class="v ${y == null || x == null ? '' : y > x ? 'g' : y < x ? 'r' : ''}">${f(y)}</div><div class="sub">before ${f(x)}</div></div>`; };
@@ -379,7 +379,7 @@ Views.learning = async (v) => {
     <div class="panel"><div class="lr-top"><div><div class="label" style="margin:0">Rules version ${r.version ?? 0}${r.created ? ' · ' + dmy(r.created) + ' ' + hm(r.created) : ''}</div>
       <div class="sub">${esc(r.note || '')}${d.status?.state ? ' · last run: ' + esc(d.status.state) + (d.status.step ? ' (' + esc(d.status.step) + ')' : '') : ''}. Runs every night automatically.</div></div>
       ${API.demo ? '' : `<button class="btn pri" id="lrnRun" ${running || d.requested ? 'disabled' : ''}>${running ? 'Learning…' : d.requested ? 'Queued…' : 'Learn now'}</button>`}</div></div>
-    <div class="wr" style="margin-top:16px"><div class="wr-h"><span>Before vs after learning</span><span class="sub" style="font-weight:400">${days ? `newest ~${days} days, never used to make any decision` : 'not learned yet'}</span></div>
+    <div class="panel" style="margin-top:16px"><div class="wr-h"><span>Before vs after learning</span><span class="sub" style="font-weight:400">${days ? `newest ~${days} days, never used to make any decision` : 'not learned yet'}</span></div>
       <div class="wr-grid">${cmp('Win rate', b.win_rate, a.win_rate, wrTxt, true)}${cmp('Avg per trade', b.exp_r, a.exp_r, fmtR, true)}
         <div><div class="k">≈ per trade</div><div class="v ${pnlClass(a.exp_r)}">${eur != null && a.exp_r != null ? money(a.exp_r * eur) : '–'}</div><div class="sub">before ${eur != null && b.exp_r != null ? money(b.exp_r * eur) : '–'}</div></div>
         <div><div class="k">Trades</div><div class="v">${a.n ?? '–'}</div><div class="sub">before ${b.n ?? '–'}</div></div>
