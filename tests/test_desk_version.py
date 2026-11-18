@@ -25,3 +25,13 @@ def test_desk_has_no_hardcoded_dollar_money():
         s = p.read_text()
         assert "'-'}$${" not in s and "+ '$' +" not in s and "'$' +" not in s, p.name
         assert not re.search(r"[^\\$]\$\$\{", s), p.name
+
+
+def test_names_json_matches_instruments():
+    import json
+    from pathlib import Path
+    from flowdesk import instruments
+    p = Path(__file__).resolve().parents[1] / "docs" / "names.json"
+    assert json.loads(p.read_text()) == instruments.names(), "run python3 tools/stamp_version.py"
+    for sym, v in instruments.names().items():
+        assert not any(x in v["name"] for x in ("=X", "=F", "^", "-USD")), sym

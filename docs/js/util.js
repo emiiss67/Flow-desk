@@ -23,11 +23,12 @@ function levTxt(l) { return l == null ? '' : (l >= 1 ? Math.round(l).toLocaleStr
 function stakeText(s) { if (!s) return ''; return `Risk ${money2(s.risk_eur)}${s.risk_pct != null ? ` (${+s.risk_pct}%)` : ''} · Size ${s.size_text} · Notional ${money(s.notional_eur, false)}${s.leverage != null ? ' · ' + levTxt(s.leverage) : ''}`; }
 function stakeRow(s, { pnl = false } = {}) {
   if (!s) return '';
-  const seg = [`<span title="Amount lost if the initial stop is hit${s.equity_at_entry ? ', as % of the ' + money2(s.equity_at_entry) + ' balance at entry' : ''}">Risk <b class="num">${money2(s.risk_eur)}</b>${s.risk_pct != null ? ` <span class="num">(${+s.risk_pct}%)</span>` : ''}</span>`,
+  const simple = Mode.simple();
+  const seg = [`<span title="Amount lost if the initial stop is hit${s.equity_at_entry ? ', as % of the ' + money2(s.equity_at_entry) + ' balance at entry' : ''}">${simple ? 'Money at risk' : 'Risk'} <b class="num">${money2(s.risk_eur)}</b>${s.risk_pct != null ? ` <span class="num">(${+s.risk_pct}%${simple ? ' of balance' : ''})</span>` : ''}</span>`,
     `<span title="Position size (${s.qty} units of the instrument)">Size <b class="num">${esc(s.size_text)}</b></span>`,
-    `<span title="Notional value: size × price × point value × FX">Notional <b class="num">${money(s.notional_eur, false)}</b></span>`];
-  if (s.leverage != null) seg.push(`<span title="Notional ÷ balance at entry (paper leverage used)"><b class="num">${levTxt(s.leverage)}</b></span>`);
-  if (pnl && s.pnl_pct_of_risk != null) seg.push(`<span title="P&amp;L as % of the amount risked">P&amp;L <b class="num ${pnlClass(s.pnl_pct_of_risk)}">${s.pnl_pct_of_risk > 0 ? '+' : ''}${+s.pnl_pct_of_risk}%</b> of risk</span>`);
+    `<span title="Notional value: size × price × point value × FX">${simple ? 'Trade size (with leverage)' : 'Notional'} <b class="num">${money(s.notional_eur, false)}</b></span>`];
+  if (s.leverage != null) seg.push(`<span title="Notional ÷ balance at entry (paper leverage used)"><b class="num">${levTxt(s.leverage)}</b>${simple ? ' leverage' : ''}</span>`);
+  if (pnl && s.pnl_pct_of_risk != null) seg.push(`<span title="P&amp;L as % of the amount risked">${simple ? 'Result' : 'P&amp;L'} <b class="num ${pnlClass(s.pnl_pct_of_risk)}">${s.pnl_pct_of_risk > 0 ? '+' : ''}${+s.pnl_pct_of_risk}%</b> of ${simple ? 'the money at risk' : 'risk'}</span>`);
   return `<div class="stake">${seg.join('<i>·</i>')}</div>`;
 }
 function pnlClass(v) { return v > 0 ? 'g' : v < 0 ? 'r' : 'm'; }
@@ -65,6 +66,8 @@ const Theme = {
     crimson: { name: 'Crimson', sub: 'Dark · blood red', g: '#34D399', r: '#FF2E4D', c: '#FF6B81', panel: '#16090c', a: 0.46, glow: 1.05, scenes: ['verus', 'severus', 'warrior'] },
     ocean: { name: 'Ocean', sub: 'Dark · deep blue', g: '#2EE6C5', r: '#FF5C7A', c: '#4FA8FF', panel: '#08111c', a: 0.44, glow: 1, scenes: ['ocean', 'severus', 'warrior'] },
     emerald: { name: 'Emerald', sub: 'Dark · bronze patina', g: '#2CF59B', r: '#F0525F', c: '#9BE15D', panel: '#06130d', a: 0.46, glow: 1.1, scenes: ['emerald', 'herodotos', 'antinoos'] },
+    luxury: { name: 'Luxury', sub: 'Dark · black & gold', g: '#E8C15A', r: '#E5484D', c: '#F6E3B0', panel: '#0c0a07', a: 0.52, glow: 0.8, scenes: ['luxskyline', 'luxchandelier', 'luxharbor'] },
+    motivation: { name: 'Motivation', sub: 'Dark · sunrise energy', g: '#22E58A', r: '#FF3D57', c: '#FFB020', panel: '#120c0a', a: 0.46, glow: 1.1, scenes: ['motsummit', 'motmatterhorn', 'mottrack'] },
   },
   cur: null,
   rgb(hex) { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(x => x + x).join('') : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); },
@@ -90,3 +93,84 @@ const Theme = {
   get glow() { return +(this.cur || this.load()).glow; },
 };
 Theme.load(); Theme.apply();
+
+/* ---- friendly market names: one map from the instruments module (docs/names.json = /api/names) ---- */
+const Names = {
+  map: (() => { try { return JSON.parse(localStorage.getItem('fd_names') || '{}'); } catch { return {}; } })(),
+  async load() {
+    try { const r = await fetch('names.json', { cache: 'no-cache' }); if (r.ok) { this.map = await r.json(); localStorage.setItem('fd_names', JSON.stringify(this.map)); } } catch { }
+  },
+};
+function nm(sym) {
+  const s = String(sym || '').trim(), u = s.toUpperCase(); const x = Names.map[u]; if (x) return x.name;
+  let m = u.match(/^([A-Z]{3})([A-Z]{3})=X$/); if (m) return m[1] + '/' + m[2];
+  return u.replace(/=F$/, '').replace(/^\^/, '').replace(/-USD$/, '') || s;
+}
+function nmIcon(sym) { const x = Names.map[String(sym || '').toUpperCase()]; return x ? x.icon : ''; }
+function nmH(sym) { const i = nmIcon(sym); return `${i ? `<span class="mk-ic" aria-hidden="true">${i}</span>` : ''}${esc(nm(sym))}`; }
+/* replace raw tickers inside free text (stored reasons / learned rules) with friendly names */
+function deTicker(t) { return String(t ?? '').replace(/\^?[A-Z0-9]{1,10}(=X|=F|-USD)|\^[A-Z0-9]{2,10}/g, m => nm(m)); }
+
+/* ---- display mode: Simple (plain English, default) or Pro (full trading terms) ---- */
+const Mode = {
+  get() { try { return localStorage.getItem('fd_mode') || 'simple'; } catch { return 'simple'; } },
+  set(m) { try { localStorage.setItem('fd_mode', m); } catch { } this.apply(); },
+  simple() { return this.get() !== 'pro'; },
+  apply() { document.documentElement.classList.toggle('simple', this.simple()); },
+};
+Mode.apply();
+const smp = (simple, pro) => Mode.simple() ? simple : pro;
+function tip(text) { return `<button type="button" class="tip" aria-label="${esc(text)}" data-tip="${esc(text)}">i</button>`; }
+const TIPS = {
+  stop: 'Stop loss: the price where the bot closes the trade to cap the loss.',
+  tp: 'Take profit: the price where the bot locks in the gain (half at the first target, the rest at the second).',
+  risk: 'The most this trade can lose if the stop loss is hit.',
+  notional: 'The full value of the position. Leverage lets a small balance control a bigger trade, which makes wins and losses bigger.',
+  entry: 'The price the trade was opened at.',
+};
+function sideWord(s) { return Mode.simple() ? (s === 'LONG' ? 'Buy' : s === 'SHORT' ? 'Sell' : s === 'NO TRADE' ? 'No trade' : s) : s; }
+/* plain-English "why this trade" from the strategy tags */
+function whyText(tags, side) {
+  const up = side !== 'SHORT'; const T = new Set((tags || []).map(String));
+  const P = [];
+  const add = (k, s) => { if ([].concat(k).some(x => T.has(x))) P.push(s); };
+  add('BOS', up ? 'price broke above a recent high' : 'price broke below a recent low');
+  add('CHoCH', up ? 'the short-term trend just turned up' : 'the short-term trend just turned down');
+  add('Liquidity sweep', up ? 'price dipped under a recent low and bounced back' : 'price poked above a recent high and fell back');
+  add('Delta +', 'buyers were stronger'); add('Delta -', 'sellers were stronger');
+  add('Pressure surge', up ? 'there was a burst of buying' : 'there was a burst of selling');
+  add(['Absorption', 'HVN Absorption', 'Key Level Absorption Reversal'], up ? 'big orders soaked up the selling' : 'big orders soaked up the buying');
+  add('Order block', 'price came back to a zone where big orders were placed before');
+  add('FVG', 'price returned to a gap it left earlier');
+  add('OTE', 'price pulled back to a good-value entry');
+  add('Discount', 'price is in the cheap part of its recent range'); add('Premium', 'price is in the expensive part of its recent range');
+  add('HTF bias', 'the bigger trend points the same way');
+  add(['Volume node', 'Round number'], 'it is near a price level traders watch');
+  add('Structure', 'the price pattern supports it');
+  if (!P.length) return '';
+  const top = P.slice(0, 3); let s = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1] : top[0];
+  if (T.has('Killzone')) s += ', during a busy trading session';
+  return s.charAt(0).toUpperCase() + s.slice(1) + '.';
+}
+function whyH(tags, side, setup) {
+  const t = whyText([...(tags || []), ...(setup ? [setup] : [])], side); if (!t) return '';
+  return `<details class="why"><summary>Why this trade</summary><div>${esc(t)}</div></details>`;
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('.tip');
+  $$('.tip.on').forEach(x => { if (x !== t) x.classList.remove('on'); });
+  if (t) { e.preventDefault(); e.stopPropagation(); t.classList.toggle('on'); }
+}, true);
+
+/* ---- motivational line on the dashboard (per theme; on by default in Simple mode, off in Pro) ---- */
+const Quotes = {
+  on() { const v = store.get('quotes', null); return v == null ? Mode.simple() : !!v; },
+  set(v) { store.set('quotes', !!v); },
+  LIST: {
+    luxury: ['Quiet discipline builds loud results.', 'Protect the downside and the upside takes care of itself.', 'Patience is the most expensive skill in the room.', 'Small, careful steps compound into something big.'],
+    motivation: ['One good habit a day beats one lucky trade.', 'The climb is the training. Keep going.', 'Show up, follow the plan, let the results come.', 'Losses are lessons. Review, adjust, go again.'],
+    _: ['Follow the plan. Size small. Stay consistent.', 'No trade is also a position.', 'Every loss is capped. Every day is a fresh start.'],
+  },
+  today() { const th = Theme.cur?.theme; const l = this.LIST[th] || this.LIST._; const d = Math.floor(Date.now() / 86400000); return l[d % l.length]; },
+};

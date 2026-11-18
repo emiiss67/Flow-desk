@@ -26,7 +26,20 @@ def content_hash() -> str:
     return h.hexdigest()[:12]
 
 
+def write_names() -> None:
+    """docs/names.json = instruments.names(), so demo/offline desk uses the same friendly names as the API."""
+    if os.environ.get("FD_DOCS"):
+        return
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from flowdesk import instruments
+    txt = json.dumps(instruments.names(), ensure_ascii=False, separators=(",", ":"))
+    p = DOCS / "names.json"
+    if not p.exists() or p.read_text() != txt:
+        p.write_text(txt)
+
+
 def stamp() -> str:
+    write_names()
     v = content_hash()
     idx = (DOCS / "index.html").read_text()
     idx = re.sub(r'\?v=[0-9a-z]+', f'?v={v}', idx)

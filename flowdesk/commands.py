@@ -46,10 +46,10 @@ def fmt_sizing(sz: dict | None) -> str:
 
 def fmt_check(r: dict) -> str:
     if not r.get("ok"):
-        return f"<b>{esc(r['symbol'])}</b>: data unavailable"
+        return f"<b>{esc(instruments.display(r['symbol']))}</b>: data unavailable"
     d = r["decision"]
     icon = {"LONG": "🟢", "SHORT": "🔴"}.get(d, "⚪")
-    lines = [f"{icon} <b>{esc(r['symbol'])} {esc(r['tf'])} - {d}</b> · PAPER",
+    lines = [f"{icon} <b>{esc(instruments.display(r['symbol']))} {esc(r['tf'])} - {d}</b> · PAPER",
              f"Price {fmt(r['price'])}" + (f"\n🎯 Setup: <b>{esc(r['setup'])}</b>" if r.get("setup") else ""),
              fmt_winrate(r.get("winrate"), r.get("confluence"))]
     if r.get("sizing") and r["decision"] in ("LONG", "SHORT"):
@@ -107,7 +107,7 @@ class Commands:
             u = (t["last_price"] - t["entry"]) * sgn * t["qty_open"] * t["point_value"] * t["usd_mult"] if t["last_price"] else 0
             st = stake.of_trade(dict(t, unrealized=u), self.b.ccy)
             pr = f" ({st['pnl_pct_of_risk']:+g}% of risk)" if st["pnl_pct_of_risk"] is not None else ""
-            out.append(f"{'🟢' if sgn > 0 else '🔴'} <b>{esc(t['symbol'])}</b> {t['side']} @ {fmt(t['entry'])}  "
+            out.append(f"{'🟢' if sgn > 0 else '🔴'} <b>{esc(instruments.display(t['symbol']))}</b> {t['side']} @ {fmt(t['entry'])}  "
                        f"SL {fmt(t['sl'])} TP {fmt(t['tp1'])}/{fmt(t['tp2'])}  <b>{fmt_money(u, self.b.ccy)}</b>{pr}\n"
                        f"   💰 {esc(st['text'])}")
         return "\n".join(out)
@@ -136,7 +136,7 @@ class Commands:
             for t in last:
                 st = stake.of_trade(t, c)
                 pr = f" ({st['pnl_pct_of_risk']:+g}% of risk)" if st["pnl_pct_of_risk"] is not None else ""
-                lines.append(f"{esc(t['symbol'])} {t['side']} <b>{fmt_money(t['pnl_usd'] or 0, c)}</b>{pr}\n   💰 {esc(st['text'])}")
+                lines.append(f"{esc(instruments.display(t['symbol']))} {t['side']} <b>{fmt_money(t['pnl_usd'] or 0, c)}</b>{pr}\n   💰 {esc(st['text'])}")
         return "\n".join(lines)
 
     def cmd_pause(self, a):
@@ -159,15 +159,15 @@ class Commands:
         sym = instruments.normalize(a[0])
         ts = [t for t in self.b.open_trades() if t["symbol"] == sym]
         if not ts:
-            return f"No open position on {esc(sym)}."
+            return f"No open position on {esc(instruments.display(sym))}."
         df = self.p.candles(sym, ts[0]["tf"] or "15m")
         px = float(df["close"].iloc[-1])
         ev = self.b.close(ts[0]["id"], px, "manual close")
-        return f"Closed {esc(sym)} at {fmt(px)}: <b>{fmt_money(ev['pnl'], self.b.ccy)}</b> (paper)"
+        return f"Closed {esc(instruments.display(sym))} at {fmt(px)}: <b>{fmt_money(ev['pnl'], self.b.ccy)}</b> (paper)"
 
     def cmd_watchlist(self, a):
         wl = get_config().get("watchlist", [])
-        return "<b>Watchlist</b>\n" + "\n".join(f"• {esc(w['symbol'])} {esc(w.get('tf', '15m'))}" for w in wl)
+        return "<b>Watchlist</b>\n" + "\n".join(f"• {esc(instruments.display(w['symbol']))} {esc(w.get('tf', '15m'))}" for w in wl)
 
     def cmd_news(self, a):
         n = events.news()

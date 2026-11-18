@@ -78,7 +78,7 @@ class Bot:
                 for ev in evs:
                     tr = ev["trade"]
                     emoji = "✅" if ev["pnl"] >= 0 else "❌"
-                    self.alert(f"{emoji} <b>{esc(tr['symbol'])}</b> {tr['side']} {esc(ev['kind'])} at "
+                    self.alert(f"{emoji} <b>{esc(instruments.display(tr['symbol']))}</b> {tr['side']} {esc(ev['kind'])} at "
                                f"{fmt(ev['price'])}: <b>{fmt_money(ev['pnl'], self.b.ccy)}</b> (paper)"
                                + (f"\nTrade total {fmt_money(tr['pnl_usd'], self.b.ccy)}" if tr["status"] == "closed" else
                                   "\nRest running, stop moved to breakeven"))
@@ -172,7 +172,7 @@ class Bot:
         if t:
             self.j.x("UPDATE trades SET signal_id=? WHERE id=?", (sid, t["id"]))
             log.info("paper entry %s %s %s risk %.1f%% (%s)", sym, stream, t["side"], t["risk_pct"] or 0, t["risk_reason"])
-            self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}"
+            self.alert(f"📥 <b>Paper entry</b> {esc(instruments.display(sym))} {t['side']} @ {fmt(t['entry'])}"
                        + (f" · 🎯 {esc(setup)}" if setup else "") + "\n"
                        f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {fmt_money(t['risk_usd'], self.b.ccy, False)}")
 
@@ -236,7 +236,7 @@ class Bot:
                 continue
             k = f"{e['ccy']}|{e['title']}|{e['ts']}"
             if 0 < e["ts"] - now <= 30 * 60 and k not in sent:
-                syms = [w["symbol"] for w in self.cfg.get("watchlist", []) if e["ccy"] in instruments.info(w["symbol"])["ccy"]]
+                syms = [instruments.display(w["symbol"]) for w in self.cfg.get("watchlist", []) if e["ccy"] in instruments.info(w["symbol"])["ccy"]]
                 self.alert(f"⚠️ <b>{esc(e['ccy'])} {esc(e['title'])}</b> in {round((e['ts'] - now) / 60)} min "
                            f"(high impact). No new entries on {esc(', '.join(syms))} around it.")
                 sent.add(k)

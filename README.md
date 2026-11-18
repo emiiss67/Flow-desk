@@ -103,3 +103,16 @@ Without an API the desk runs in **DEMO** mode with sample data and a clear "DEMO
 * Concept inspiration: ProfitPro Trading's FlowPro bot for ATAS. FlowDesk is an independent implementation and is not affiliated.
 
 Not financial advice. Paper trading only.
+
+* Luxury and Motivation theme photos (docs/assets/bg/luxury-*.jpg, motivation-*.jpg): photographers' Unsplash uploads
+  published on Wikimedia Commons under **CC0 1.0 (public domain dedication)**; cropped to 16:9, tone-adjusted (Luxury slightly darkened, Motivation more saturated with a darker top for readable text),
+  re-compressed. No brand logos visible.
+
+  | File | Theme | Source | Photographer | Licence |
+  |---|---|---|---|---|
+  | luxury-skyline.jpg | Luxury | [Dubai skyline unsplash](https://commons.wikimedia.org/wiki/File:Dubai_skyline_unsplash.jpg) | Robert Bock (via Unsplash) | CC0 |
+  | luxury-chandelier.jpg | Luxury | [Chandelier unsplash](https://commons.wikimedia.org/wiki/File:Chandelier_unsplash.jpg) | Erol Ahmed (via Unsplash) | CC0 |
+  | luxury-harbor.jpg | Luxury | [Bright skyline over water (Unsplash)](https://commons.wikimedia.org/wiki/File:Bright_skyline_over_water_(Unsplash).jpg) | Osman Rana osmanrana (via Unsplash) | CC0 |
+  | motivation-summit.jpg | Motivation | [Men watching sunrise on peak (Unsplash)](https://commons.wikimedia.org/wiki/File:Men_watching_sunrise_on_peak_(Unsplash).jpg) | Jordan McQueen jordanfmcqueen (via Unsplash) | CC0 |
+  | motivation-matterhorn.jpg | Motivation | [Matterhorn sunset 2016 (Unsplash)](https://commons.wikimedia.org/wiki/File:Matterhorn_sunset_2016_(Unsplash).jpg) | Sam Ferrara samferrara (via Unsplash) | CC0 |
+  | motivation-track.jpg | Motivation | [800 meter line (Unsplash)](https://commons.wikimedia.org/wiki/File:800_meter_line_(Unsplash).jpg) | Tirza van Dijk tirzavandijk (via Unsplash) | CC0 |

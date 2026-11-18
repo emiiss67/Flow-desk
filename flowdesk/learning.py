@@ -106,7 +106,7 @@ def allow(rules: dict, strategy: str, symbol: str, feats: dict, score: float | N
         return False, f"learned: confluence {score:.0f} below the learned minimum {st['params']['min_score']:g}"
     sym = rules.get("symbols", {}).get(symbol)
     if sym and strategy in sym.get("blocked", []):
-        return False, f"learned: {NAMES.get(strategy, strategy)} has no edge on {symbol}"
+        return False, f"learned: {NAMES.get(strategy, strategy)} has no edge on {instruments.display(symbol)}"
     f = dict(feats, symbol=symbol)
     for b in rules.get("blocks", []):
         if b["strategy"] == strategy and str(f.get(b["feature"])) == str(b["bucket"]):
@@ -383,7 +383,7 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
             if k < len(by.get(name, [])) and len(picked) < LIMITS["max_new_blocks"]:
                 picked.append(by[name][k])
     for _, name, fk, bk, a, v in picked:
-        text = f"{NAMES[name]} {S.FEATURE_LABEL.get(fk, fk)} {bk.replace('_', ' ')}: {a['exp_r']:+.2f}R/trade over {a['n']} training trades, {v['exp_r']:+.2f}R over {v['n']} validation trades"
+        text = f"{NAMES[name]} {S.FEATURE_LABEL.get(fk, fk)} {instruments.display(bk) if fk == 'symbol' else bk.replace('_', ' ')}: {a['exp_r']:+.2f}R/trade over {a['n']} training trades, {v['exp_r']:+.2f}R over {v['n']} validation trades"
         kept.append({"strategy": name, "feature": fk, "bucket": bk, "train": a, "val": v, "added": int(time.time()), "text": text})
         changes.append({"kind": "block", "strategy": name, "feature": fk, "bucket": bk, "train": a, "val": v, "text": "Blocked " + text})
     new["blocks"] = kept
@@ -472,7 +472,7 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
                     g = [t for t in lt if str(t["f"].get(fk)) == bk]
                     sm = live_summary(g)
                     if sm["n"] >= 3 and sm["pnl"] < 0:
-                        bl.append({"feature": fk, "bucket": bk, **sm, "label": f"{S.FEATURE_LABEL.get(fk, fk)} {bk.replace('_', ' ')}"})
+                        bl.append({"feature": fk, "bucket": bk, **sm, "label": f"{S.FEATURE_LABEL.get(fk, fk)} {instruments.display(bk) if fk == 'symbol' else bk.replace('_', ' ')}"})
             live["loss_buckets"] = sorted(bl, key=lambda z: z["pnl"])[:8]
         except Exception as e:
             log.warning("live trade analysis failed: %s", e)

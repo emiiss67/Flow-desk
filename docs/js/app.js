@@ -14,6 +14,12 @@ const App = {
     { id: 'warrior', name: 'Wounded warrior', src: 'assets/bg/statue-warrior.jpg' },
     { id: 'marblewoman', name: 'White marble · lady', src: 'assets/bg/marble-woman-light.jpg', light: true },
     { id: 'marbleherodotos', name: 'White marble · Herodotos', src: 'assets/bg/marble-herodotos-light.jpg', light: true },
+    { id: 'luxskyline', name: 'Luxury · night skyline', src: 'assets/bg/luxury-skyline.jpg' },
+    { id: 'luxchandelier', name: 'Luxury · golden lights', src: 'assets/bg/luxury-chandelier.jpg' },
+    { id: 'luxharbor', name: 'Luxury · harbour at night', src: 'assets/bg/luxury-harbor.jpg' },
+    { id: 'motsummit', name: 'Motivation · summit sunrise', src: 'assets/bg/motivation-summit.jpg' },
+    { id: 'motmatterhorn', name: 'Motivation · Matterhorn', src: 'assets/bg/motivation-matterhorn.jpg' },
+    { id: 'mottrack', name: 'Motivation · running track', src: 'assets/bg/motivation-track.jpg' },
     { id: 'ascend', name: 'Ascend (generated)', art: 'ascend' },
     { id: 'flow', name: 'Order flow (generated)', art: 'flow' },
     { id: 'none', name: 'Plain' },
@@ -23,7 +29,7 @@ const App = {
   scene(tab) { const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
   TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'learning', 'settings'],
   async init() {
-    await API.init(); Unlock.init();
+    await Promise.all([API.init(), Names.load()]); Unlock.init();
     $('#demoBanner').hidden = !API.demo;
     $('#unlockOpen')?.addEventListener('click', () => Unlock.show());
     if (API.demo && (new URLSearchParams(location.search).get('unlock') === '1' || (API.standalone() && !store.get('demoChosen', false)))) Unlock.show();

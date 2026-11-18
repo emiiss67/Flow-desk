@@ -58,6 +58,52 @@ _add("BTC-USD", "Bitcoin", "Crypto", 1, ("USD",), ["bitcoin", "btc", "crypto"])
 _add("ETH-USD", "Ethereum", "Crypto", 1, ("USD",), ["ethereum", "ether", "crypto"])
 _add("SOL-USD", "Solana", "Crypto", 1, ("USD",), ["solana", "crypto"])
 
+# Friendly names for people (desk + Telegram): never show raw Yahoo tickers (=X, =F, ^, -USD).
+FLAG = {"USD": "🇺🇸", "EUR": "🇪🇺", "GBP": "🇬🇧", "JPY": "🇯🇵", "AUD": "🇦🇺", "CAD": "🇨🇦", "CHF": "🇨🇭", "NZD": "🇳🇿",
+        "CNY": "🇨🇳", "HKD": "🇭🇰"}
+DISPLAY = {
+    "ES=F": ("S&P 500 (ES)", "🇺🇸"), "NQ=F": ("Nasdaq 100 (NQ)", "🇺🇸"), "YM=F": ("Dow (YM)", "🇺🇸"),
+    "RTY=F": ("Russell 2000 (RTY)", "🇺🇸"), "ZN=F": ("10-year Treasury (ZN)", "🇺🇸"), "ZB=F": ("30-year Treasury (ZB)", "🇺🇸"),
+    "6E=F": ("Euro futures (6E)", "🇪🇺"),
+    "^GSPC": ("S&P 500 index", "🇺🇸"), "^NDX": ("Nasdaq 100 index", "🇺🇸"), "^DJI": ("Dow index", "🇺🇸"),
+    "^GDAXI": ("DAX 40", "🇩🇪"), "^FTSE": ("FTSE 100", "🇬🇧"), "^N225": ("Nikkei 225", "🇯🇵"),
+    "^STOXX50E": ("Euro Stoxx 50", "🇪🇺"), "^HSI": ("Hang Seng", "🇭🇰"), "^VIX": ("VIX fear index", "📈"),
+    "GC=F": ("Gold", "🥇"), "SI=F": ("Silver", "🥈"), "CL=F": ("Oil (WTI)", "🛢️"), "BZ=F": ("Brent oil", "🛢️"),
+    "NG=F": ("Natural gas", "🔥"), "HG=F": ("Copper", "🟠"), "PL=F": ("Platinum", "⚪"),
+    "BTC-USD": ("Bitcoin", "₿"), "ETH-USD": ("Ethereum", "◆"), "SOL-USD": ("Solana", "◎"),
+}
+
+
+def display(symbol: str) -> str:
+    """'EURUSD=X' -> 'EUR/USD', 'NQ=F' -> 'Nasdaq 100 (NQ)', '^DJI' -> 'Dow index', 'BTC-USD' -> 'Bitcoin'."""
+    s = (symbol or "").strip().upper()
+    if s in DISPLAY:
+        return DISPLAY[s][0]
+    m = re.fullmatch(r"([A-Z]{3})([A-Z]{3})=X", s)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    if s.endswith("=F"):
+        return s[:-2]
+    if s.startswith("^"):
+        return s[1:]
+    if s.endswith("-USD"):
+        return s[:-4]
+    return s
+
+
+def icon(symbol: str) -> str:
+    s = (symbol or "").strip().upper()
+    if s in DISPLAY:
+        return DISPLAY[s][1]
+    m = re.fullmatch(r"([A-Z]{3})([A-Z]{3})=X", s)
+    return (FLAG.get(m.group(1), "") + FLAG.get(m.group(2), "")) if m else ""
+
+
+def names() -> dict:
+    """The one shared display-name map (served by /api/names, mirrored in docs/names.json for demo mode)."""
+    return {i["symbol"]: {"name": display(i["symbol"]), "icon": icon(i["symbol"]), "long": i["name"]} for i in CATALOG}
+
+
 BY_SYMBOL = {i["symbol"]: i for i in CATALOG}
 CATEGORY_KEY = {"Forex": "forex", "Futures": "futures", "Indices": "indices", "Commodities": "commodities",
                 "Crypto": "crypto"}
@@ -109,7 +155,7 @@ def search(q: str = "", category: str | None = None) -> list[dict]:
             continue
         if q and q not in i["symbol"].lower() and q not in i["name"].lower():
             continue
-        out.append({k: i[k] for k in ("symbol", "name", "category")})
+        out.append(dict({k: i[k] for k in ("symbol", "name", "category")}, display=display(i["symbol"]), icon=icon(i["symbol"])))
     return out
 
 

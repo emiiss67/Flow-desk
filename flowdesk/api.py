@@ -198,6 +198,12 @@ def api_chart(symbol: str = Query(..., max_length=24), tf: str = "15m"):
     return out
 
 
+@app.get("/api/names")
+def api_names():
+    """Friendly market names (the same map the desk ships as docs/names.json)."""
+    return {"names": instruments.names()}
+
+
 @app.get("/api/instruments")
 def api_instruments(q: str = "", category: str | None = None):
     return {"categories": ["Forex", "Indices", "Futures", "Commodities", "Crypto"],
