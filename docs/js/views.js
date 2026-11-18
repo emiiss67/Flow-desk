@@ -185,11 +185,11 @@ function wrHTML(w, r) {
   const wc = w.win_rate >= 50 ? 'g' : w.win_rate >= 40 ? 'a' : 'r';
   return `<div class="wr">${head}
     <div class="wr-grid">
-      <div><div class="k">Win rate</div><div class="v num ${wc}">${pc(w.win_rate)}</div><div class="sub">TP1 before SL</div></div>
-      <div><div class="k">Full TP2</div><div class="v num">${pc(w.tp2_rate)}</div><div class="sub">ran to target</div></div>
+      <div><div class="k">${smp('How often it worked', 'Win rate')}</div><div class="v num ${wc}">${pc(w.win_rate)}</div><div class="sub">${smp('hit take profit 1 before the stop', 'TP1 before SL')}</div></div>
+      <div><div class="k">${smp('Went all the way', 'Full TP2')}</div><div class="v num">${pc(w.tp2_rate)}</div><div class="sub">${smp('reached take profit 2', 'ran to target')}</div></div>
       <div><div class="k">Trades (n)</div><div class="v num">${w.n}</div><div class="sub">${w.period_from ? dmy(w.period_from) + ' → ' + dmy(w.period_to) : ''}</div></div>
-      <div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>
-      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${money(w.expectancy_usd ?? 0)}</div><div class="sub">per trade at ${money2(w.risk_usd ?? 5)} risk</div></div>
+      ${Mode.simple() ? '' : `<div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>`}
+      <div><div class="k">${smp('Average result per trade', 'Expectancy')}</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${money(w.expectancy_usd ?? 0)}</div><div class="sub">${smp('when risking ' + money2(w.risk_usd ?? 5), 'per trade at ' + money2(w.risk_usd ?? 5) + ' risk')}</div></div>
     </div>
     ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; ${App.cfg?.sizing?.low_sample_n ?? 20}) - treat this win rate as anecdotal.</div>' : ''}
     ${w.setup_stats ? `<div class="wr-setup">🎯 <b>${esc(w.setup_stats.setup)}</b> on its own: ${w.setup_stats.n ? `win <b class="num">${Math.round(w.setup_stats.win_rate)}%</b> · n ${w.setup_stats.n} · avg <span class="num">${sg(w.setup_stats.avg_r)}R</span>${w.setup_stats.low_sample ? ' · <span class="a">low sample</span>' : ''}` : 'no past occurrences in this history'}</div>` : ''}
