@@ -41,3 +41,15 @@ def test_old_trades_backfilled(tmp_path):
     t = Journal(str(p)).trades()[0]                       # migration recomputes from qty / pv / fx / risk %
     assert t["notional_eur"] == pytest.approx(t["qty"] * 6000 * 50)
     assert t["leverage"] == pytest.approx(t["notional_eur"] / t["equity_at_entry"])
+
+
+def test_very_old_trades_get_balance_estimate():
+    j = Journal(":memory:")
+    b = PaperBroker(j, CFG)
+    b.open("ES=F", "LONG", 6000, 5990, 6015, 6030)
+    j.x("UPDATE trades SET equity_at_entry=NULL, leverage=NULL, risk_pct=NULL")
+    PaperBroker(j, CFG)                                   # start balance 10,000 with nothing closed before
+    t = j.trades()[0]
+    assert t["equity_at_entry"] == pytest.approx(10000)
+    s = stake.of_trade(t)
+    assert s["risk_pct"] == pytest.approx(1, abs=0.05) and s["leverage"] == pytest.approx(t["notional_eur"] / 10000, abs=0.1)

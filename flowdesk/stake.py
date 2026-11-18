@@ -45,6 +45,8 @@ def of_trade(t: dict, ccy: str = "EUR") -> dict:
     if notional is None:
         notional = abs(qty * float(t.get("entry") or 0) * float(t.get("point_value") or 1) * float(t.get("usd_mult") or 1))
     lev = t.get("leverage") or (notional / eq if eq else None)
+    if rp is None and eq:                          # old trade: risk % of the (estimated) balance at entry
+        rp = 100 * risk / eq
     sv, unit = size_unit(t["symbol"], qty)
     pnl = float(t.get("pnl_usd") or 0) + float(t.get("unrealized") or 0)
     out = {"risk_eur": round(risk, 2), "risk_pct": round(float(rp), 1) if rp is not None else None, "qty": qty,

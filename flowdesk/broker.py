@@ -34,6 +34,18 @@ class PaperBroker:
         self.slip_bps = float(c.get("slippage_bps", 0.5))
         if self.j.get("balance") is None:
             self.j.set("balance", self.start_balance)
+        self._backfill_stake()
+
+    def _backfill_stake(self):
+        """Trades from before risk % was stored have no balance-at-entry: use the realized balance when they opened
+        (start + P&L of trades closed before), so their leverage can still be shown. Approximate (ignores open P&L)."""
+        old = self.j.q("SELECT id, opened_ts, notional_eur FROM trades WHERE equity_at_entry IS NULL")
+        for t in old:
+            r = self.j.q("SELECT COALESCE(SUM(pnl_usd), 0) p FROM trades WHERE status='closed' AND closed_ts <= ?", (t["opened_ts"],))
+            eq = self.start_balance + (r[0]["p"] or 0)
+            if eq > 0:
+                self.j.x("UPDATE trades SET equity_at_entry=?, leverage=? WHERE id=?",
+                         (round(eq, 2), (t["notional_eur"] or 0) / eq, t["id"]))
 
     # ----- accounting -----
     @property
