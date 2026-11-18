@@ -369,6 +369,22 @@ Views.performance = async (v) => {
 /* ================= LEARNING ================= */
 const fmtR = v => v == null ? '–' : (v >= 0 ? '+' : '') + Number(v).toFixed(2) + 'R';
 const wrTxt = v => v == null ? '–' : Math.round(v) + '%';
+function newsTestH(n) {
+  if (!n || !n.modes) return '';
+  const seg = (lab, x) => `<div class="lr-c"><div class="k">${lab}</div><b class="${pnlClass(x?.exp_r)}">${fmtR(x?.exp_r)}</b><div class="sub">${wrTxt(x?.win_rate)} win · n ${x?.n ?? 0}${x?.t != null ? ' · t ' + x.t : ''}</div></div>`;
+  const nm = { follow: 'Follow the surprise', fade: 'Fade the spike' };
+  const ds = { follow: 'Enter in the direction the actual-vs-forecast surprise implies, a few minutes after the release.', fade: 'Enter against a large release spike, aiming back at the pre-release price.' };
+  const P = p => p ? `${p.delay} min after · hold ≤ ${p.hold} min${p.mode === 'follow' ? ` · surprise ≥ ${p.zmin}σ${p.wide ? ' · wide stop' : ''}` : ` · spike ≥ ${p.spike}× normal range`}` : '';
+  const rows = Object.entries(n.modes).map(([k, m]) => `<div class="lr-row"><div class="lr-n"><b>${esc(nm[k] || k)}</b> ${m.passed ? '<span class="badge-ok">PASSED</span>' : '<span class="badge-bad">OFF · failed</span>'}<div class="sub">${esc(ds[k] || '')}<br>Best on learn data: ${esc(P(m.params))}. ${m.learn_configs_positive ?? 0}/${m.learn_configs_eligible ?? 0} settings profitable after costs on learn data${m.test_configs_positive != null ? `, ${m.test_configs_positive}/${m.grid_size} on test` : ''}.${m.gross_no_costs ? ` Before costs, test ${fmtR(m.gross_no_costs.test?.exp_r)}.` : ''}</div></div>
+      ${seg('Learn', m.learn)}${seg('Validation', m.validate)}${seg('Test', m.test)}</div>`).join('');
+  const re = n.reaction || {}; const rr = Object.entries(re).map(([s, x]) => `<span class="tag">${esc(s)} ${x.right_first_minute_pct}% → ${x.right_2_to_32min_pct}%</span>`).join('');
+  const seg2 = n.segments || {};
+  return `<div class="panel" style="margin-top:16px"><h3>News trading test <span class="right">${Object.values(n.modes).some(m => m.passed) ? 'passed' : 'not enabled'}</span></h3>
+    <div class="sub" style="margin-bottom:6px">${(n.events?.learn ?? 0) + (n.events?.validate ?? 0) + (n.events?.test ?? 0)} US high-impact releases with actual vs forecast (learn ${esc((seg2.learn || [])[0] || '')}…, validation ${esc((seg2.validate || [])[0] || '')}…, test ${esc((seg2.test || [])[0] || '')} to ${esc((seg2.test || [])[1] || '')}) on 1-minute EURUSD, GBPUSD, USDJPY, gold, S&amp;P 500 and Nasdaq. Costs: spread widened up to 6× at the release plus slippage; stops that gap fill at the next price. Results in R (1R = amount risked).</div>
+    <div class="rows">${rows}</div>
+    <div class="sub" style="margin-top:8px">Surprise direction right in the first minute → 2–32 min after: ${rr}</div>
+    <div class="sub" style="margin-top:6px">The reaction is real but almost all of it happens in the first minute, before a retail order can get in at a normal spread; from minute 2 on it is close to a coin flip. ${Object.values(n.modes).some(m => m.passed) ? 'A variant passed validation and test after costs; it still starts small and switches itself off if live paper results degrade.' : 'Neither variant made money after costs on data it was not tuned on, so news trading stays off and the news blackout stays on.'} Sources: Forex Factory calendar history (community snapshot, to 7 Apr 2025), HistData.com 1-minute bars. Past results do not guarantee future results.</div></div>`;
+}
 Views.learning = async (v) => {
   v.innerHTML = `<div class="page-title">Learning</div><div class="page-sub">The bot studies every backtest and paper trade, blocks what keeps losing and only trades strategies that showed an edge on data they were not tuned on.</div><div id="lrn"><div class="skeleton" style="height:520px"></div></div>`;
   const [d, err] = await load('/api/learning'); if (!d) { $('#lrn').innerHTML = `<div class="panel">${unavailable('Learning', err)}</div>`; return; }
@@ -404,6 +420,7 @@ Views.learning = async (v) => {
     <div class="panel" style="margin-top:16px"><h3>Strategies <span class="right">${order.filter(k => st[k].enabled).length} on · ${order.filter(k => !st[k].enabled).length} off</span></h3>
       <div class="sub" style="margin-bottom:6px">A strategy is switched on only if it made money in the validation period with enough trades, and switched off when it clearly loses. Numbers are after the learned blocks.</div>
       <div class="rows">${order.map(sRow).join('') || '<div class="unavail">Nothing learned yet</div>'}</div></div>
+${newsTestH(d.news)}
     <div class="grid cols-2" style="margin-top:16px">
       <div class="panel"><h3>Blocked combinations <span class="right">${blocks.length}</span></h3><div class="sub">Situations that lost in the learning data and kept losing in the validation data. The bot skips them.</div>
         <div class="rows">${blocks.map(x => `<div class="lr-b"><span class="r">⛔</span><div>${esc(x.text)}</div></div>`).join('') || '<div class="unavail">No blocks</div>'}</div></div>

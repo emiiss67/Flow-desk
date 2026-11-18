@@ -1,0 +1,555 @@
+{
+ "generated": 1795028615,
+ "segments": {
+  "learn": [
+   "2018-01-01",
+   "2022-01-01"
+  ],
+  "validate": [
+   "2022-01-01",
+   "2024-01-01"
+  ],
+  "test": [
+   "2024-01-01",
+   "2025-04-08"
+  ]
+ },
+ "events": {
+  "learn": 754,
+  "validate": 358,
+  "test": 232
+ },
+ "event_types": {
+  "Unemployment Claims": 266,
+  "ISM Manufacturing PMI": 88,
+  "Non-Farm Employment Change": 88,
+  "ISM Services PMI": 88,
+  "Core CPI m/m": 87,
+  "Flash Manufacturing PMI": 87,
+  "ADP Non-Farm Employment Change": 86,
+  "Core PCE Price Index m/m": 86,
+  "Retail Sales m/m": 84,
+  "Prelim UoM Consumer Sentiment": 81,
+  "CB Consumer Confidence": 81,
+  "PPI m/m": 77,
+  "JOLTS Job Openings": 70,
+  "Empire State Manufacturing Index": 46,
+  "Advance GDP q/q": 29
+ },
+ "index_signs_learned": {
+  "SPXUSD": {
+   "growth": 1,
+   "inflation": -1,
+   "jobs": 1
+  },
+  "NSXUSD": {
+   "growth": 1,
+   "inflation": -1,
+   "jobs": 1
+  }
+ },
+ "reaction": {
+  "EURUSD=X": {
+   "n": 682,
+   "right_first_minute_pct": 70.8,
+   "right_2_to_32min_pct": 52.8,
+   "drift_2_to_32min_spreads": 1.1,
+   "right_5_to_65min_pct": 50.7,
+   "drift_5_to_65min_spreads": 0.38
+  },
+  "GBPUSD=X": {
+   "n": 682,
+   "right_first_minute_pct": 67.2,
+   "right_2_to_32min_pct": 49.9,
+   "drift_2_to_32min_spreads": 0.91,
+   "right_5_to_65min_pct": 49.3,
+   "drift_5_to_65min_spreads": 0.39
+  },
+  "USDJPY=X": {
+   "n": 685,
+   "right_first_minute_pct": 77.1,
+   "right_2_to_32min_pct": 56.1,
+   "drift_2_to_32min_spreads": 2.3,
+   "right_5_to_65min_pct": 53.9,
+   "drift_5_to_65min_spreads": 1.71
+  },
+  "GC=F": {
+   "n": 679,
+   "right_first_minute_pct": 76.6,
+   "right_2_to_32min_pct": 51.4,
+   "drift_2_to_32min_spreads": 1.56,
+   "right_5_to_65min_pct": 49.8,
+   "drift_5_to_65min_spreads": 0.75
+  },
+  "ES=F": {
+   "n": 675,
+   "right_first_minute_pct": 59.3,
+   "right_2_to_32min_pct": 55.6,
+   "drift_2_to_32min_spreads": 2.0,
+   "right_5_to_65min_pct": 49.5,
+   "drift_5_to_65min_spreads": 0.74
+  },
+  "NQ=F": {
+   "n": 674,
+   "right_first_minute_pct": 55.5,
+   "right_2_to_32min_pct": 54.0,
+   "drift_2_to_32min_spreads": 1.89,
+   "right_5_to_65min_pct": 50.1,
+   "drift_5_to_65min_spreads": 1.06
+  }
+ },
+ "modes": {
+  "follow": {
+   "grid_size": 96,
+   "learn_configs_positive": 0,
+   "learn_configs_eligible": 96,
+   "params": {
+    "mode": "follow",
+    "delay": 5,
+    "hold": 15,
+    "zmin": 1.5,
+    "spike": 3.0,
+    "wide": true,
+    "cost": 1.0
+   },
+   "gross_no_costs": {
+    "learn": {
+     "n": 1773,
+     "win_rate": 50.5,
+     "exp_r": 0.015,
+     "t": 1.2,
+     "pf": 1.08,
+     "total_r": 26.9
+    },
+    "validate": {
+     "n": 643,
+     "win_rate": 56.0,
+     "exp_r": 0.04,
+     "t": 2.23,
+     "pf": 1.25,
+     "total_r": 25.9
+    },
+    "test": {
+     "n": 342,
+     "win_rate": 54.7,
+     "exp_r": 0.017,
+     "t": 0.77,
+     "pf": 1.12,
+     "total_r": 5.9
+    }
+   },
+   "learn": {
+    "n": 1773,
+    "win_rate": 37.1,
+    "exp_r": -0.13,
+    "t": -11.26,
+    "pf": 0.5,
+    "total_r": -231.2
+   },
+   "validate": {
+    "n": 643,
+    "win_rate": 49.0,
+    "exp_r": -0.044,
+    "t": -2.58,
+    "pf": 0.77,
+    "total_r": -28.4
+   },
+   "test": {
+    "n": 342,
+    "win_rate": 46.8,
+    "exp_r": -0.059,
+    "t": -2.67,
+    "pf": 0.67,
+    "total_r": -20.2
+   },
+   "test_by_symbol": {
+    "EURUSD=X": {
+     "n": 57,
+     "win_rate": 43.9,
+     "exp_r": -0.096,
+     "t": -1.93,
+     "pf": 0.51,
+     "total_r": -5.5
+    },
+    "GBPUSD=X": {
+     "n": 57,
+     "win_rate": 43.9,
+     "exp_r": -0.078,
+     "t": -1.63,
+     "pf": 0.55,
+     "total_r": -4.5
+    },
+    "USDJPY=X": {
+     "n": 57,
+     "win_rate": 50.9,
+     "exp_r": -0.05,
+     "t": -1.0,
+     "pf": 0.68,
+     "total_r": -2.9
+    },
+    "GC=F": {
+     "n": 57,
+     "win_rate": 49.1,
+     "exp_r": -0.025,
+     "t": -0.36,
+     "pf": 0.88,
+     "total_r": -1.4
+    },
+    "ES=F": {
+     "n": 57,
+     "win_rate": 43.9,
+     "exp_r": -0.056,
+     "t": -1.05,
+     "pf": 0.69,
+     "total_r": -3.2
+    },
+    "NQ=F": {
+     "n": 57,
+     "win_rate": 49.1,
+     "exp_r": -0.048,
+     "t": -0.94,
+     "pf": 0.72,
+     "total_r": -2.7
+    }
+   },
+   "test_by_event": {
+    "ADP Non-Farm Employment Change": {
+     "n": 12,
+     "win_rate": 33.3,
+     "exp_r": -0.053,
+     "t": -0.23,
+     "pf": 0.83,
+     "total_r": -0.6
+    },
+    "Advance GDP q/q": {
+     "n": 18,
+     "win_rate": 55.6,
+     "exp_r": -0.004,
+     "t": -0.08,
+     "pf": 0.96,
+     "total_r": -0.1
+    },
+    "CB Consumer Confidence": {
+     "n": 24,
+     "win_rate": 37.5,
+     "exp_r": -0.151,
+     "t": -2.15,
+     "pf": 0.28,
+     "total_r": -3.6
+    },
+    "Empire State Manufacturing Index": {
+     "n": 24,
+     "win_rate": 50.0,
+     "exp_r": -0.053,
+     "t": -0.5,
+     "pf": 0.76,
+     "total_r": -1.3
+    },
+    "Flash Manufacturing PMI": {
+     "n": 36,
+     "win_rate": 41.7,
+     "exp_r": -0.084,
+     "t": -1.34,
+     "pf": 0.55,
+     "total_r": -3.0
+    },
+    "ISM Manufacturing PMI": {
+     "n": 24,
+     "win_rate": 54.2,
+     "exp_r": -0.004,
+     "t": -0.04,
+     "pf": 0.98,
+     "total_r": -0.1
+    },
+    "ISM Services PMI": {
+     "n": 42,
+     "win_rate": 40.5,
+     "exp_r": -0.084,
+     "t": -1.64,
+     "pf": 0.52,
+     "total_r": -3.5
+    },
+    "JOLTS Job Openings": {
+     "n": 30,
+     "win_rate": 40.0,
+     "exp_r": -0.154,
+     "t": -2.04,
+     "pf": 0.35,
+     "total_r": -4.6
+    },
+    "Non-Farm Employment Change": {
+     "n": 48,
+     "win_rate": 56.2,
+     "exp_r": 0.023,
+     "t": 0.57,
+     "pf": 1.26,
+     "total_r": 1.1
+    },
+    "Prelim UoM Consumer Sentiment": {
+     "n": 30,
+     "win_rate": 46.7,
+     "exp_r": -0.097,
+     "t": -1.14,
+     "pf": 0.59,
+     "total_r": -2.9
+    },
+    "Retail Sales m/m": {
+     "n": 18,
+     "win_rate": 72.2,
+     "exp_r": 0.108,
+     "t": 1.19,
+     "pf": 2.06,
+     "total_r": 1.9
+    },
+    "Unemployment Claims": {
+     "n": 36,
+     "win_rate": 38.9,
+     "exp_r": -0.095,
+     "t": -1.36,
+     "pf": 0.51,
+     "total_r": -3.4
+    }
+   },
+   "test_configs_positive": 0,
+   "passed": false
+  },
+  "fade": {
+   "grid_size": 48,
+   "learn_configs_positive": 0,
+   "learn_configs_eligible": 48,
+   "params": {
+    "mode": "fade",
+    "delay": 5,
+    "hold": 15,
+    "zmin": 1.0,
+    "spike": 8.0,
+    "wide": false,
+    "cost": 1.0
+   },
+   "gross_no_costs": {
+    "learn": {
+     "n": 405,
+     "win_rate": 41.7,
+     "exp_r": 0.231,
+     "t": 2.97,
+     "pf": 1.43,
+     "total_r": 93.7
+    },
+    "validate": {
+     "n": 340,
+     "win_rate": 32.4,
+     "exp_r": -0.079,
+     "t": -1.06,
+     "pf": 0.87,
+     "total_r": -26.9
+    },
+    "test": {
+     "n": 282,
+     "win_rate": 28.4,
+     "exp_r": -0.242,
+     "t": -3.33,
+     "pf": 0.62,
+     "total_r": -68.4
+    }
+   },
+   "learn": {
+    "n": 408,
+    "win_rate": 30.6,
+    "exp_r": -0.381,
+    "t": -6.05,
+    "pf": 0.5,
+    "total_r": -155.4
+   },
+   "validate": {
+    "n": 340,
+    "win_rate": 29.4,
+    "exp_r": -0.379,
+    "t": -5.74,
+    "pf": 0.5,
+    "total_r": -128.9
+   },
+   "test": {
+    "n": 282,
+    "win_rate": 25.9,
+    "exp_r": -0.48,
+    "t": -7.23,
+    "pf": 0.38,
+    "total_r": -135.3
+   },
+   "test_by_symbol": {
+    "EURUSD=X": {
+     "n": 55,
+     "win_rate": 27.3,
+     "exp_r": -0.428,
+     "t": -2.8,
+     "pf": 0.43,
+     "total_r": -23.6
+    },
+    "GBPUSD=X": {
+     "n": 50,
+     "win_rate": 22.0,
+     "exp_r": -0.645,
+     "t": -5.13,
+     "pf": 0.21,
+     "total_r": -32.2
+    },
+    "USDJPY=X": {
+     "n": 68,
+     "win_rate": 29.4,
+     "exp_r": -0.421,
+     "t": -3.01,
+     "pf": 0.43,
+     "total_r": -28.6
+    },
+    "GC=F": {
+     "n": 28,
+     "win_rate": 25.0,
+     "exp_r": -0.332,
+     "t": -1.32,
+     "pf": 0.57,
+     "total_r": -9.3
+    },
+    "ES=F": {
+     "n": 41,
+     "win_rate": 22.0,
+     "exp_r": -0.567,
+     "t": -3.15,
+     "pf": 0.33,
+     "total_r": -23.2
+    },
+    "NQ=F": {
+     "n": 40,
+     "win_rate": 27.5,
+     "exp_r": -0.458,
+     "t": -2.61,
+     "pf": 0.37,
+     "total_r": -18.3
+    }
+   },
+   "test_by_event": {
+    "ADP Non-Farm Employment Change": {
+     "n": 7,
+     "win_rate": 28.6,
+     "exp_r": -0.437,
+     "t": -0.72,
+     "pf": 0.53,
+     "total_r": -3.1
+    },
+    "Advance GDP q/q": {
+     "n": 7,
+     "win_rate": 0.0,
+     "exp_r": -1.136,
+     "t": -14.02,
+     "pf": 0.0,
+     "total_r": -8.0
+    },
+    "CB Consumer Confidence": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.127,
+     "t": null,
+     "pf": 0.0,
+     "total_r": -1.1
+    },
+    "Core CPI m/m": {
+     "n": 63,
+     "win_rate": 22.2,
+     "exp_r": -0.517,
+     "t": -4.11,
+     "pf": 0.3,
+     "total_r": -32.6
+    },
+    "Core PCE Price Index m/m": {
+     "n": 13,
+     "win_rate": 23.1,
+     "exp_r": -0.777,
+     "t": -3.55,
+     "pf": 0.13,
+     "total_r": -10.1
+    },
+    "Empire State Manufacturing Index": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.161,
+     "t": -26.44,
+     "pf": 0.0,
+     "total_r": -2.3
+    },
+    "Flash Manufacturing PMI": {
+     "n": 11,
+     "win_rate": 9.1,
+     "exp_r": -0.806,
+     "t": -5.88,
+     "pf": 0.0,
+     "total_r": -8.9
+    },
+    "ISM Manufacturing PMI": {
+     "n": 8,
+     "win_rate": 25.0,
+     "exp_r": -0.312,
+     "t": -0.53,
+     "pf": 0.66,
+     "total_r": -2.5
+    },
+    "ISM Services PMI": {
+     "n": 25,
+     "win_rate": 16.0,
+     "exp_r": -0.816,
+     "t": -6.26,
+     "pf": 0.07,
+     "total_r": -20.4
+    },
+    "JOLTS Job Openings": {
+     "n": 5,
+     "win_rate": 20.0,
+     "exp_r": -0.744,
+     "t": -2.34,
+     "pf": 0.03,
+     "total_r": -3.7
+    },
+    "Non-Farm Employment Change": {
+     "n": 59,
+     "win_rate": 33.9,
+     "exp_r": -0.219,
+     "t": -1.36,
+     "pf": 0.66,
+     "total_r": -12.9
+    },
+    "PPI m/m": {
+     "n": 34,
+     "win_rate": 41.2,
+     "exp_r": -0.075,
+     "t": -0.3,
+     "pf": 0.88,
+     "total_r": -2.5
+    },
+    "Prelim UoM Consumer Sentiment": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.087,
+     "t": -41.0,
+     "pf": 0.0,
+     "total_r": -2.2
+    },
+    "Retail Sales m/m": {
+     "n": 24,
+     "win_rate": 25.0,
+     "exp_r": -0.471,
+     "t": -1.91,
+     "pf": 0.43,
+     "total_r": -11.3
+    },
+    "Unemployment Claims": {
+     "n": 21,
+     "win_rate": 28.6,
+     "exp_r": -0.657,
+     "t": -3.26,
+     "pf": 0.24,
+     "total_r": -13.8
+    }
+   },
+   "test_configs_positive": 0,
+   "passed": false
+  }
+ }
+}

@@ -392,7 +392,23 @@ def api_learning():
     return {"ok": True, "paper": True, "rules": r, "names": learning.NAMES, "descriptions": {k: v["desc"] for k, v in
             learning.S.STRATEGIES.items()},
             "history": learning.history(), "status": j.get("learn_status"), "requested": bool(j.get("learn_request")),
-            "eur_per_r": risk_eur, "base_risk_pct": float((get_config().get("sizing", {}) or {}).get("base_risk_pct", 15)), **_cur()}
+            "eur_per_r": risk_eur, "base_risk_pct": float((get_config().get("sizing", {}) or {}).get("base_risk_pct", 15)),
+            "news": _news_test(), **_cur()}
+
+
+def _news_test():
+    """Latest news-reaction backtest (tools/news_backtest.py): data/learned/ copy if re-run there, else the committed one."""
+    import json
+    from pathlib import Path
+    from .config import data_dir
+    for p in (data_dir() / "learned" / "news_backtest.json", Path(__file__).resolve().parents[1] / "research" / "news_backtest.json"):
+        try:
+            r = json.loads(p.read_text())
+            r.pop("event_types", None)
+            return r
+        except Exception:
+            continue
+    return None
 
 
 @app.get("/api/learning/run")
