@@ -39,7 +39,8 @@ Views.dashboard = async (v) => {
     <div class="panel eq-dash" style="margin-top:16px"><h3>Equity curve <span class="right">hover or drag to read any point</span></h3><div class="eq-box"><canvas id="eqd"></canvas></div></div>
     <div class="grid cols-3" style="margin-top:16px">
       <div class="panel"><h3>Win streak</h3><div class="big num">${d.streak}</div><div class="sub">wins in a row · best ${d.best_streak}</div><div class="streak">${streakDash}</div></div>
-      <div class="panel"><h3>Last 14 trades</h3><div class="bars-mid"><div class="axis"></div><div class="cols">${lt.length ? lt.map(t => `<div class="col" title="${esc(t.symbol)} ${money(t.pnl)}"><i class="${t.pnl > 0 ? 'p' : 'n'}" style="height:${Math.max(3, Math.abs(t.pnl) / mx * 48)}%"></i></div>`).join('') : '<div class="m" style="margin:auto;font-size:13px">No trades yet</div>'}</div></div></div>
+      <div class="panel"><h3>Last 14 trades</h3><div class="bars-mid"><div class="axis"></div><div class="cols">${lt.length ? lt.map((t, i) => `<div class="col" data-i="${i}" title="${esc(t.symbol)} ${t.side || ''} ${money(t.pnl)}${t.stake ? ' · ' + esc(stakeText(t.stake)) + (t.stake.pnl_pct_of_risk != null ? ' · P&L ' + t.stake.pnl_pct_of_risk + '% of risk' : '') : ''}"><i class="${t.pnl > 0 ? 'p' : 'n'}" style="height:${Math.max(3, Math.abs(t.pnl) / mx * 48)}%"></i></div>`).join('') : '<div class="m" style="margin:auto;font-size:13px">No trades yet</div>'}</div></div>
+        ${lt.slice(-3).reverse().map(t => `<div class="lt-row"><div><b>${esc(t.symbol)}</b> ${t.side ? sidePill(t.side) : ''} <span class="m num" style="font-size:11.5px">${dmy(t.time)} ${hm(t.time)}</span><b class="num right ${pnlClass(t.pnl)}">${money(t.pnl)}</b></div>${stakeRow(t.stake, { pnl: true })}</div>`).join('')}</div>
       <div class="panel"><h3>P&amp;L · 30 days <span class="right num ${pnlClass(net30)}">${money(net30)}</span></h3><div class="bars">${d.daily_30.map(x => `<div class="b ${x.pnl > 0 ? 'p' : x.pnl < 0 ? 'n' : 'z'}" title="${x.date} ${money(x.pnl)}" style="height:${x.pnl ? Math.max(6, Math.abs(x.pnl) / dm * 100) : 3}%"></div>`).join('')}</div></div>
     </div>
     <div class="panel" style="margin-top:16px"><h3>When it works · hour by weekday <span class="right">UTC hours · entries</span></h3>${heatmap(d.heatmap)}</div>`;
@@ -51,7 +52,7 @@ Views.dashboard = async (v) => {
   $('#dSide').innerHTML = sessionCard(d.session) + `
     <div class="panel"><h3>Today's plan</h3><ul class="plan">${d.plan.map(p => `<li><span class="ck">✓</span>${esc(p)}</li>`).join('')}</ul></div>
     <div class="panel" style="margin-top:16px"><h3>Open positions <span class="right">${d.open_positions.length}</span></h3>${d.open_positions.length ? d.open_positions.map(p => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)"><div><b>${esc(p.symbol)}</b> ${sidePill(p.side)}<div class="sub">@ ${fp(p.entry)} · SL ${fp(p.sl)}</div></div><div class="num ${pnlClass(p.unrealized)}" style="font-weight:800">${money(p.unrealized)}</div></div>`).join('') : '<div class="m" style="font-size:13px">Flat. Waiting for confluence.</div>'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)"><div><b>${esc(p.symbol)}</b> ${sidePill(p.side)}<div class="sub">@ ${fp(p.entry)} · SL ${fp(p.sl)}</div></div><div class="num ${pnlClass(p.unrealized)}" style="font-weight:800">${money(p.unrealized)}</div></div>${p.stake ? `<div style="padding:0 0 8px;border-bottom:1px solid var(--line);margin-top:-1px">${stakeRow(p.stake)}</div>` : ''}`).join('') : '<div class="m" style="font-size:13px">Flat. Waiting for confluence.</div>'}</div>
     <div class="panel" style="margin-top:16px"><h3>High-impact next</h3>${ev.length ? ev.map(e => `<div class="ev" style="grid-template-columns:60px 40px 1fr"><span class="m num">${inTime(e.ts)}</span><span class="ccy">${esc(e.ccy)}</span><span><i class="imp High" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></i>${esc(e.title)}</span></div>`).join('') : '<div class="m" style="font-size:13px">Nothing high-impact left this week.</div>'}</div>
     <div class="panel glass-lite" style="margin-top:16px"><h3>About to trade?</h3><div class="sub" style="margin:0 0 12px">Run any instrument through the order-flow + ICT check first.</div><button class="btn pri" style="width:100%" onclick="App.go('check')">Open pre-trade check →</button></div>`;
 };
@@ -151,7 +152,7 @@ function renderResult(r) {
 function szHTML(r) {
   const z = r.sizing; if (!z || !['LONG', 'SHORT'].includes(r.decision)) return '';
   if (z.skip) return `<div class="warn block" style="margin-top:12px">⛔ The bot would skip this: ${esc(z.reason)}</div>`;
-  return `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">Risk per trade (win-rate sizing)</div><div class="sub" style="margin:2px 0 0">${esc(z.reason)}</div>${z.risk_amount != null ? `<div class="sub" style="margin:4px 0 0"><b class="hi num">${money2(z.risk_amount)}</b> at risk · size <span class="num">${+Number(z.qty).toPrecision(4)}</span> ${z.quote_ccy && z.quote_ccy !== z.currency ? `· ${esc(z.quote_ccy)}→${esc(z.currency)} ${Number(z.fx_mult).toPrecision(5)}` : ''}</div>` : ''}</div></div>`;
+  return `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">Risk per trade (win-rate sizing)</div><div class="sub" style="margin:2px 0 0">${esc(z.reason)}</div>${z.risk_amount != null ? `<div class="sub" style="margin:4px 0 0"><b class="hi num">${money2(z.risk_amount)}</b> at risk · size <span class="num">${z.size_text ? esc(z.size_text) : +Number(z.qty).toPrecision(4)}</span>${z.notional != null ? ` · notional <b class="num">${money(z.notional, false)}</b>` : ''}${z.leverage != null ? ` · <b class="num">${levTxt(z.leverage)}</b>` : ''} ${z.quote_ccy && z.quote_ccy !== z.currency ? `· ${esc(z.quote_ccy)}→${esc(z.currency)} ${Number(z.fx_mult).toPrecision(5)}` : ''}</div>` : ''}</div></div>`;
 }
 
 function ckTg() { return Object.assign({ imb: true, hvz: true, habs: true }, store.get('ckToggles', {})); }
@@ -231,6 +232,7 @@ Views.chart = async (v) => {
         <div class="toggles" id="chtg">${Object.keys(names).map(k => `<button class="chip ${tg[k] ? 'on' : ''}" data-k="${k}">${names[k]}</button>`).join('')}</div>
       </div>
       <div class="chart-box tall" id="lc"></div>
+      <div id="chTr"></div>
       <div class="legend"><span><i style="background:rgba(${Theme.G},.9)"></i>Buy pressure surge</span><span><i style="background:rgba(${Theme.R},.9)"></i>Sell pressure surge</span><span><i style="background:var(--cyan);border-radius:50%"></i>Absorption</span><span>Bars below: estimated delta</span><span class="est">estimated</span></div>
     </div>`;
   const c = Charts.create($('#lc'));
@@ -239,6 +241,8 @@ Views.chart = async (v) => {
     if (!r || !r.ok) { $('#chSub').innerHTML = `<span class="r">${esc(sym)}: data unavailable</span> ${esc(err || r?.detail || '')}`; return; }
     $('#chSub').innerHTML = `${esc(r.name)} · ${esc(r.tf)} · last <b class="num">${fp(r.price)}</b> · ${esc(r.source)} <span style="color:var(--dim)">${esc(r.source_note || '')}</span>`;
     Charts.set(c, r, Object.assign({}, tg, { fit, levels: true }));
+    const tr = r.trades || [];
+    $('#chTr').innerHTML = tr.length ? `<div class="label" style="margin:12px 0 4px">Bot trades on ${esc(r.symbol)}</div>` + tr.map(t => `<div class="lt-row"><div><b>${t.status === 'open' ? 'Open' : 'Closed'}</b> ${sidePill(t.side)} <span class="m num" style="font-size:11.5px">@ ${fp(t.entry)}${t.status === 'open' ? ' · SL ' + fp(t.sl) : ' → ' + fp(t.exit_price)} · ${dmy(t.status === 'open' ? t.opened_ts : t.closed_ts)}</span><b class="num right ${pnlClass(t.status === 'open' ? t.unrealized + t.realized : t.pnl_usd)}">${money(t.status === 'open' ? t.unrealized + t.realized : t.pnl_usd)}</b></div>${stakeRow(t.stake, { pnl: true })}</div>`).join('') : '';
   };
   go();
   $('#chq').addEventListener('change', e => { sym = e.target.value.trim().toUpperCase(); store.set('chartSym', sym); go(); });
@@ -255,23 +259,34 @@ Views.signals = async (v) => {
     <div class="row"><div><div class="sym">${esc(s.symbol)}</div><div class="sub" style="margin:2px 0 0">${dmy(s.ts)} ${hm(s.ts)} · ${esc(s.tf)}</div></div><div>${sidePill(s.decision)}</div>
     <div class="tags">${tagsH(s.tags, s.setup)}</div>
     <div class="r-right num mono" style="font-size:12px">${fp(s.price)}<div class="sub" style="margin:2px 0 0">SL ${fp(s.sl)} · TP ${fp(s.tp2)}</div></div>
-    <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}${s.risk_pct != null ? `<div class="sub" style="margin:2px 0 0" title="${esc(s.risk_reason || '')}">risk <b class="num">${+s.risk_pct.toFixed(1)}%</b></div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
+    <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}${s.risk_pct != null ? `<div class="sub" style="margin:2px 0 0" title="${esc(s.risk_reason || '')}">risk <b class="num">${+s.risk_pct.toFixed(1)}%</b></div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>${s.stake ? `<div class="row-note">${stakeRow(s.stake, { pnl: true })}</div>` : ''}`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
 };
 
 /* ================= POSITIONS ================= */
 Views.positions = async (v) => {
-  v.innerHTML = `<div class="page-title">Positions</div><div class="page-sub">Open paper positions. Manage from Telegram with <span class="mono">/close SYMBOL</span>, <span class="mono">/pause</span>.</div><div class="panel" id="ps"><div class="skeleton" style="height:200px"></div></div>`;
+  v.innerHTML = `<div class="page-title">Positions</div><div class="page-sub">Open paper positions and what went into each. Manage from Telegram with <span class="mono">/close SYMBOL</span>, <span class="mono">/pause</span>.</div><div class="panel" id="ps"><div class="skeleton" style="height:200px"></div></div><div class="panel" id="pc" style="margin-top:14px"></div>`;
   const draw = async () => {
-    const [r, err] = await load('/api/positions'); if (!r) { $('#ps').innerHTML = unavailable('Positions', err); return; }
+    const [r, err] = await load('/api/positions'); if (!r) { $('#ps').innerHTML = unavailable('Positions', err); $('#pc').innerHTML = ''; return; }
     const tot = r.positions.reduce((a, p) => a + p.unrealized, 0);
-    $('#ps').innerHTML = `<h3>Open · ${r.positions.length} <span class="right num ${pnlClass(tot)}" style="font-weight:800">${money(tot)} unrealized</span></h3>` + (r.positions.map(p => `
+    const inRisk = r.positions.reduce((a, p) => a + (p.stake?.risk_eur || 0), 0), inNot = r.positions.reduce((a, p) => a + (p.stake?.notional_eur || 0), 0);
+    $('#ps').innerHTML = `<h3>Open · ${r.positions.length} <span class="right num ${pnlClass(tot)}" style="font-weight:800">${money(tot)} unrealized</span></h3>` +
+      (r.positions.length ? `<div class="sub" style="margin:-4px 0 6px">In the market: risk <b class="num hi">${money2(inRisk)}</b> · notional <b class="num">${money(inNot, false)}</b></div>` : '') + (r.positions.map(p => `
     <div class="pos"><div><b style="font-size:15px">${esc(p.symbol)}</b> ${sidePill(p.side)} ${p.tp1_hit ? '<span class="tag">TP1 hit · SL at BE</span>' : ''}<div class="sub">${esc(p.tf)} · opened ${ago(p.opened_ts)} · ${(p.tags || []).map(t => esc(t)).join(' · ')}</div></div>
       <div><span class="k">Entry</span><span class="num mono">${fp(p.entry)}</span></div><div><span class="k">Last</span><span class="num mono">${fp(p.last_price)}</span></div>
       <div><span class="k">Stop</span><span class="num mono r">${fp(p.sl)}</span></div><div><span class="k">Targets</span><span class="num mono g">${fp(p.tp1)} / ${fp(p.tp2)}</span></div>
-      <div style="text-align:right"><span class="k">P&amp;L</span><b class="num ${pnlClass(p.unrealized + p.realized)}" style="font-size:17px">${money(p.unrealized + p.realized)}</b></div></div>`).join('') || '<div class="empty" style="min-height:160px"><div><div class="big-ic">◌</div>Flat. The bot enters only when confluence passes.</div></div>');
+      <div style="text-align:right"><span class="k">P&amp;L</span><b class="num ${pnlClass(p.unrealized + p.realized)}" style="font-size:17px">${money(p.unrealized + p.realized)}</b>${p.stake?.pnl_pct_of_risk != null ? `<div class="sub num" style="margin:2px 0 0">${p.stake.pnl_pct_of_risk > 0 ? '+' : ''}${+p.stake.pnl_pct_of_risk}% of risk</div>` : ''}</div>
+      <div class="pos-stake">${stakeRow(p.stake)}</div></div>`).join('') || '<div class="empty" style="min-height:160px"><div><div class="big-ic">◌</div>Flat. The bot enters only when confluence passes.</div></div>');
+    const cl = r.closed || [];
+    $('#pc').innerHTML = `<h3>Recently closed · ${cl.length}</h3>` + (cl.map(t => `
+    <div class="pos closed"><div><b style="font-size:15px">${esc(t.symbol)}</b> ${sidePill(t.side)}<div class="sub">${esc(t.tf || '')} · ${esc(t.exit_reason || 'closed')} · ${dmy(t.closed_ts)} ${hm(t.closed_ts)}</div></div>
+      <div><span class="k">Entry</span><span class="num mono">${fp(t.entry)}</span></div><div><span class="k">Exit</span><span class="num mono">${fp(t.exit_price)}</span></div>
+      <div><span class="k">R</span><span class="num">${t.r_multiple != null ? (t.r_multiple >= 0 ? '+' : '') + Number(t.r_multiple).toFixed(2) + 'R' : '–'}</span></div><div><span class="k">% of risk</span><span class="num ${pnlClass(t.stake?.pnl_pct_of_risk)}">${t.stake?.pnl_pct_of_risk != null ? (t.stake.pnl_pct_of_risk > 0 ? '+' : '') + t.stake.pnl_pct_of_risk + '%' : '–'}</span></div>
+      <div style="text-align:right"><span class="k">P&amp;L</span><b class="num ${pnlClass(t.pnl_usd)}" style="font-size:17px">${money(t.pnl_usd)}</b></div>
+      <div class="pos-stake">${stakeRow(t.stake)}</div></div>`).join('') || '<div class="unavail">No closed trades yet.</div>');
   };
   draw(); App.timer(draw, 30000);
 };
+
 
 /* ================= NEWS & CALENDAR ================= */
 Views.news = async (v) => {
@@ -318,7 +333,7 @@ Views.journal = async (v) => {
         <div class="tags">${tagsH(t.tags)}</div>
         <div class="r-right m num" style="font-size:12px">${dmy(t.opened_ts)}<div>${hm(t.opened_ts)}</div></div>
         <div class="r-right"><b class="num ${pnlClass(t.pnl_usd)}">${money(t.pnl_usd)}</b><div class="sub num" style="margin:2px 0 0">${t.r_multiple != null ? (t.r_multiple >= 0 ? '+' : '') + Number(t.r_multiple).toFixed(2) + 'R' : 'open'}</div>${t.risk_pct != null ? `<div class="sub" style="margin:2px 0 0" title="${esc(t.risk_reason || '')}">risk ${+Number(t.risk_pct).toFixed(1)}%</div>` : ''}</div></div>
-        ${t.risk_reason ? `<div class="row-note">💰 ${esc(t.risk_reason)}</div>` : ''}`).join('') || '<div class="unavail">No trades yet.</div>'}</div>`;
+        ${t.stake || t.risk_reason ? `<div class="row-note">${stakeRow(t.stake, { pnl: t.status === 'closed' })}${t.risk_reason ? `<div>💰 ${esc(t.risk_reason)}</div>` : ''}</div>` : ''}`).join('') || '<div class="unavail">No trades yet.</div>'}</div>`;
     $$('#jr .chip[data-f]').forEach(b => b.onclick = () => { if (b.dataset.f === 'side') side = b.dataset.v; else res = b.dataset.v; draw(); });
     $('#jsym').onchange = e => { sym = e.target.value; draw(); };
   };

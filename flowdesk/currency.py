@@ -190,13 +190,15 @@ def stored_ccy(j, default: str = "EUR") -> str:
     return "USD" if j.q("SELECT 1 FROM trades LIMIT 1") else default.upper()
 
 
-def fmt_money(v: float | None, ccy: str = "EUR", sign: bool = True) -> str:
-    """'+€12.40' / '-€3.10' / '€50.00' style for Telegram replies."""
+def fmt_money(v: float | None, ccy: str = "EUR", sign: bool = True, dp: int | None = 2) -> str:
+    """'+€12.40' / '-€3.10' / '€50.00' style for Telegram replies; dp=None -> no decimals from 100 up ('€1,630')."""
     if v is None:
         return "-"
     s = symbol_for(ccy)
     pre = "-" if v < 0 else ("+" if sign and v > 0 else "")
-    return f"{pre}{s}{abs(v):,.2f}"
+    if dp is None:
+        dp = 0 if abs(v) >= 100 else 2
+    return f"{pre}{s}{abs(v):,.{dp}f}"
 
 
 def account_ccy(cfg: dict | None = None) -> str:

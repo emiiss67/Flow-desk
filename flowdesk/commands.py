@@ -6,6 +6,7 @@ from . import events, instruments
 from .config import get_config
 from .strategy import check, fmt
 from .telegram import esc
+from . import stake
 from .currency import fmt_money, account_ccy
 
 HELP = ("<b>FlowDesk</b> (PAPER)\n"
@@ -104,8 +105,11 @@ class Commands:
         for t in ts:
             sgn = 1 if t["side"] == "LONG" else -1
             u = (t["last_price"] - t["entry"]) * sgn * t["qty_open"] * t["point_value"] * t["usd_mult"] if t["last_price"] else 0
+            st = stake.of_trade(dict(t, unrealized=u), self.b.ccy)
+            pr = f" ({st['pnl_pct_of_risk']:+g}% of risk)" if st["pnl_pct_of_risk"] is not None else ""
             out.append(f"{'🟢' if sgn > 0 else '🔴'} <b>{esc(t['symbol'])}</b> {t['side']} @ {fmt(t['entry'])}  "
-                       f"SL {fmt(t['sl'])} TP {fmt(t['tp1'])}/{fmt(t['tp2'])}  <b>{fmt_money(u, self.b.ccy)}</b>")
+                       f"SL {fmt(t['sl'])} TP {fmt(t['tp1'])}/{fmt(t['tp2'])}  <b>{fmt_money(u, self.b.ccy)}</b>{pr}\n"
+                       f"   💰 {esc(st['text'])}")
         return "\n".join(out)
 
     def cmd_pnl(self, a):
@@ -115,7 +119,25 @@ class Commands:
         c = self.b.ccy
         return (f"<b>Paper P&amp;L</b> ({c})\nBalance {fmt_money(self.b.balance, c, False)} | Equity {fmt_money(self.b.equity(), c, False)}\n"
                 f"Today {fmt_money(self.b.realized_today(), c)} | Net {fmt_money(s['net'], c)}\n"
-                f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {fmt_money(s['max_drawdown'], c, False)}")
+                f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {fmt_money(s['max_drawdown'], c, False)}"
+                + self._stake_lines(c))
+
+    def _stake_lines(self, c):
+        """What is in the market now and what went into the last closed trades."""
+        op = self.b.open_trades()
+        lines = []
+        if op:
+            risk = sum(t["risk_usd"] or 0 for t in op)
+            notional = sum(stake.of_trade(t, c)["notional_eur"] for t in op)
+            lines.append(f"\n<b>In the market</b>: {len(op)} open · Risk {fmt_money(risk, c, False)} · Notional {fmt_money(notional, c, False, None)}")
+        last = self.j.trades("closed", limit=5)
+        if last:
+            lines.append("\n<b>Last closed</b>")
+            for t in last:
+                st = stake.of_trade(t, c)
+                pr = f" ({st['pnl_pct_of_risk']:+g}% of risk)" if st["pnl_pct_of_risk"] is not None else ""
+                lines.append(f"{esc(t['symbol'])} {t['side']} <b>{fmt_money(t['pnl_usd'] or 0, c)}</b>{pr}\n   💰 {esc(st['text'])}")
+        return "\n".join(lines)
 
     def cmd_pause(self, a):
         self.j.set("paused", True)

@@ -183,13 +183,15 @@ class PaperBroker:
             risk_reason = (risk_reason + "; " if risk_reason else "") + \
                 f"cut to {100 * risk_usd / eq:.1f}% by the {self.max_leverage:g}x leverage cap / size step"
         ts = ts or int(time.time())
+        from .stake import entry_values
+        sv = entry_values(symbol, qty, entry, pv, usd_mult, eq)
         tid = self.j.x("INSERT INTO trades(signal_id,symbol,tf,side,qty,qty_open,entry,sl,sl_initial,tp1,tp2,risk_usd,"
-                       "point_value,usd_mult,opened_ts,status,reasons,tags,last_price,atr,setup,risk_pct,risk_reason,strategy,features) VALUES"
-                       "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                       "point_value,usd_mult,opened_ts,status,reasons,tags,last_price,atr,setup,risk_pct,risk_reason,strategy,features,"
+                       "equity_at_entry,notional_eur,leverage) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (signal_id, symbol, tf, side, qty, qty, entry, sl, sl, tp1, tp2, risk_usd, pv, usd_mult, ts,
                         "open", json.dumps(reasons or []), json.dumps(tags or []), price, atr, setup,
                         round(100 * risk_usd / eq, 2) if eq else rp, risk_reason, strategy,
-                        json.dumps(features) if features else None))
+                        json.dumps(features) if features else None, sv["equity_at_entry"], sv["notional_eur"], sv["leverage"]))
         self.j.x("INSERT INTO fills(trade_id,ts,kind,price,qty,pnl_usd) VALUES(?,?,?,?,?,?)",
                  (tid, ts, "entry", entry, qty, 0.0))
         return self._get(tid)

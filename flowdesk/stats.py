@@ -54,7 +54,11 @@ def compute(trades: list[dict], start_balance: float) -> dict:
         "max_drawdown": round(mdd, 2), "max_drawdown_pct": round(100 * mdd / peak, 2) if peak else 0.0,
         "equity_curve": [{"time": int(closed[0]["opened_ts"]) - 1, "value": start_balance}] + curve if closed else [],
         "streak": cur, "best_streak": best,
-        "last_trades": [{"symbol": t["symbol"], "side": t["side"], "pnl": round(p, 2), "time": t["closed_ts"]}
+        "last_trades": [{"id": t.get("id"), "symbol": t["symbol"], "side": t["side"], "pnl": round(p, 2), "time": t["closed_ts"],
+                         "risk": round(t.get("risk_usd") or 0, 2), "risk_pct": t.get("risk_pct"),
+                         "pnl_pct_of_risk": round(100 * p / t["risk_usd"], 1) if t.get("risk_usd") else None,
+                         "notional": round(t["notional_eur"], 2) if t.get("notional_eur") is not None else None,
+                         "leverage": round(t["leverage"], 1) if t.get("leverage") is not None else None}
                         for t, p in list(zip(closed, pnls))[-14:]],
         "daily_30": [{"date": d, "pnl": round(daily.get(d, 0.0), 2)} for d in days30],
         "heatmap": {k: {"pnl": round(v["pnl"], 2), "n": v["n"]} for k, v in heat.items()},

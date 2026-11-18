@@ -68,7 +68,11 @@ def _size_info(r: dict) -> None:
         pv = float(instruments.info(r["symbol"])["point_value"])
         if m:
             q = b.position_size(eq, float(sz["risk_pct"]), lv["entry"], lv["sl"], pv, m, b.max_leverage, b.qty_step, b.min_qty)
+            from . import stake
+            ev = stake.entry_values(r["symbol"], q, lv["entry"], pv, m, eq)
+            sv, unit = stake.size_unit(r["symbol"], q)
             sz.update(risk_amount=round(abs(lv["entry"] - lv["sl"]) * q * pv * m, 2), qty=q, fx_mult=round(m, 6),
+                      notional=ev["notional_eur"], leverage=ev["leverage"], size_text=stake.fmt_size(sv, unit), equity=round(eq, 2),
                       quote_ccy=__import__("flowdesk.currency", fromlist=["quote_ccy"]).quote_ccy(r["symbol"]), **_cur())
     except Exception as e:  # sizing preview is best effort
         log.info("size preview failed: %s", e)
@@ -185,8 +189,13 @@ def api_chart(symbol: str = Query(..., max_length=24), tf: str = "15m"):
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
     r = run_check(symbol, tf, winrate="off")
-    return {k: r.get(k) for k in ("symbol", "name", "tf", "ok", "source", "source_note", "chart", "price",
-                                  "decision", "levels", "error", "volume_source")}
+    out = {k: r.get(k) for k in ("symbol", "name", "tf", "ok", "source", "source_note", "chart", "price",
+                                 "decision", "levels", "error", "volume_source")}
+    sym = r.get("symbol") or instruments.normalize(symbol)
+    out["trades"] = [p for p in _positions() if p["symbol"] == sym] + \
+        [_stake(t) for t in J().q("SELECT * FROM trades WHERE symbol=? AND status='closed' ORDER BY closed_ts DESC LIMIT 5", (sym,))]
+    out.update(_cur())
+    return out
 
 
 @app.get("/api/instruments")
@@ -196,12 +205,22 @@ def api_instruments(q: str = "", category: str | None = None):
             "hint": "Any Yahoo Finance ticker works, e.g. AAPL, ^IXIC, EURNOK=X, LE=F"}
 
 
+def _stake(t: dict) -> dict:
+    """Attach what went into the trade (risk €/%, size, notional, leverage, P&L % of risk) - see stake.py."""
+    from . import stake
+    try:
+        t["stake"] = stake.of_trade(t, _cur()["currency"])
+    except Exception as e:
+        log.info("stake %s failed: %s", t.get("id"), e)
+    return t
+
+
 def _positions():
     out = []
     for t in B().open_trades():
         sgn = 1 if t["side"] == "LONG" else -1
         u = (t["last_price"] - t["entry"]) * sgn * t["qty_open"] * t["point_value"] * t["usd_mult"] if t["last_price"] else 0
-        out.append(dict(t, unrealized=round(u, 2), realized=round(t["pnl_usd"] or 0, 2)))
+        out.append(_stake(dict(t, unrealized=round(u, 2), realized=round(t["pnl_usd"] or 0, 2))))
     return out
 
 
@@ -228,18 +247,27 @@ def api_session():
 
 
 @app.get("/api/positions")
-def api_positions():
-    return {"positions": _positions(), "paper": True, **_cur()}
+def api_positions(closed: int = 20):
+    cl = [_stake(t) for t in J().trades("closed", limit=max(0, min(closed, 200)))]
+    return {"positions": _positions(), "closed": cl, "paper": True, **_cur()}
 
 
 @app.get("/api/signals")
 def api_signals(limit: int = 100):
-    return {"signals": J().signals(min(limit, 500))}
+    sig = J().signals(min(limit, 500))
+    ids = [x["id"] for x in sig if x.get("acted")]
+    if ids:
+        tr = {t["signal_id"]: t for t in J().q(f"SELECT * FROM trades WHERE signal_id IN ({','.join('?' * len(ids))})", ids)}
+        for x in sig:
+            t = tr.get(x["id"])
+            if t:
+                x["trade_id"], x["stake"] = t["id"], _stake(dict(t))["stake"]
+    return {"signals": sig, **_cur()}
 
 
 @app.get("/api/journal")
 def api_journal(limit: int = 300, symbol: str | None = None, side: str | None = None):
-    ts = [t for t in J().trades(limit=min(limit, 2000))]
+    ts = [_stake(t) for t in J().trades(limit=min(limit, 2000))]
     if symbol:
         ts = [t for t in ts if t["symbol"] == instruments.normalize(symbol)]
     if side:
@@ -262,6 +290,12 @@ def api_performance():
 def api_dashboard():
     b, j = B(), J()
     perf = performance(j, b.start_balance)
+    ids = [t["id"] for t in perf["last_trades"] if t.get("id")]
+    if ids:
+        by = {t["id"]: t for t in j.q(f"SELECT * FROM trades WHERE id IN ({','.join('?' * len(ids))})", ids)}
+        for t in perf["last_trades"]:
+            if t.get("id") in by:
+                t["stake"] = _stake(by[t["id"]])["stake"]
     hb = j.get("bot_heartbeat", 0)
     today_sig = j.q("SELECT COUNT(*) n, SUM(acted) a FROM signals WHERE ts>=?", (int(time.time()) - 86400,))[0]
     blocked = j.q("SELECT COUNT(*) n FROM signals WHERE acted=0 AND ts>=?", (int(time.time()) - 86400,))[0]["n"]

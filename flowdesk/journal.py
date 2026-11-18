@@ -40,9 +40,13 @@ class Journal:
                 self.db.execute(f"ALTER TABLE signals ADD COLUMN {c} {t}")
         tcols = {r[1] for r in self.db.execute("PRAGMA table_info(trades)").fetchall()}
         for c, t in (("setup", "TEXT"), ("risk_pct", "REAL"), ("risk_reason", "TEXT"), ("strategy", "TEXT"),
-                     ("features", "TEXT")):
+                     ("features", "TEXT"), ("equity_at_entry", "REAL"), ("notional_eur", "REAL"), ("leverage", "REAL")):
             if c not in tcols:
                 self.db.execute(f"ALTER TABLE trades ADD COLUMN {c} {t}")
+        # stake of trades from before these columns: equity from risk / risk %, notional from qty x price x point value x FX
+        self.db.execute("UPDATE trades SET equity_at_entry = risk_usd * 100.0 / risk_pct WHERE equity_at_entry IS NULL AND risk_pct > 0")
+        self.db.execute("UPDATE trades SET notional_eur = ABS(qty * entry * point_value * usd_mult) WHERE notional_eur IS NULL AND qty IS NOT NULL")
+        self.db.execute("UPDATE trades SET leverage = notional_eur / equity_at_entry WHERE leverage IS NULL AND equity_at_entry > 0")
         self.db.commit()
 
     def q(self, sql: str, args=()) -> list[dict]:

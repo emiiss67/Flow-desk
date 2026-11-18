@@ -18,6 +18,18 @@ function fmtMoney(v, { sign = false, dp = 2 } = {}) {
 }
 function money(v, sign = true) { return fmtMoney(v, { sign, dp: null }); }
 function money2(v) { return fmtMoney(v, { dp: 2 }); }
+/* How much went into a trade (API `stake`): "Risk €9.70 (20%) · Size 0.02 lots · Notional €1,630 · 81x" */
+function levTxt(l) { return l == null ? '' : (l >= 1 ? Math.round(l).toLocaleString('en-US') : Number(l).toFixed(2)) + 'x'; }
+function stakeText(s) { if (!s) return ''; return `Risk ${money2(s.risk_eur)}${s.risk_pct != null ? ` (${+s.risk_pct}%)` : ''} · Size ${s.size_text} · Notional ${money(s.notional_eur, false)}${s.leverage != null ? ' · ' + levTxt(s.leverage) : ''}`; }
+function stakeRow(s, { pnl = false } = {}) {
+  if (!s) return '';
+  const seg = [`<span title="Amount lost if the initial stop is hit${s.equity_at_entry ? ', as % of the ' + money2(s.equity_at_entry) + ' balance at entry' : ''}">Risk <b class="num">${money2(s.risk_eur)}</b>${s.risk_pct != null ? ` <span class="num">(${+s.risk_pct}%)</span>` : ''}</span>`,
+    `<span title="Position size (${s.qty} units of the instrument)">Size <b class="num">${esc(s.size_text)}</b></span>`,
+    `<span title="Notional value: size × price × point value × FX">Notional <b class="num">${money(s.notional_eur, false)}</b></span>`];
+  if (s.leverage != null) seg.push(`<span title="Notional ÷ balance at entry (paper leverage used)"><b class="num">${levTxt(s.leverage)}</b></span>`);
+  if (pnl && s.pnl_pct_of_risk != null) seg.push(`<span title="P&amp;L as % of the amount risked">P&amp;L <b class="num ${pnlClass(s.pnl_pct_of_risk)}">${s.pnl_pct_of_risk > 0 ? '+' : ''}${+s.pnl_pct_of_risk}%</b> of risk</span>`);
+  return `<div class="stake">${seg.join('<i>·</i>')}</div>`;
+}
 function pnlClass(v) { return v > 0 ? 'g' : v < 0 ? 'r' : 'm'; }
 function ago(ts) {
   const s = Date.now() / 1000 - ts; if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + 'm ago';
