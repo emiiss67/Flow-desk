@@ -117,12 +117,6 @@ Not financial advice. Paper trading only.
   | motivation-matterhorn.jpg | Motivation | [Matterhorn sunset 2016 (Unsplash)](https://commons.wikimedia.org/wiki/File:Matterhorn_sunset_2016_(Unsplash).jpg) | Sam Ferrara samferrara (via Unsplash) | CC0 |
   | motivation-track.jpg | Motivation | [800 meter line (Unsplash)](https://commons.wikimedia.org/wiki/File:800_meter_line_(Unsplash).jpg) | Tirza van Dijk tirzavandijk (via Unsplash) | CC0 |
 
-* TradeFortis theme backgrounds (docs/assets/bg/tf-*.jpg): converted to greyscale, high contrast, faded to black at the edges,
-  composited/re-compressed for FlowDesk.
-
-  | File | Tab | Source | Licence |
-  |---|---|---|---|
-  | tf-bust.jpg | Dashboard / Positions / Settings | [Bust of Emperor Commodus, left detail](https://commons.wikimedia.org/wiki/File:Bust_of_Emperor_Commodus,_left_detail_-_Getty_Museum_(92.SA.48).jpg), J. Paul Getty Museum 92.SA.48 | Getty Open Content (no restrictions / public domain) |
-  | tf-face.jpg | Journal / Check | [Bust of Emperor Commodus, three-quarter detail](https://commons.wikimedia.org/wiki/File:Bust_of_Emperor_Commodus,_three-quarter_detail_-_Getty_Museum_(92.SA.48).jpg) (cropped to the eyes), J. Paul Getty Museum | Getty Open Content (no restrictions / public domain) |
-  | tf-samurai.jpg | Learning / Signals / News | Composite: [Moonlit Landscape](https://www.clevelandart.org/art/2015.482.1) (Japan, Muromachi period, folding screen, Cleveland Museum of Art 2015.482.1) with a silhouette cut from [Suit of Armor (Gusoku-type)](https://www.clevelandart.org/art/1921.404) (Cleveland Museum of Art 1921.404); sword line drawn | CC0 (Cleveland Museum of Art Open Access) |
-  | tf-dust.jpg | Performance / Chart | Generated particle render of the Getty Commodus bust above (FlowDesk) | Getty Open Content source; render is FlowDesk's own |
+* TradeFortis theme backgrounds (docs/assets/bg/tf-*.jpg: bust, eye, samurai, burst, swirl, each with a `-m` phone version):
+  **supplied by the owner** (Emis) for this theme. Converted to greyscale, placed/faded to black for desktop (16:9) and phone
+  (portrait) layouts; the samurai painting is toned down to grey and the swirl had a scan line removed.

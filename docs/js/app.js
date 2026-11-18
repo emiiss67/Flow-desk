@@ -20,19 +20,20 @@ const App = {
     { id: 'motsummit', name: 'Motivation · summit sunrise', src: 'assets/bg/motivation-summit.jpg' },
     { id: 'motmatterhorn', name: 'Motivation · Matterhorn', src: 'assets/bg/motivation-matterhorn.jpg' },
     { id: 'mottrack', name: 'Motivation · running track', src: 'assets/bg/motivation-track.jpg' },
-    { id: 'tfbust', name: 'TradeFortis · bust in profile', src: 'assets/bg/tf-bust.jpg', mpos: '67% 6%', pos: '58% 30%' },
-    { id: 'tfface', name: 'TradeFortis · the gaze', src: 'assets/bg/tf-face.jpg', mpos: '16% 12%', pos: '30% 40%' },
-    { id: 'tfsamurai', name: 'TradeFortis · lone samurai', src: 'assets/bg/tf-samurai.jpg', mpos: '73% 14%', pos: '64% 60%' },
-    { id: 'tfdust', name: 'TradeFortis · dust & light', src: 'assets/bg/tf-dust.jpg', mpos: '60% 4%', pos: '56% 30%' },
+    { id: 'tfbust', name: 'TradeFortis · Marcus Aurelius', src: 'assets/bg/tf-bust.jpg', msrc: 'assets/bg/tf-bust-m.jpg' },
+    { id: 'tfeye', name: 'TradeFortis · the gaze', src: 'assets/bg/tf-eye.jpg', msrc: 'assets/bg/tf-eye-m.jpg' },
+    { id: 'tfsamurai', name: 'TradeFortis · samurai', src: 'assets/bg/tf-samurai.jpg', msrc: 'assets/bg/tf-samurai-m.jpg' },
+    { id: 'tfburst', name: 'TradeFortis · into the light', src: 'assets/bg/tf-burst.jpg', msrc: 'assets/bg/tf-burst-m.jpg' },
+    { id: 'tfswirl', name: 'TradeFortis · swirl', src: 'assets/bg/tf-swirl.jpg', msrc: 'assets/bg/tf-swirl-m.jpg' },
     { id: 'ascend', name: 'Ascend (generated)', art: 'ascend' },
     { id: 'flow', name: 'Order flow (generated)', art: 'flow' },
     { id: 'none', name: 'Plain' },
   ],
   /* per-tab scene: a slot in the theme's scene list, or generated art on dark themes */
   SCENE: { dashboard: 0, check: 1, chart: 'flow', signals: 'flow', positions: 2, news: 1, journal: 2, performance: 'ascend', learning: 1, settings: 0 },
-  /* TradeFortis: one picture per tab, like the video (Dashboard bust, Journal face, Psychology->Learning samurai, Performance dust) */
-  TF_SCENE: { dashboard: 'tfbust', journal: 'tfface', learning: 'tfsamurai', performance: 'tfdust', check: 'tfface', chart: 'tfdust', signals: 'tfsamurai', positions: 'tfbust', news: 'tfsamurai', settings: 'tfbust' },
-  scene(tab) { if (Theme.theme.tf) return this.TF_SCENE[tab] || 'tfbust'; const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
+  /* TradeFortis: one picture per tab, like the video (Dashboard bust, Journal face, Psychology->Learning samurai, Performance light burst, every other tab the swirl) */
+  TF_SCENE: { dashboard: 'tfbust', journal: 'tfeye', learning: 'tfsamurai', performance: 'tfburst' },
+  scene(tab) { if (Theme.theme.tf) return this.TF_SCENE[tab] || 'tfswirl'; const sc = this.SCENE[tab] ?? 0; const list = Theme.theme.scenes || ['augustus']; if (typeof sc === 'string') return Theme.light ? list[1] || list[0] : sc; return list[sc % list.length]; },
   TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'learning', 'settings'],
   async init() {
     await Promise.all([API.init(), Names.load()]); Unlock.init();
@@ -73,7 +74,7 @@ const App = {
     let id = store.get('bg', 'auto'); if (id === 'auto') id = this.scene(tab);
     const b = this.BGS.find(x => x.id === id) || this.BGS[1];
     const img = $('#bgImg'), art = $('#bgArt');
-    if (b.src) { img.classList.toggle('tinted', !!b.tint); if (img.dataset.src !== b.src) { img.classList.remove('on'); const im = new Image(); im.onload = () => { img.style.backgroundImage = `url(${b.src})`; img.style.backgroundPosition = (innerWidth <= 860 && b.mpos) || b.pos || ''; img.dataset.src = b.src; img.classList.add('on'); }; im.src = b.src; } else img.classList.add('on'); art.classList.remove('on'); }
+    if (b.src) { const src = (innerWidth <= 860 && b.msrc) || b.src; img.classList.toggle('tinted', !!b.tint); if (img.dataset.src !== src) { img.classList.remove('on'); const im = new Image(); im.onload = () => { img.style.backgroundImage = `url(${src})`; img.style.backgroundPosition = b.pos || ''; img.dataset.src = src; img.classList.add('on'); }; im.src = src; } else img.classList.add('on'); art.classList.remove('on'); }
     else if (b.art) { img.classList.remove('on'); const ak = b.art + Theme.g + Theme.c; if (art.dataset.k !== ak) { FX.drawArt(art, b.art, Math.min(1920, innerWidth * 1.5), Math.min(1200, innerHeight * 1.5)); art.dataset.k = ak; } art.classList.add('on'); }
     else { img.classList.remove('on'); art.classList.remove('on'); }
   },

@@ -60,7 +60,7 @@ const Theme = {
   },
   /* full themes: palette + matching background scenes (+ light/dark mode) */
   THEMES: {
-    tradefortis: { name: 'TradeFortis', sub: 'Dark · silver, statue in view', g: '#22C55E', r: '#EF4444', c: '#3B82F6', panel: '#0a0a0b', a: 0.16, glow: 0.35, tf: true, scenes: ['tfbust', 'tfface', 'tfsamurai', 'tfdust'] },
+    tradefortis: { name: 'TradeFortis', sub: 'Dark · silver, statue in view', g: '#22C55E', r: '#EF4444', c: '#3B82F6', panel: '#0a0a0b', a: 0.16, glow: 0.35, tf: true, scenes: ['tfbust', 'tfeye', 'tfsamurai', 'tfburst', 'tfswirl'] },
     neon: { name: 'Neon Augustus', sub: 'Dark · green flow', g: '#00FF66', r: '#EF4444', c: '#00D4FF', panel: '#101116', a: 0.42, glow: 1, scenes: ['augustus', 'antinoos', 'severus'] },
     marble: { name: 'White Marble', sub: 'Light · gallery', light: true, g: '#0E9F5A', r: '#D6333F', c: '#2563EB', panel: '#FFFFFF', a: 0.66, glow: 0.35, scenes: ['marblewoman', 'marbleherodotos', 'marblewoman'] },
     gold: { name: 'Gold & Bronze', sub: 'Dark · imperial gold', g: '#F5C451', r: '#E5484D', c: '#FFD98A', panel: '#15110a', a: 0.46, glow: 0.9, scenes: ['antoninus', 'herodotos', 'warrior'] },

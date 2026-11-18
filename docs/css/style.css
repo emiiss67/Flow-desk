@@ -659,12 +659,12 @@ html.tf .splash-bar i{background:linear-gradient(90deg,transparent,#fff,transpar
   html.tf .view .grid{gap:14px}
   html.tf .greet h1{font-size:30px}
 }
-/* phone: show the whole statue in the upper part of the screen instead of a giant crop */
-@media (max-width:860px){ html.tf .bg-img{background-size:auto 72vh;background-repeat:no-repeat;background-color:#0a0a0b} }
+/* phone uses portrait-composed pictures (statue in the top part), so plain cover works */
+html.tf .bg-img{background-position:55% 40%}
+@media (max-width:860px){ html.tf .bg-img{background-position:50% 0%} }
 html.tf .view{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 16px rgba(0,0,0,.65)}
 html.tf .panel h3,html.tf .label,html.tf .stat .label{color:#B8B8C0}
 html.tf .sub{color:#B0B0B8}
-@media (max-width:860px){ html.tf .bg-img{-webkit-mask-image:linear-gradient(180deg,#000 0,#000 52vh,transparent 75vh);mask-image:linear-gradient(180deg,#000 0,#000 52vh,transparent 75vh)} }
 html.tf .view{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.85),0 0 22px rgba(0,0,0,.6)}
 html.tf .seg{background:rgba(10,10,11,.45)} html.tf .seg button{color:#D4D4D8}
 html.tf .panel{background:rgba(10,10,11,.2)}
