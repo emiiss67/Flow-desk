@@ -12,8 +12,10 @@ const App = {
   SCENE: { dashboard: 'augustus', check: 'antinoos', chart: 'flow', signals: 'flow', positions: 'augustus', news: 'antinoos', journal: 'augustus', performance: 'ascend', settings: 'augustus' },
   TABS: ['check', 'dashboard', 'chart', 'signals', 'positions', 'news', 'journal', 'performance', 'settings'],
   init() {
-    API.init();
+    API.init(); Unlock.init();
     $('#demoBanner').hidden = !API.demo;
+    $('#unlockOpen')?.addEventListener('click', () => Unlock.show());
+    if (API.demo && (new URLSearchParams(location.search).get('unlock') === '1' || (API.standalone() && !store.get('demoChosen', false)))) Unlock.show();
     $('#footSrc').textContent = API.demo ? 'DEMO data' : 'Live API';
     if (!store.get('splash', true)) $('#splash').classList.add('hide'); else setTimeout(() => $('#splash').classList.add('hide'), 1500);
     FX.dust(); this.applyDim();
@@ -33,7 +35,7 @@ const App = {
     this.tab = tab; store.set('tab', tab);
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     const on = $(`#tabs button[data-tab="${tab}"]`); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-    if (push) { const u = new URL(location); u.searchParams.set('tab', tab); u.hash = ''; history.pushState(null, '', u); }
+    if (push) { const u = new URL(location); u.searchParams.set('tab', tab); u.hash = API.hash(); history.pushState(null, '', u); }
     this.applyBg(tab);
     const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
     window.scrollTo({ top: 0 });
@@ -52,3 +54,28 @@ const App = {
   async bell() { try { const c = await API.get('/api/calendar'); const now = Date.now() / 1000; $('#bellDot').hidden = !(c.events || []).some(e => e.impact === 'High' && e.ts > now && e.ts - now < 6 * 3600); } catch { } },
 };
 document.addEventListener('DOMContentLoaded', () => App.init());
+
+/* "Paste your desk link" unlock screen (home-screen app without credentials, or a stale tunnel link). */
+const Unlock = {
+  show(msg) {
+    const el = $('#unlock'); el.hidden = false; document.body.classList.add('locked');
+    $('#ulErr').textContent = msg || ''; $('#ulErr').hidden = !msg;
+    setTimeout(() => $('#ulText').focus(), 50);
+  },
+  hide() { $('#unlock').hidden = true; document.body.classList.remove('locked'); },
+  init() {
+    const go = async () => {
+      const p = API.parseLink($('#ulText').value);
+      if (!p) { $('#ulErr').hidden = false; $('#ulErr').textContent = 'That does not look like a FlowDesk link. Paste the whole message from /desk in Telegram.'; return; }
+      const b = $('#ulGo'); b.disabled = true; b.textContent = 'Checking…';
+      const err = await API.verify(p.api, p.key);
+      b.disabled = false; b.textContent = 'Unlock desk';
+      if (err && !$('#ulErr').dataset.force) { $('#ulErr').hidden = false; $('#ulErr').textContent = err + ' Tap Unlock again to save it anyway.'; $('#ulErr').dataset.force = '1'; return; }
+      API.save(p.api, p.key); location.reload();
+    };
+    $('#ulGo').onclick = go;
+    $('#ulText').addEventListener('input', () => { delete $('#ulErr').dataset.force; });
+    $('#ulPaste').onclick = async () => { try { $('#ulText').value = await navigator.clipboard.readText(); go(); } catch { $('#ulText').focus(); } };
+    $('#ulDemo').onclick = () => { store.set('demoChosen', true); this.hide(); };
+  },
+};

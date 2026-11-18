@@ -52,7 +52,22 @@
   </div>
 </header>
 
-<div id="demoBanner" class="demo-banner" hidden>DEMO · sample data — not live. Connect your FlowDesk API with the link from Telegram (/desk).</div>
+<div id="demoBanner" class="demo-banner" hidden>DEMO · sample data — not live. Connect with the link from Telegram (/desk). <button id="unlockOpen" class="link-btn">Paste desk link</button></div>
+
+<div id="unlock" class="unlock" hidden role="dialog" aria-modal="true" aria-labelledby="ulTitle">
+  <div class="unlock-card">
+    <img src="assets/logo.svg" alt="" class="unlock-logo">
+    <h2 id="ulTitle">Paste your desk link</h2>
+    <p>Send <b>/desk</b> to @Tradingflowprinting_bot in Telegram, copy the whole reply and paste it here. It is saved only on this device.</p>
+    <textarea id="ulText" rows="4" placeholder="Desk: https://emiiss67.github.io/Flow-desk/#api=…&amp;key=…" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+    <div id="ulErr" class="unlock-err" hidden></div>
+    <div class="unlock-actions">
+      <button id="ulPaste" class="btn">Paste from clipboard</button>
+      <button id="ulGo" class="check-btn unlock-go">Unlock desk</button>
+    </div>
+    <button id="ulDemo" class="link-btn">Look around in demo mode</button>
+  </div>
+</div>
 <div id="connBanner" class="conn-banner" hidden></div>
 
 <main id="view" class="view"></main>

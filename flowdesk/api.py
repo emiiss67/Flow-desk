@@ -42,7 +42,12 @@ async def auth_mw(request: Request, call_next):
         return await call_next(request)
     key = request.headers.get("x-desk-key") or request.query_params.get("key")
     if not check_key(key):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+        r = JSONResponse({"error": "unauthorized"}, status_code=401)
+        origin = request.headers.get("origin")
+        if origin and origin in cfg.get("api", {}).get("cors_origins", []):
+            r.headers["Access-Control-Allow-Origin"] = origin   # so the desk can tell "bad key" from "unreachable"
+            r.headers["Vary"] = "Origin"
+        return r
     return await call_next(request)
 
 

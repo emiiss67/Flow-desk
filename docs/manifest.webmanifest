@@ -1,7 +1,6 @@
 {
   "name": "FlowDesk - paper trading desk",
   "short_name": "FlowDesk",
-  "start_url": "./?tab=dashboard",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
