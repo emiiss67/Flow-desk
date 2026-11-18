@@ -17,6 +17,8 @@ from .journal import Journal
 from .stats import performance
 from .strategy import check as run_check
 
+import logging
+log = logging.getLogger("flowdesk.api")
 cfg = get_config()
 app = FastAPI(title="FlowDesk API", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=cfg.get("api", {}).get("cors_origins", []),
@@ -56,14 +58,58 @@ def health():
     return {"ok": True, "paper": True, "version": __version__}
 
 
+_last_notify: dict = {}
+
+
+def _notify_check(r: dict) -> None:
+    """Desk Check pressed -> one concise Telegram message (waits for the win rate if it is still computing)."""
+    import threading
+
+    def work():
+        from . import backtest, sizing
+        from .commands import fmt_check
+        from .telegram import Telegram
+        try:
+            wr = r.get("winrate") or {}
+            if wr.get("status") == "computing":
+                for _ in range(60):                       # up to ~3 min
+                    time.sleep(3)
+                    if backtest.cached(r["symbol"], r["tf"]):
+                        break
+                side = r["decision"] if r["decision"] in ("LONG", "SHORT") else (r.get("watch") or {}).get("bias", "LONG")
+                su = next((x["name"] for x in r.get("setups", []) if x["side"] == side.lower()), None)
+                r["winrate"] = backtest.winrate(r["symbol"], r["tf"], side, r["confluence"], mode="cached", setup=su)
+                r["sizing"] = sizing.choose(r["winrate"], cfg)
+            tg = Telegram()
+            if not tg.chat_id:
+                tg.chat_id = str(J().get("owner_chat_id") or "")
+            if tg.token and tg.chat_id:
+                ok = tg.send("🖥 <i>Desk check</i>\n" + fmt_check(r))
+                log.info("desk check %s %s sent to telegram: %s", r["symbol"], r["tf"], ok)
+        except Exception as e:
+            log.warning("desk check notify failed: %s", type(e).__name__)
+
+    threading.Thread(target=work, daemon=True).start()
+
+
 @app.get("/api/check")
-def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m"):
+def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m", notify: int = 0):
+    """notify=1 (desk Check button): also send the result to the owner's Telegram chat."""
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
     try:
-        return run_check(symbol, tf, winrate="async")
+        r = run_check(symbol, tf, winrate="async")
     except ValueError as e:
         raise HTTPException(400, str(e))
+    if notify and r.get("ok"):
+        k = (r["symbol"], tf)
+        if time.time() - _last_notify.get(k, 0) > 20:     # double-click guard
+            _last_notify[k] = time.time()
+            _notify_check({x: v for x, v in r.items() if x != "chart"})
+            r["telegram"] = "sent"
+        else:
+            r["telegram"] = "skipped (sent moments ago)"
+    return r
 
 
 @app.get("/api/winrate")
@@ -77,7 +123,11 @@ def api_winrate(symbol: str = Query(..., max_length=24), tf: str = "15m", direct
     if direction not in ("LONG", "SHORT"):
         raise HTTPException(400, "direction must be LONG or SHORT")
     try:
-        return backtest.winrate(symbol, tf, direction, score, mode="async", setup=setup)
+        from . import sizing
+        w = backtest.winrate(symbol, tf, direction, score, mode="async", setup=setup)
+        if w.get("status") == "ok":
+            w["sizing"] = sizing.choose(w, cfg)
+        return w
     except ValueError as e:
         raise HTTPException(400, str(e))
 

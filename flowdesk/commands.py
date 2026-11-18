@@ -34,6 +34,14 @@ def fmt_winrate(wr: dict | None, score=None) -> str:
     return (sc + "\n" if sc else "") + line
 
 
+def fmt_sizing(sz: dict | None) -> str:
+    if not sz:
+        return ""
+    if sz.get("skip"):
+        return f"💰 Would skip: {esc(sz['reason'])}"
+    return f"💰 Risk {sz['risk_pct']:g}% · {esc(sz['reason'])}"
+
+
 def fmt_check(r: dict) -> str:
     if not r.get("ok"):
         return f"<b>{esc(r['symbol'])}</b>: data unavailable"
@@ -42,6 +50,8 @@ def fmt_check(r: dict) -> str:
     lines = [f"{icon} <b>{esc(r['symbol'])} {esc(r['tf'])} - {d}</b> · PAPER",
              f"Price {fmt(r['price'])}" + (f"\n🎯 Setup: <b>{esc(r['setup'])}</b>" if r.get("setup") else ""),
              fmt_winrate(r.get("winrate"), r.get("confluence"))]
+    if r.get("sizing") and r["decision"] in ("LONG", "SHORT"):
+        lines.append(fmt_sizing(r["sizing"]))
     if "levels" in r:
         lv = r["levels"]
         lines.append(f"Entry {fmt(lv['entry'])} | SL {fmt(lv['sl'])}\nTP1 {fmt(lv['tp1'])} ({lv['rr1']}R) | "

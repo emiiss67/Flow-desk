@@ -5,14 +5,43 @@ data:
   provider: yahoo      # yahoo (default, free, futures may be delayed) | oanda (needs OANDA_API_KEY + OANDA_ACCOUNT_ID)
   cache_seconds: 45
 
-watchlist:
+watchlist:                    # scanned every cycle; several positions can open in one cycle
+  # forex majors
   - {symbol: "EURUSD=X", tf: "15m"}
   - {symbol: "GBPUSD=X", tf: "15m"}
   - {symbol: "USDJPY=X", tf: "15m"}
+  - {symbol: "AUDUSD=X", tf: "15m"}
+  - {symbol: "USDCAD=X", tf: "15m"}
+  - {symbol: "USDCHF=X", tf: "15m"}
+  - {symbol: "NZDUSD=X", tf: "15m"}
+  # forex minors
+  - {symbol: "EURGBP=X", tf: "15m"}
+  - {symbol: "EURJPY=X", tf: "15m"}
+  - {symbol: "GBPJPY=X", tf: "15m"}
+  - {symbol: "AUDJPY=X", tf: "15m"}
+  - {symbol: "EURAUD=X", tf: "15m"}
+  # index futures
   - {symbol: "NQ=F", tf: "15m"}
   - {symbol: "ES=F", tf: "15m"}
+  - {symbol: "YM=F", tf: "15m"}
+  - {symbol: "RTY=F", tf: "15m"}
+  # metals / energy / crypto
   - {symbol: "GC=F", tf: "15m"}
   - {symbol: "CL=F", tf: "15m"}
+  - {symbol: "BTC-USD", tf: "15m"}
+
+telegram:
+  auto_alerts: false          # false = Telegram only answers your commands and desk Check presses (no signal/entry/exit/event/tunnel messages)
+
+sizing:                       # win-rate based risk per trade (from the walk-forward backtest of that symbol / setup / score band)
+  enabled: true
+  low_sample_n: 20            # n below this -> base risk
+  base_risk_pct: 5.0
+  negative_risk_pct: 3.0      # expectancy below 0R
+  skip_expectancy_r: -0.25    # skip entirely when expectancy <= this ...
+  skip_min_n: 50              # ... and the sample has at least this many trades
+  tiers: [[70, 20.0], [60, 15.0], [50, 10.0], [40, 5.0], [0, 3.0]]   # [win % at least, risk %]
+  prewarm_minutes: 50         # bot recomputes watchlist win rates in the background this often
 
 scanner:
   interval_seconds: 120
@@ -55,8 +84,10 @@ broker:
   min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
   qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
   max_leverage: 200           # paper notional cap = equity x this; size is reduced (never increased) to fit
-  max_positions: 4
+  max_positions: 15          # concurrent paper positions across all symbols
   daily_loss_limit_pct: 30.0  # stop opening trades after losing this % of day-start equity
+  max_per_symbol: 2          # a 2nd position on a symbol only if it comes from a different setup
+  max_open_risk_pct: 80.0     # total risk of all open trades (to their stops) can't exceed this % of equity
   tp1_close_pct: 50           # % of position closed at TP1, then stop to breakeven
   trail_atr: 1.0              # after TP1, trail stop at this many ATR
   spread_bps: {forex: 0.8, indices: 1.0, futures: 1.0, commodities: 2.0, crypto: 5.0, rates: 1.0, other: 2.0}

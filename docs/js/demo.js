@@ -105,6 +105,7 @@ const DEMO = (() => {
       ok: true, demo: true, symbol: sym, name: (INSTRUMENTS.find(i => i.symbol === sym) || {}).name || sym, tf, paper: true,
       source: 'DEMO sample data', source_note: 'Sample data for preview only', decision, confluence: conf, price: last,
       winrate: Object.assign(demoWR(L ? 'LONG' : 'SHORT', conf), { setup_stats: { setup: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', n: 11 + conf % 9, win_rate: 52 + conf % 11, avg_r: 0.31, low_sample: true } }),
+      sizing: { risk_pct: 10, reason: '10% - short setups scoring 49-69: win 53%, n=42, exp +0.21R', skip: false },
       setup: decision === 'NO TRADE' ? null : (L ? 'HVN Absorption' : 'Key Level Absorption Reversal'), setups: decision === 'NO TRADE' ? [] : [{ name: L ? 'HVN Absorption' : 'Key Level Absorption Reversal', side: L ? 'long' : 'short' }],
       scores: { long: L ? conf : 30, short: L ? 30 : conf }, reasons: decision === 'NO TRADE' ? reasons.slice(0, 2) : reasons,
       against: [{ text: 'Higher timeframe (1h) structure is ' + (L ? 'bearish' : 'bullish'), tag: 'HTF bias', points: 15 }],
@@ -133,7 +134,7 @@ const DEMO = (() => {
       const risk = 5; const pnl = Math.round(R * risk * 100) / 100; const e = base(sym) * (1 + (r() - .5) * .01);
       const tags = [...new Set([TAGS[Math.floor(r() * TAGS.length)], TAGS[Math.floor(r() * TAGS.length)], TAGS[Math.floor(r() * 4)]])];
       out.push({ id: id++, symbol: sym, tf: '15m', side, entry: e, exit_price: e * (1 + (side === 'LONG' ? 1 : -1) * R * .0012), sl_initial: e * (1 - (side === 'LONG' ? 1 : -1) * .0012),
-        tp1: e * (1 + (side === 'LONG' ? 1 : -1) * .0016), tp2: e * (1 + (side === 'LONG' ? 1 : -1) * .003), qty: 1, risk_usd: risk, pnl_usd: pnl, r_multiple: R,
+        tp1: e * (1 + (side === 'LONG' ? 1 : -1) * .0016), tp2: e * (1 + (side === 'LONG' ? 1 : -1) * .003), qty: 1, risk_usd: risk, pnl_usd: pnl, r_multiple: R, risk_pct: 10, risk_reason: '10% - win 52%, n=38 (sample)',
         opened_ts: Math.floor(t), closed_ts: Math.floor(t + 3600 * (0.5 + r() * 5)), status: 'closed', exit_reason: win ? (R > 2 ? 'tp2' : 'trailing stop') : (R > -.5 ? 'breakeven' : 'stop loss'),
         tags, reasons: ['Sample reason: ' + tags.join(', ')] });
     }
@@ -178,7 +179,7 @@ const DEMO = (() => {
     return { ok: true, demo: true, source: 'DEMO sample headlines', items: H.map(([title, symbols, tone], i) => ({ title, symbols, tone, source: 'Sample feed', link: '#', ts: now() - i * 1700 - 300 })) };
   }
   function signals() {
-    return trades().slice(0, 25).map((t, i) => ({ id: 400 - i, ts: t.opened_ts, symbol: t.symbol, tf: '15m', decision: t.side, confluence: 58 + (i * 7) % 30, win_rate: 40 + (i * 3) % 18, bt_n: 12 + (i * 5) % 40, bt_avg_r: +(((i * 7) % 9) / 20 - 0.15).toFixed(2), price: t.entry, sl: t.sl_initial, tp1: t.tp1, tp2: t.tp2, rr: 2.6, tags: t.tags, reasons: t.reasons, acted: i % 4 ? 1 : 0, note: i % 4 ? '' : 'high-impact event window' }));
+    return trades().slice(0, 25).map((t, i) => ({ id: 400 - i, ts: t.opened_ts, symbol: t.symbol, tf: '15m', decision: t.side, confluence: 58 + (i * 7) % 30, win_rate: 40 + (i * 3) % 18, bt_n: 12 + (i * 5) % 40, bt_avg_r: +(((i * 7) % 9) / 20 - 0.15).toFixed(2), risk_pct: [5, 10, 3, 15, 5][i % 5], risk_reason: ['base 5% - low sample (n=14 < 20)', '10% - win 54%, n=41', '3% - negative expectancy', '15% - win 63%, n=27', 'base 5% - win rate still computing'][i % 5], price: t.entry, sl: t.sl_initial, tp1: t.tp1, tp2: t.tp2, rr: 2.6, tags: t.tags, reasons: t.reasons, acted: i % 4 ? 1 : 0, note: i % 4 ? '' : 'high-impact event window' }));
   }
   function session() {
     const pos = positions(); const open = +pos.reduce((a, p) => a + p.unrealized, 0).toFixed(2);

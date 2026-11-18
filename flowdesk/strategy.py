@@ -396,6 +396,8 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
         try:
             wr_setup = next((x["name"] for x in out.get("setups", []) if x["side"] == wr_side.lower()), None)
             out["winrate"] = backtest.winrate(sym, tf, wr_side, out["confluence"], mode=winrate, setup=wr_setup)
+            from . import sizing
+            out["sizing"] = sizing.choose(out["winrate"], cfg)
         except Exception as e:
             log.warning("winrate failed: %s", e)
             out["winrate"] = {"status": "unavailable", "error": "backtest failed"}

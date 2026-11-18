@@ -90,15 +90,16 @@ Views.check = async (v) => {
   $('#cats').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; cat = b.dataset.c; store.set('checkCat', cat); $$('#cats .chip').forEach(x => x.classList.toggle('on', x === b)); draw(); });
   $('#ilist').addEventListener('click', e => { const it = e.target.closest('.inst'); if (!it) return; selected = it.dataset.s; store.set('checkSym', selected); $('#selSym').textContent = selected; draw(); });
   $('#tfs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tfSel = b.dataset.tf; store.set('checkTf', tfSel); $$('#tfs button').forEach(x => x.classList.toggle('on', x === b)); });
-  const run = async () => {
+  const run = async (ev) => {
+    const notify = !!(ev && ev.isTrusted) && !API.demo;   // a real press of Check also sends the result to Telegram
     const btn = $('#go'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Reading the flow…';
     $('#res').innerHTML = '<div class="panel"><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:330px;margin-top:14px"></div></div>';
-    const [r, err] = await load('/api/check', { symbol: selected, tf: tfSel });
+    const [r, err] = await load('/api/check', { symbol: selected, tf: tfSel, notify: notify ? 1 : '' });
     btn.disabled = false; btn.textContent = 'Check';
     if (!r || !r.ok) { $('#res').innerHTML = `<div class="panel">${unavailable(selected, err || r?.detail)}</div>`; return; }
     renderResult(r);
   };
-  $('#go').addEventListener('click', run);
+  $('#go').addEventListener('click', e => run(e));
   if (store.get('autoCheck', false) || App.demoAuto) { App.demoAuto = false; run(); }
 };
 
@@ -124,6 +125,8 @@ function renderResult(r) {
         <div class="lv"><div class="k">Risk : reward</div><div class="v">1 : ${lv.rr2}</div><div class="sub">50% off at TP1</div></div></div>`
       : `<div class="warn" style="margin-top:16px">⚪ ${esc(r.watch?.note || 'Not enough confluence')}${r.watch ? ` · lean ${esc(r.watch.bias.toLowerCase())}, ref SL ${fp(r.watch.sl)} / TP ${fp(r.watch.tp1)}` : ''}</div>`}
       <div id="wrBox">${wrHTML(r.winrate, r)}</div>
+      <div id="szBox">${szHTML(r)}</div>
+      ${r.telegram === 'sent' ? '<div class="sub" style="margin-top:8px">📨 Also sent to your Telegram.</div>' : ''}
       ${r.blackout ? `<div class="warn block">⛔ High-impact ${esc(r.blackout.ccy)} event "${esc(r.blackout.title)}" too close - standing aside.</div>` : ''}
       ${(r.warnings || []).map(w => `<div class="warn">⚠️ ${esc(w.text)}</div>`).join('')}
     </div>
@@ -138,6 +141,12 @@ function renderResult(r) {
   const c = Charts.create($('#ckChart')); Charts.set(c, r, ckTg());
   $('#ckTg').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; const t = ckTg(); t[b.dataset.k] = !t[b.dataset.k]; store.set('ckToggles', t); b.classList.toggle('on', t[b.dataset.k]); c.opts[b.dataset.k] = t[b.dataset.k]; Charts.set(c, r, Object.assign({ fit: false }, t)); });
   if (r.winrate && r.winrate.status === 'computing') pollWR(r);
+}
+
+function szHTML(r) {
+  const z = r.sizing; if (!z || !['LONG', 'SHORT'].includes(r.decision)) return '';
+  if (z.skip) return `<div class="warn block" style="margin-top:12px">⛔ The bot would skip this: ${esc(z.reason)}</div>`;
+  return `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">Risk per trade (win-rate sizing)</div><div class="sub" style="margin:2px 0 0">${esc(z.reason)}</div></div></div>`;
 }
 
 function ckTg() { return Object.assign({ imb: true, hvz: true, habs: true }, store.get('ckToggles', {})); }
@@ -157,7 +166,7 @@ function wrHTML(w, r) {
       <div><div class="k">Full TP2</div><div class="v num">${pc(w.tp2_rate)}</div><div class="sub">ran to target</div></div>
       <div><div class="k">Trades (n)</div><div class="v num">${w.n}</div><div class="sub">${w.period_from ? dmy(w.period_from) + ' → ' + dmy(w.period_to) : ''}</div></div>
       <div><div class="k">Avg R</div><div class="v num ${w.avg_r >= 0 ? 'g' : 'r'}">${sg(w.avg_r)}R</div><div class="sub">per trade</div></div>
-      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${sg(w.expectancy_usd ?? 0)}</div><div class="sub">USD/trade at ${money(w.risk_usd ?? 0.5)} risk</div></div>
+      <div><div class="k">Expectancy</div><div class="v num ${w.expectancy_usd >= 0 ? 'g' : 'r'}">${sg(w.expectancy_usd ?? 0)}</div><div class="sub">USD/trade at $${(w.risk_usd ?? 5).toFixed(2)} risk</div></div>
     </div>
     ${w.low_sample ? '<div class="warn" style="margin-top:10px">⚠️ Low sample (n &lt; 20) - treat this win rate as anecdotal.</div>' : ''}
     ${w.setup_stats ? `<div class="wr-setup">🎯 <b>${esc(w.setup_stats.setup)}</b> on its own: ${w.setup_stats.n ? `win <b class="num">${Math.round(w.setup_stats.win_rate)}%</b> · n ${w.setup_stats.n} · avg <span class="num">${sg(w.setup_stats.avg_r)}R</span>${w.setup_stats.low_sample ? ' · <span class="a">low sample</span>' : ''}` : 'no past occurrences in this history'}</div>` : ''}
@@ -172,7 +181,7 @@ async function pollWR(r) {
     const su = (r.setups || []).find(x => x.side === side.toLowerCase());
     const [w] = await load('/api/winrate', { symbol: r.symbol, tf: r.tf, direction: side, score: r.confluence, setup: su ? su.name : '' });
     if (!$('#wrBox')) return;
-    if (w && w.status !== 'computing') { $('#wrBox').innerHTML = wrHTML(w, r); return; }
+    if (w && w.status !== 'computing') { $('#wrBox').innerHTML = wrHTML(w, r); if (w.sizing) { r.sizing = w.sizing; $('#szBox').innerHTML = szHTML(r); } return; }
   }
 }
 
@@ -240,7 +249,7 @@ Views.signals = async (v) => {
     <div class="row"><div><div class="sym">${esc(s.symbol)}</div><div class="sub" style="margin:2px 0 0">${dmy(s.ts)} ${hm(s.ts)} · ${esc(s.tf)}</div></div><div>${sidePill(s.decision)}</div>
     <div class="tags">${tagsH(s.tags, s.setup)}</div>
     <div class="r-right num mono" style="font-size:12px">${fp(s.price)}<div class="sub" style="margin:2px 0 0">SL ${fp(s.sl)} · TP ${fp(s.tp2)}</div></div>
-    <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
+    <div class="r-right"><b class="num" title="Confluence score (not a probability)">${Math.round(s.confluence ?? s.confidence ?? 0)}<span class="m" style="font-size:11px">/100</span></b>${s.win_rate != null ? `<div class="sub" style="margin:2px 0 0" title="Backtest win rate (TP1 before SL), n trades">win ${Math.round(s.win_rate)}% · n${s.bt_n}${s.bt_n < 20 ? ' <span class="a">low</span>' : ''}</div>` : ''}${s.risk_pct != null ? `<div class="sub" style="margin:2px 0 0" title="${esc(s.risk_reason || '')}">risk <b class="num">${+s.risk_pct.toFixed(1)}%</b></div>` : ''}<div class="sub" style="margin:2px 0 0">${s.acted ? '<span class="g">entered</span>' : '<span class="a">' + esc(s.note || 'skipped') + '</span>'}</div></div></div>`).join('') || '<div class="unavail">No signals yet - the scanner journals each one here.</div>'}</div>`;
 };
 
 /* ================= POSITIONS ================= */
@@ -302,7 +311,8 @@ Views.journal = async (v) => {
       ${ts.map(t => `<div class="row" title="${esc((t.reasons || []).join('\n'))}"><div><div class="sym">${esc(t.symbol)}</div><div class="sub" style="margin:2px 0 0">${esc(t.exit_reason || t.status)}</div></div><div>${sidePill(t.side)}</div>
         <div class="tags">${tagsH(t.tags)}</div>
         <div class="r-right m num" style="font-size:12px">${dmy(t.opened_ts)}<div>${hm(t.opened_ts)}</div></div>
-        <div class="r-right"><b class="num ${pnlClass(t.pnl_usd)}">${money(t.pnl_usd)}</b><div class="sub num" style="margin:2px 0 0">${t.r_multiple != null ? (t.r_multiple >= 0 ? '+' : '') + Number(t.r_multiple).toFixed(2) + 'R' : 'open'}</div></div></div>`).join('') || '<div class="unavail">No trades yet.</div>'}</div>`;
+        <div class="r-right"><b class="num ${pnlClass(t.pnl_usd)}">${money(t.pnl_usd)}</b><div class="sub num" style="margin:2px 0 0">${t.r_multiple != null ? (t.r_multiple >= 0 ? '+' : '') + Number(t.r_multiple).toFixed(2) + 'R' : 'open'}</div>${t.risk_pct != null ? `<div class="sub" style="margin:2px 0 0" title="${esc(t.risk_reason || '')}">risk ${+Number(t.risk_pct).toFixed(1)}%</div>` : ''}</div></div>
+        ${t.risk_reason ? `<div class="row-note">💰 ${esc(t.risk_reason)}</div>` : ''}`).join('') || '<div class="unavail">No trades yet.</div>'}</div>`;
     $$('#jr .chip[data-f]').forEach(b => b.onclick = () => { if (b.dataset.f === 'side') side = b.dataset.v; else res = b.dataset.v; draw(); });
     $('#jsym').onchange = e => { sym = e.target.value; draw(); };
   };

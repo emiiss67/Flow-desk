@@ -34,9 +34,14 @@ class Journal:
             self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(signals)").fetchall()}
-        for c, t in (("win_rate", "REAL"), ("bt_n", "INTEGER"), ("bt_avg_r", "REAL"), ("setup", "TEXT")):
+        for c, t in (("win_rate", "REAL"), ("bt_n", "INTEGER"), ("bt_avg_r", "REAL"), ("setup", "TEXT"),
+                     ("risk_pct", "REAL"), ("risk_reason", "TEXT")):
             if c not in cols:
                 self.db.execute(f"ALTER TABLE signals ADD COLUMN {c} {t}")
+        tcols = {r[1] for r in self.db.execute("PRAGMA table_info(trades)").fetchall()}
+        for c, t in (("setup", "TEXT"), ("risk_pct", "REAL"), ("risk_reason", "TEXT")):
+            if c not in tcols:
+                self.db.execute(f"ALTER TABLE trades ADD COLUMN {c} {t}")
         self.db.commit()
 
     def q(self, sql: str, args=()) -> list[dict]:
@@ -62,12 +67,13 @@ class Journal:
         lv = res.get("levels") or {}
         wr = res.get("winrate") or {}
         return self.x("INSERT INTO signals(ts,symbol,tf,decision,confidence,price,sl,tp1,tp2,rr,reasons,tags,acted,note,"
-                      "win_rate,bt_n,bt_avg_r,setup) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                      "win_rate,bt_n,bt_avg_r,setup,risk_pct,risk_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                       (int(time.time()), res["symbol"], res["tf"], res["decision"], res.get("confluence"),
                        res.get("price"), lv.get("sl"), lv.get("tp1"), lv.get("tp2"), lv.get("rr2"),
                        json.dumps([r["text"] for r in res.get("reasons", [])]),
                        json.dumps(sorted({r["tag"] for r in res.get("reasons", [])})), int(acted), note,
-                       wr.get("win_rate"), wr.get("n"), wr.get("avg_r"), res.get("setup")))
+                       wr.get("win_rate"), wr.get("n"), wr.get("avg_r"), res.get("setup"),
+                       (res.get("sizing") or {}).get("risk_pct"), (res.get("sizing") or {}).get("reason")))
 
     def signals(self, limit: int = 100) -> list[dict]:
         rows = self.q("SELECT * FROM signals ORDER BY id DESC LIMIT ?", (limit,))

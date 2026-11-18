@@ -34,7 +34,9 @@ class Bot:
 
     # ---------- alerts ----------
     def alert(self, text: str) -> None:
-        if self.tg.enabled:
+        """Unsolicited messages (signals, entries, exits, events). Off unless telegram.auto_alerts is true -
+        everything stays visible in the desk (Signals / Positions / Journal)."""
+        if self.tg.enabled and (self.cfg.get("telegram", {}) or {}).get("auto_alerts", False):
             self.tg.send(text)
 
     def usd_mult(self, symbol: str, price: float) -> float:
@@ -81,6 +83,9 @@ class Bot:
 
     # ---------- scanning ----------
     def scan_once(self) -> None:
+        """Scan the whole watchlist; several positions can open in one cycle (limits: max_positions,
+        max_per_symbol with different setups, open-risk cap, daily loss limit)."""
+        from . import backtest, sizing
         sc = self.cfg.get("scanner", {})
         for w in self.cfg.get("watchlist", []):
             sym, tf = instruments.normalize(w["symbol"]), w.get("tf", "15m")
@@ -91,33 +96,61 @@ class Bot:
                 continue
             if not r.get("ok") or r["decision"] not in ("LONG", "SHORT"):
                 continue
-            key = f"sig_{sym}_{tf}"
+            setup = r.get("setup")
+            key = f"sig_{sym}_{tf}_{setup or 'structure'}"
             if self.j.get(key) == [r["last_bar"], r["decision"]]:
                 continue  # same signal on the same bar already journaled
             self.j.set(key, [r["last_bar"], r["decision"]])
-            try:  # historical win rate for this direction + score band (cached ~1h per symbol/tf)
-                from . import backtest
-                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="sync", setup=r.get("setup"))
+            try:  # cached win rate (pre-warmed in the background, never blocks the scan)
+                r["winrate"] = backtest.winrate(sym, tf, r["decision"], r["confluence"], mode="cached", setup=setup)
             except Exception as e:
                 log.warning("winrate %s failed: %s", sym, e)
-            note = ""
-            ok, why = self.b.can_open(sym)
+                r["winrate"] = {"status": "unavailable"}
+            sz = sizing.choose(r["winrate"], self.cfg)
+            r["sizing"] = sz
+            ok, why = self.b.can_open(sym, setup)
             if ok and sc.get("require_killzone") and not killzone():
                 ok, why = False, "outside killzone"
-            if not ok:
-                note = why
-            sid = self.j.add_signal(r, acted=ok, note=note)
-            if not ok:
-                continue
-            lv = r["levels"]
-            t = self.b.open(sym, r["decision"], lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], tf=tf, atr=r["atr"],
-                            reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
-                            signal_id=sid, usd_mult=self.usd_mult(sym, lv["entry"]))
+            if ok and sz["skip"]:
+                ok, why = False, sz["reason"]
+            t = None
+            if ok:
+                lv = r["levels"]
+                t = self.b.open(sym, r["decision"], lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], tf=tf, atr=r["atr"],
+                                reasons=[x["text"] for x in r["reasons"]], tags=sorted({x["tag"] for x in r["reasons"]}),
+                                usd_mult=self.usd_mult(sym, lv["entry"]), risk_pct=sz["risk_pct"], setup=setup,
+                                risk_reason=sz["reason"])
+                if not t:
+                    ok, why = False, self.b.last_reject or "order rejected"
             if t:
-                self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}" + (f" · 🎯 {esc(r['setup'])}" if r.get("setup") else "") + "\n"
-                           f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {t['risk_usd']:,.0f} USD\n"
-                           + "\n".join(f"• {esc(x['text'])}" for x in r["reasons"][:4])
-                           + "\n" + fmt_winrate(r.get("winrate"), r["confluence"]))
+                r["sizing"] = {"risk_pct": t["risk_pct"], "reason": t["risk_reason"]}
+            sid = self.j.add_signal(r, acted=bool(t), note="" if t else why)
+            if t:
+                self.j.x("UPDATE trades SET signal_id=? WHERE id=?", (sid, t["id"]))
+                log.info("paper entry %s %s risk %.1f%% (%s)", sym, t["side"], t["risk_pct"] or 0, t["risk_reason"])
+                self.alert(f"📥 <b>Paper entry</b> {esc(sym)} {t['side']} @ {fmt(t['entry'])}"
+                           + (f" · 🎯 {esc(setup)}" if setup else "") + "\n"
+                           f"SL {fmt(t['sl'])} | TP1 {fmt(t['tp1'])} | TP2 {fmt(t['tp2'])} | risk {t['risk_usd']:,.2f} USD")
+
+    def prewarm_loop(self) -> None:
+        """Keep watchlist win rates fresh so entries and desk checks never wait for the ~1 min replay."""
+        from . import backtest
+        every = float(self.cfg.get("sizing", {}).get("prewarm_minutes", 50)) * 60
+        while not self.stop.is_set():
+            for w in self.cfg.get("watchlist", []):
+                if self.stop.is_set():
+                    return
+                sym, tf = instruments.normalize(w["symbol"]), w.get("tf", "15m")
+                a = backtest.age(sym, tf)
+                if a is not None and a < every:
+                    continue
+                try:
+                    t0 = time.time()
+                    d = backtest.compute(sym, tf)
+                    log.info("prewarmed win rate %s %s (%s, %.0fs)", sym, tf, "ok" if d.get("ok") else "no data", time.time() - t0)
+                except Exception as e:
+                    log.warning("prewarm %s failed: %s", sym, type(e).__name__)
+            self.stop.wait(60)
 
     def event_alerts(self) -> None:
         ccys = set()
@@ -209,6 +242,7 @@ def main() -> None:
     bot = Bot()
     signal.signal(signal.SIGTERM, lambda *_: bot.stop.set())
     threading.Thread(target=bot.telegram_loop, daemon=True).start()
+    threading.Thread(target=bot.prewarm_loop, daemon=True).start()
     log.info("FlowDesk bot started (PAPER). Watchlist: %s", [w["symbol"] for w in bot.cfg.get("watchlist", [])])
     try:
         bot.loop()

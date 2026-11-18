@@ -415,3 +415,7 @@ body.locked{overflow:hidden}
 .tag.setup{color:#1a1000;background:linear-gradient(90deg,#F5B544,#ffd27a);border-color:transparent;font-weight:700}
 .reasons li.is-setup{background:rgba(245,181,68,.07);border-radius:10px;box-shadow:inset 3px 0 0 #F5B544}
 .wr-setup{margin-top:10px;font-size:13px;color:var(--text);padding:8px 10px;border-radius:10px;background:rgba(245,181,68,.08);border:1px solid rgba(245,181,68,.25)}
+.sz{display:flex;gap:14px;align-items:center;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(var(--g-rgb),.25);background:rgba(var(--g-rgb),.05)}
+.sz-pct{font-size:28px;font-weight:800;color:var(--green);min-width:74px}
+.sz .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.row-note{grid-column:1/-1;font-size:11.5px;color:var(--muted);padding:0 6px 10px;margin-top:-6px;border-bottom:1px solid var(--line)}

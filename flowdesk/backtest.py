@@ -168,12 +168,20 @@ def _bg(symbol: str, tf: str) -> None:
             _running.pop((symbol, tf), None)
 
 
+def age(symbol: str, tf: str) -> float | None:
+    p = _path(instruments.normalize(symbol), tf)
+    return time.time() - p.stat().st_mtime if p.exists() else None
+
+
 def winrate(symbol: str, tf: str, direction: str, score: float, mode: str = "sync", setup: str | None = None) -> dict:
-    """mode 'sync' computes if needed; 'async' starts a background job and returns status=computing."""
+    """mode 'sync' computes if needed; 'async' starts a background job and returns status=computing;
+    'cached' never computes (status=computing when the pre-warm thread hasn't got to it yet)."""
     cfg = get_config().get("strategy", {})
     sym = instruments.normalize(symbol)
     d = cached(sym, tf)
     if d is None:
+        if mode == "cached":
+            return {"status": "computing"}
         if mode == "async":
             with _lock:
                 if (sym, tf) not in _running:

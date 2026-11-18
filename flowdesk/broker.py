@@ -19,6 +19,9 @@ class PaperBroker:
         self.max_leverage = float(c.get("max_leverage", 30) or 0)
         self.risk_pct = float(c.get("risk_pct", 0.5))
         self.max_positions = int(c.get("max_positions", 4))
+        self.max_per_symbol = int(c.get("max_per_symbol", 1))
+        self.max_open_risk_pct = float(c.get("max_open_risk_pct", 0) or 0)
+        self.last_reject = ""
         self.daily_loss_pct = float(c.get("daily_loss_limit_pct", 2.0))
         self.tp1_close = float(c.get("tp1_close_pct", 50)) / 100
         self.trail_atr = float(c.get("trail_atr", 1.0))
@@ -96,22 +99,41 @@ class PaperBroker:
         return qty if qty > 0 else 0.0
 
     # ----- orders -----
-    def can_open(self, symbol: str) -> tuple[bool, str]:
+    def open_risk_usd(self) -> float:
+        """What all open trades lose if every stop is hit now (trades with the stop at/beyond entry risk 0)."""
+        tot = 0.0
+        for t in self.open_trades():
+            sgn = 1 if t["side"] == "LONG" else -1
+            loss = (t["entry"] - t["sl"]) * sgn
+            if loss > 0:
+                tot += loss * t["qty_open"] * t["point_value"] * t["usd_mult"]
+        return tot
+
+    def can_open(self, symbol: str, setup: str | None = None) -> tuple[bool, str]:
         if self.j.get("paused", False):
             return False, "bot paused"
         opens = self.open_trades()
-        if any(t["symbol"] == symbol for t in opens):
-            return False, "already in a position on this symbol"
+        mine = [t for t in opens if t["symbol"] == symbol]
+        if len(mine) >= self.max_per_symbol:
+            return False, ("already in a position on this symbol" if self.max_per_symbol <= 1
+                           else f"max {self.max_per_symbol} positions on this symbol")
+        key = setup or "structure"
+        if any((t.get("setup") or "structure") == key for t in mine):
+            return False, "already in this setup on this symbol"
         if len(opens) >= self.max_positions:
             return False, f"max positions ({self.max_positions}) reached"
         if self.daily_limit_hit():
             return False, "daily loss limit reached"
+        if self.max_open_risk_pct and self.open_risk_usd() >= self.equity() * self.max_open_risk_pct / 100 * 0.995:
+            return False, f"open-risk cap ({self.max_open_risk_pct:g}% of equity) reached"
         return True, ""
 
     def open(self, symbol: str, side: str, price: float, sl: float, tp1: float, tp2: float, tf: str = "",
              atr: float = 0.0, reasons=None, tags=None, signal_id: int | None = None, usd_mult: float = 1.0,
-             ts: int | None = None) -> dict | None:
-        ok, why = self.can_open(symbol)
+             ts: int | None = None, risk_pct: float | None = None, setup: str | None = None,
+             risk_reason: str = "") -> dict | None:
+        ok, why = self.can_open(symbol, setup)
+        self.last_reject = why
         if not ok:
             return None
         meta = instruments.info(symbol)
@@ -120,17 +142,31 @@ class PaperBroker:
         # stop must be on the losing side of the entry
         if (side == "LONG" and sl >= entry) or (side == "SHORT" and sl <= entry):
             return None
-        qty = self.position_size(self.equity(), self.risk_pct, entry, sl, pv, usd_mult,
-                                 self.max_leverage, self.qty_step, self.min_qty)
+        eq = self.equity()
+        rp = float(self.risk_pct if risk_pct is None else risk_pct)
+        if self.max_open_risk_pct:                      # never risk more than the account can lose in total
+            room = eq * self.max_open_risk_pct / 100 - self.open_risk_usd()
+            if room < eq * 0.005:
+                self.last_reject = f"open-risk cap ({self.max_open_risk_pct:g}% of equity) reached"
+                return None
+            if eq * rp / 100 > room:
+                rp = 100 * room / eq
+                risk_reason = (risk_reason + "; " if risk_reason else "") + f"cut to {rp:.1f}% by the {self.max_open_risk_pct:g}% open-risk cap"
+        qty = self.position_size(eq, rp, entry, sl, pv, usd_mult, self.max_leverage, self.qty_step, self.min_qty)
         if qty <= 0:
+            self.last_reject = "size rounds to zero"
             return None
         risk_usd = abs(entry - sl) * qty * pv * usd_mult
+        if eq and risk_usd < eq * rp / 100 * 0.98:
+            risk_reason = (risk_reason + "; " if risk_reason else "") + \
+                f"cut to {100 * risk_usd / eq:.1f}% by the {self.max_leverage:g}x leverage cap / size step"
         ts = ts or int(time.time())
         tid = self.j.x("INSERT INTO trades(signal_id,symbol,tf,side,qty,qty_open,entry,sl,sl_initial,tp1,tp2,risk_usd,"
-                       "point_value,usd_mult,opened_ts,status,reasons,tags,last_price,atr) VALUES"
-                       "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                       "point_value,usd_mult,opened_ts,status,reasons,tags,last_price,atr,setup,risk_pct,risk_reason) VALUES"
+                       "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (signal_id, symbol, tf, side, qty, qty, entry, sl, sl, tp1, tp2, risk_usd, pv, usd_mult, ts,
-                        "open", json.dumps(reasons or []), json.dumps(tags or []), price, atr))
+                        "open", json.dumps(reasons or []), json.dumps(tags or []), price, atr, setup,
+                        round(100 * risk_usd / eq, 2) if eq else rp, risk_reason))
         self.j.x("INSERT INTO fills(trade_id,ts,kind,price,qty,pnl_usd) VALUES(?,?,?,?,?,?)",
                  (tid, ts, "entry", entry, qty, 0.0))
         return self._get(tid)

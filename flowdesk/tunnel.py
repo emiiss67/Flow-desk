@@ -27,7 +27,8 @@ def on_url(url: str, j: Journal, tg: Telegram) -> bool:
     if j.get("tunnel_url") == url:
         return False
     j.set("tunnel_url", url)
-    if tg.enabled:
+    from .config import get_config
+    if tg.enabled and (get_config().get("telegram", {}) or {}).get("auto_alerts", False):   # silent by default: use /desk
         tg.send(f"🖥 <b>FlowDesk desk link</b> (new tunnel)\n{desk_link(url)}")
     return True
 
@@ -47,7 +48,7 @@ def main() -> None:
             m = URL_RE.search(line)
             if m and not m.group(0).startswith("https://api."):
                 if on_url(m.group(0), j, tg):
-                    log.info("tunnel url changed; stored%s", " and desk link sent" if tg.enabled else " (telegram not configured, nothing sent)")
+                    log.info("tunnel url changed; stored (send /desk in Telegram for the link)")
         p.wait()
         log.warning("cloudflared exited (%s); restarting in 10s", p.returncode)
         time.sleep(10)
