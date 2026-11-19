@@ -342,7 +342,32 @@ def _plan() -> list[str]:
             f"Stop after -{float(bc.get('daily_loss_limit_pct', 30)):g}% day",
             f"No entries {(c.get('events', {}) or {}).get('block_minutes_before', 30)} min before high-impact news",
             f"Min confluence {(c.get('strategy', {}) or {}).get('min_score', 55)}/100 (learning may raise it)",
-            f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"]
+            f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"] + _regime_plan()
+
+
+def _regime_plan() -> list[str]:
+    """One plan line from the nightly market-regime check (which strategies trade right now)."""
+    try:
+        from . import learning, regime
+        rules = learning.load_rules()
+        cur = regime.current(rules)
+        if not cur:
+            return []
+        on, paused = [], []
+        for k, e in cur.items():
+            lt = bool((rules.get("strategies", {}).get(k) or {}).get("enabled"))
+            if e.get("state") == "paused":
+                paused.append(e["name"])
+            elif e.get("state") == "on" and not lt and e.get("scopes"):
+                on.append(e["name"] + " (" + " / ".join(s["text"] for s in e["scopes"]) + ")")
+            elif e.get("state") == "on":
+                on.append(e["name"])
+        line = "Trading now: " + (", ".join(on) if on else "nothing")
+        if paused:
+            line += " · paused while losing recently: " + ", ".join(paused)
+        return [line]
+    except Exception:
+        return []
 
 
 @app.get("/api/config")

@@ -100,7 +100,8 @@ def allow(rules: dict, strategy: str, symbol: str, feats: dict, score: float | N
     st = rules.get("strategies", {}).get(strategy)
     if st is None:
         return True, ""
-    if not st.get("enabled", True):
+    from . import regime
+    if not st.get("enabled", True) and not regime.switched_on(rules, strategy):
         return False, f"learned: {NAMES.get(strategy, strategy)} is disabled (negative out-of-sample edge)"
     if strategy == CORE and score is not None and score < float(st.get("params", {}).get("min_score", 0)):
         return False, f"learned: confluence {score:.0f} below the learned minimum {st['params']['min_score']:g}"
@@ -111,7 +112,7 @@ def allow(rules: dict, strategy: str, symbol: str, feats: dict, score: float | N
     for b in rules.get("blocks", []):
         if b["strategy"] == strategy and str(f.get(b["feature"])) == str(b["bucket"]):
             return False, "learned block: " + b["text"]
-    return True, ""
+    return regime.check(rules, strategy, f)
 
 
 def stats_for(rules: dict, strategy: str, symbol: str | None = None) -> dict:
@@ -477,6 +478,15 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         except Exception as e:
             log.warning("live trade analysis failed: %s", e)
     new["live"] = live
+    # 7) regime: what works on the newest trading days (recent walk-forward, after costs) - can switch an off
+    #    strategy on for one session / trend state / instrument, or pause a live one while it keeps losing
+    try:
+        from . import regime
+        if progress:
+            progress("regime check")
+        regime.apply(new, old, data, changes)
+    except Exception as e:
+        log.warning("regime check failed: %s", e)
     new["changes"] = changes
     new["note"] = f"{len(changes)} change(s)" if changes else "no change passed validation"
     new["limits"] = LIMITS

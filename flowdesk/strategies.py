@@ -72,7 +72,38 @@ def indicators(df: pd.DataFrame) -> pd.DataFrame:
     d["high5"] = h.rolling(5, min_periods=1).max()
     d["low3"] = l.rolling(3, min_periods=1).min()
     d["high3"] = h.rolling(3, min_periods=1).max()
+    d["adx1h"] = adx_1h(df)
     return d
+
+
+def adx_1h(df: pd.DataFrame, n: int = 14) -> pd.Series:
+    """Wilder ADX(14) on 1-hour bars built from the frame, mapped back to each bar using only COMPLETED hours
+    (an hour's value is attached at its close, so a 15m bar never sees the hour it is part of)."""
+    try:
+        hb = df[["high", "low", "close"]].astype(float).resample("1h").agg({"high": "max", "low": "min", "close": "last"}).dropna()
+        if len(hb) < 3 * n:
+            return pd.Series(np.nan, index=df.index)
+        h, l, c = hb["high"], hb["low"], hb["close"]
+        up, dn = h.diff(), -l.diff()
+        pdm = up.where((up > dn) & (up > 0), 0.0)
+        mdm = dn.where((dn > up) & (dn > 0), 0.0)
+        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        a = 1 / n
+        atr = tr.ewm(alpha=a, adjust=False).mean()
+        pdi = 100 * pdm.ewm(alpha=a, adjust=False).mean() / atr
+        mdi = 100 * mdm.ewm(alpha=a, adjust=False).mean() / atr
+        dx = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)
+        adx = dx.ewm(alpha=a, adjust=False).mean()
+        adx.index = adx.index + pd.Timedelta(hours=1)                    # an hour's value is usable only once it closed
+        return adx.reindex(df.index, method="ffill")
+    except Exception:
+        return pd.Series(np.nan, index=df.index)
+
+
+def trend_of(adx: float | None) -> str:
+    if adx is None or not math.isfinite(adx):
+        return "unknown"
+    return "trend" if adx >= 25 else "range" if adx < 20 else "mixed"
 
 
 def rows(d: pd.DataFrame) -> list[dict]:
@@ -203,7 +234,8 @@ def features(R: list[dict], i: int, side: str, sl_atr: float | None = None, scor
     kd = min(abs(r["close"] - r["pdh"]), abs(r["close"] - r["pdl"])) / atr if math.isfinite(r["pdh"]) and math.isfinite(r["pdl"]) else 9
     f = {"side": side.lower(), "session": session(r["hour"]), "hour": int(r["hour"]), "killzone": killzone_of(r["ny_hour"]),
          "htf_align": al, "atr_regime": "low" if reg < 0.8 else "high" if reg > 1.3 else "normal",
-         "key_dist": "at_level" if kd < 0.5 else "near_level" if kd < 1.5 else "far"}
+         "key_dist": "at_level" if kd < 0.5 else "near_level" if kd < 1.5 else "far",
+         "trend": trend_of(r.get("adx1h"))}
     if sl_atr is not None:
         f["sl_atr"] = "tight" if sl_atr < 0.8 else "normal" if sl_atr < 1.6 else "wide"
     if score is not None:

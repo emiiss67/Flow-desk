@@ -404,6 +404,25 @@ function newsTestH(n) {
     <div class="sub" style="margin-top:8px">Surprise direction right in the first minute → 2–32 min after: ${rr}</div>
     <div class="sub" style="margin-top:6px">The reaction is real but almost all of it happens in the first minute, before a retail order can get in at a normal spread; from minute 2 on it is close to a coin flip. ${Object.values(n.modes).some(m => m.passed) ? 'A variant passed validation and test after costs; it still starts small and switches itself off if live paper results degrade.' : 'Neither variant made money after costs on data it was not tuned on, so news trading stays off and the news blackout stays on.'} Sources: Forex Factory calendar history (community snapshot, to 7 Apr 2025), HistData.com 1-minute bars. Past results do not guarantee future results.</div></div>`;
 }
+function regimeH(r, names) {
+  const rg = r.regime; if (!rg || !rg.strategies) return '';
+  const stale = Date.now() / 1000 - (rg.computed || 0) > 3 * 86400;
+  const st = rg.strategies; const lt = r.strategies || {};
+  const eff = k => { const e = st[k]; if (stale) return lt[k]?.enabled ? 'on' : 'off'; return e.state; };
+  const rank = { paused: 1, on: 0, off: 2 };
+  const ks = Object.keys(st).sort((a, b) => (rank[eff(a)] - rank[eff(b)]) || ((st[b].check?.exp_r ?? -9) - (st[a].check?.exp_r ?? -9)));
+  const f = x => x && x.n ? `${wrTxt(x.win_rate)} win · ${fmtR(x.exp_r)} · n ${x.n}` : 'no trades';
+  const badge = s => s === 'on' ? '<span class="badge-ok">TRADING</span>' : s === 'paused' ? '<span class="badge-bad">PAUSED</span>' : '<span class="m">off</span>';
+  const onN = ks.filter(k => eff(k) === 'on').length;
+  const days = (rg.check_days || []).length, pdays = (rg.pick_days || []).length;
+  return `<div class="panel" style="margin-top:16px"><h3>${smp('Trading right now', 'Right now (market regime)')} <span class="right">${onN} on · checked ${dmy(rg.computed)} ${hm(rg.computed)}</span></h3>
+    <div class="sub" style="margin-bottom:6px">${stale ? '<span class="a">This check is more than 3 days old, so the long-term settings apply until the next nightly run.</span> ' : ''}${smp(`Judged on the newest market days only: a strategy has to make money in the ${pdays} days before and again in the last ${days} trading days, after costs. Small samples - re-checked every night.`, `Recent walk-forward on ${rg.timeframe}: pick on ${pdays} trading days (${(rg.pick_days || [])[0] || ''}…), confirm out-of-sample on the newest ${days} (${(rg.check_days || [])[0] || ''}…), ${esc(rg.costs || '')}; trend = ${esc(rg.trend || '')}. Off strategies need ≥ ${rg.limits?.min_check_n} recent trades and > ${fmtR(rg.limits?.min_check_exp)}; live ones pause when both windows lose (≥ ${rg.limits?.pause_min_n} trades each).`)}</div>
+    <div class="rows">${ks.map(k => { const e = st[k]; const s = eff(k); const sc = (e.scopes || [])[0];
+      return `<div class="lr-row"><div class="lr-n"><b>${esc(names[k] || e.name || k)}</b> ${badge(s)}<div class="sub">${esc(deTicker(e.reason || ''))}</div></div>
+      <div class="lr-c"><div class="k">${smp('Last ' + days + ' days', 'Check (OOS)')}</div><b class="${pnlClass((sc ? sc.check : e.check)?.exp_r)}">${fmtR((sc ? sc.check : e.check)?.exp_r)}</b><div class="sub">${f(sc ? sc.check : e.check)}</div></div>
+      <div class="lr-c"><div class="k">${smp(pdays + ' days before', 'Pick window')}</div><b class="${pnlClass((sc ? sc.pick : e.pick)?.exp_r)}">${fmtR((sc ? sc.pick : e.pick)?.exp_r)}</b><div class="sub">${f(sc ? sc.pick : e.pick)}</div></div></div>`; }).join('')}</div></div>`;
+}
+
 Views.learning = async (v) => {
   v.innerHTML = `<div class="page-title">Learning</div><div class="page-sub">The bot studies every backtest and paper trade, blocks what keeps losing and only trades strategies that showed an edge on data they were not tuned on.</div><div id="lrn"><div class="skeleton" style="height:520px"></div></div>`;
   const [d, err] = await load('/api/learning'); if (!d) { $('#lrn').innerHTML = `<div class="panel">${unavailable('Learning', err)}</div>`; return; }
@@ -430,6 +449,7 @@ Views.learning = async (v) => {
     <div class="panel"><div class="lr-top"><div><div class="label" style="margin:0">Rules version ${r.version ?? 0}${r.created ? ' · ' + dmy(r.created) + ' ' + hm(r.created) : ''}</div>
       <div class="sub">${esc(r.note || '')}${d.status?.state ? ' · last run: ' + esc(d.status.state) + (d.status.step ? ' (' + esc(d.status.step) + ')' : '') : ''}. Runs every night automatically.</div></div>
       ${API.demo ? '' : `<button class="btn pri" id="lrnRun" ${running || d.requested ? 'disabled' : ''}>${running ? 'Learning…' : d.requested ? 'Queued…' : 'Learn now'}</button>`}</div></div>
+${regimeH(r, names)}
     <div class="panel" style="margin-top:16px"><div class="wr-h"><span>Before vs after learning</span><span class="sub" style="font-weight:400">${days ? `newest ~${days} days, never used to make any decision` : 'not learned yet'}</span></div>
       <div class="wr-grid">${cmp('Win rate', b.win_rate, a.win_rate, wrTxt, true)}${cmp('Avg per trade', b.exp_r, a.exp_r, fmtR, true)}
         <div><div class="k">≈ per trade</div><div class="v ${pnlClass(a.exp_r)}">${eur != null && a.exp_r != null ? money(a.exp_r * eur) : '–'}</div><div class="sub">before ${eur != null && b.exp_r != null ? money(b.exp_r * eur) : '–'}</div></div>

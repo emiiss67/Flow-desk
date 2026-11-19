@@ -91,7 +91,7 @@ class Bot:
         """Scan the whole watchlist; several positions can open in one cycle (limits: max_positions,
         max_per_symbol with different setups, open-risk cap, daily loss limit). Every candidate passes the
         learned rules (data/learned_rules.json) first: disabled strategies, blocked loss buckets, per-symbol edge."""
-        from . import backtest, learning, sizing, strategies as S
+        from . import backtest, learning, regime, sizing, strategies as S
         sc = self.cfg.get("scanner", {})
         rules = learning.load_rules()
         for w in self.cfg.get("watchlist", []):
@@ -123,7 +123,7 @@ class Bot:
                 continue          # news-straddle avoidance: no extra-strategy entries in a high-impact event window
             for name in S.STRATEGIES:
                 st = rules.get("strategies", {}).get(name) or {}
-                if not st.get("enabled"):
+                if not st.get("enabled") and not regime.switched_on(rules, name):
                     continue
                 sg = S.signal(name, R, len(R) - 1, st.get("params"))
                 if not sg:
