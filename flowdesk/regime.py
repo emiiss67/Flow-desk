@@ -143,7 +143,7 @@ def evaluate(data: list[dict], rules: dict, now: float | None = None) -> dict:
         if entry["scopes"]:
             entry["state"] = "on"
             s0 = entry["scopes"][0]
-            entry["reason"] = ("On " + " and ".join(s["text"] for s in entry["scopes"]) +
+            entry["reason"] = ("Trading " + " and ".join(s["text"] for s in entry["scopes"]) +
                                f": made money in the last {c['days_check']} trading days ({_fmt(s0['check'])}) after also making money "
                                f"the {c['days_pick']} days before ({_fmt(s0['pick'])}) - small sample, re-checked every night")
         else:
