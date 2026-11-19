@@ -173,3 +173,27 @@ def usd_per_quote(symbol: str, price: float, quote_rates: dict | None = None) ->
     if quote_rates and q in quote_rates:
         return quote_rates[q]
     return 1.0
+
+
+# ----- correlated exposure groups (for the same-direction limit) -----
+# Each symbol maps to [(group, sign)]: a LONG trade adds exposure `sign` to the group, a SHORT adds `-sign`.
+# Two trades are "the same bet" in a group when their exposure has the same sign.
+RISK_ON = {"ES=F", "NQ=F", "YM=F", "RTY=F", "^GSPC", "^NDX", "^DJI", "^RUT", "BTC-USD", "ETH-USD", "AUDJPY=X", "NZDJPY=X"}
+GROUP_NAMES = {"risk_on": "stock indices / crypto / AUD-JPY (risk-on)", "jpy": "yen pairs", "usd": "US dollar pairs"}
+
+
+def corr_groups(symbol: str) -> list[tuple[str, int]]:
+    s = normalize(symbol)
+    out = []
+    if s in RISK_ON:
+        out.append(("risk_on", 1))                       # LONG = betting on risk-on
+    m = re.match(r"^([A-Z]{3})([A-Z]{3})=X$", s)
+    if m:
+        base, quote = m.groups()
+        if quote == "JPY":
+            out.append(("jpy", 1))                       # LONG xxxJPY = short yen
+        if base == "USD":
+            out.append(("usd", 1))                       # LONG USDxxx = long dollar
+        elif quote == "USD":
+            out.append(("usd", -1))                      # LONG xxxUSD = short dollar
+    return out

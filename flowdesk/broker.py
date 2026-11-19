@@ -26,6 +26,8 @@ class PaperBroker:
         self.max_positions = int(c.get("max_positions", 4))
         self.max_per_symbol = int(c.get("max_per_symbol", 1))
         self.max_open_risk_pct = float(c.get("max_open_risk_pct", 0) or 0)
+        self.max_same_group = int(c.get("max_same_direction_per_group", 0) or 0)     # 0 = off
+        self.max_side_risk_pct = float(c.get("max_same_direction_risk_pct", 0) or 0)  # 0 = off
         self.last_reject = ""
         self.daily_loss_pct = float(c.get("daily_loss_limit_pct", 2.0))
         self.tp1_close = float(c.get("tp1_close_pct", 50)) / 100
@@ -69,6 +71,7 @@ class PaperBroker:
 
     def realized_today(self) -> float:
         day0 = int(datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        day0 = max(day0, int((self.j.get("equity_reset") or {}).get("ts", 0) or 0))   # a paper reset starts a fresh day
         r = self.j.q("SELECT COALESCE(SUM(pnl_usd),0) s FROM fills WHERE ts>=?", (day0,))
         return float(r[0]["s"])
 
@@ -94,6 +97,20 @@ class PaperBroker:
 
     def balance_day_start(self) -> float:
         return self.balance - self.realized_today()
+
+    def reset_paper(self, to: float, note: str = "") -> dict:
+        """Owner action: start a fresh paper equity baseline at `to` (trade history is kept for stats/learning).
+        Open trades stay open and count against the new balance. Also restarts the daily-loss window."""
+        now = int(time.time())
+        frm = round(self.balance, 2)
+        rec = {"ts": now, "from_balance": frm, "balance": round(float(to), 2), "note": note}
+        self.j.set("balance", float(to))
+        self.j.set("equity_reset", rec)
+        self.j.set("equity_reset_log", (self.j.get("equity_reset_log", []) or [])[-19:] + [rec])
+        self.j.set("daily_reset_ts", now)
+        self.j.set("daily_reset_log", (self.j.get("daily_reset_log", []) or [])[-19:] + [{"ts": now, "balance": round(float(to), 2), "why": "paper reset"}])
+        self.snapshot_equity()
+        return rec
 
     # ----- price helpers -----
     def cost_bps(self, symbol: str) -> float:
@@ -133,6 +150,33 @@ class PaperBroker:
         return qty if qty > 0 else 0.0
 
     # ----- orders -----
+    @staticmethod
+    def _trade_risk(t: dict) -> float:
+        sgn = 1 if t["side"] == "LONG" else -1
+        loss = (t["entry"] - t["sl"]) * sgn
+        return loss * t["qty_open"] * t["point_value"] * t["usd_mult"] if loss > 0 else 0.0
+
+    def side_risk_usd(self, side: str) -> float:
+        """Open risk (to the stops) of all trades in one direction, across every instrument."""
+        return sum(self._trade_risk(t) for t in self.open_trades() if t["side"] == side)
+
+    def correlated_block(self, symbol: str, side: str) -> str:
+        """Plain-English reason when a new trade would be one bet too many on the same correlated move, else ''."""
+        if not self.max_same_group:
+            return ""
+        d = 1 if side == "LONG" else -1
+        opens = self.open_trades()
+        for g, sign in instruments.corr_groups(symbol):
+            want = d * sign
+            same = [t for t in opens if any(gg == g and (1 if t["side"] == "LONG" else -1) * ss == want
+                                            for gg, ss in instruments.corr_groups(t["symbol"]))]
+            if len(same) >= self.max_same_group:
+                names = ", ".join(sorted({instruments.display(t["symbol"]) for t in same}))
+                word = "buy" if side == "LONG" else "sell"
+                return (f"already {len(same)} {word}-the-same-way trades in {instruments.GROUP_NAMES.get(g, g)} ({names}) - "
+                        "these move together, so another one would stack the same bet")
+        return ""
+
     def open_risk_usd(self) -> float:
         """What all open trades lose if every stop is hit now (trades with the stop at/beyond entry risk 0)."""
         tot = 0.0
@@ -143,7 +187,7 @@ class PaperBroker:
                 tot += loss * t["qty_open"] * t["point_value"] * t["usd_mult"]
         return tot
 
-    def can_open(self, symbol: str, setup: str | None = None) -> tuple[bool, str]:
+    def can_open(self, symbol: str, setup: str | None = None, side: str | None = None) -> tuple[bool, str]:
         if self.j.get("paused", False):
             return False, "bot paused"
         opens = self.open_trades()
@@ -160,13 +204,20 @@ class PaperBroker:
             return False, "daily loss limit reached"
         if self.max_open_risk_pct and self.open_risk_usd() >= self.equity() * self.max_open_risk_pct / 100 * 0.995:
             return False, f"open-risk cap ({self.max_open_risk_pct:g}% of equity) reached"
+        if side:
+            why = self.correlated_block(symbol, side)
+            if why:
+                return False, why
+            if self.max_side_risk_pct and self.side_risk_usd(side) >= self.equity() * self.max_side_risk_pct / 100 * 0.995:
+                word = "buy" if side == "LONG" else "sell"
+                return False, f"{word} trades already risk {self.max_side_risk_pct:g}% of the balance - no more bets in that direction"
         return True, ""
 
     def open(self, symbol: str, side: str, price: float, sl: float, tp1: float, tp2: float, tf: str = "",
              atr: float = 0.0, reasons=None, tags=None, signal_id: int | None = None, usd_mult: float = 1.0,
              ts: int | None = None, risk_pct: float | None = None, setup: str | None = None,
              risk_reason: str = "", strategy: str | None = None, features: dict | None = None) -> dict | None:
-        ok, why = self.can_open(symbol, setup)
+        ok, why = self.can_open(symbol, setup, side)
         self.last_reject = why
         if not ok:
             return None
@@ -186,6 +237,15 @@ class PaperBroker:
             if eq * rp / 100 > room:
                 rp = 100 * room / eq
                 risk_reason = (risk_reason + "; " if risk_reason else "") + f"cut to {rp:.1f}% by the {self.max_open_risk_pct:g}% open-risk cap"
+        if self.max_side_risk_pct:                     # same-direction total across all instruments
+            room = eq * self.max_side_risk_pct / 100 - self.side_risk_usd(side)
+            word = "buy" if side == "LONG" else "sell"
+            if room < eq * 0.005:
+                self.last_reject = f"{word} trades already risk {self.max_side_risk_pct:g}% of the balance - no more bets in that direction"
+                return None
+            if eq * rp / 100 > room:
+                rp = 100 * room / eq
+                risk_reason = (risk_reason + "; " if risk_reason else "") + f"cut to {rp:.1f}% by the {self.max_side_risk_pct:g}% same-direction cap"
         qty = self.position_size(eq, rp, entry, sl, pv, usd_mult, self.max_leverage, self.qty_step, self.min_qty)
         if qty <= 0:
             self.last_reject = "size rounds to zero"

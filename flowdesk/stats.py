@@ -68,7 +68,21 @@ def compute(trades: list[dict], start_balance: float) -> dict:
 
 
 def performance(j: Journal, start_balance: float) -> dict:
-    out = compute(j.trades(limit=100000), start_balance)
+    trades = j.trades(limit=100000)
+    out = compute(trades, start_balance)
+    rs = j.get("equity_reset")
+    if rs and rs.get("ts"):
+        # fresh equity baseline: the curve, net, drawdown and return start at the reset;
+        # win rate / profit factor / R / heatmap / per-symbol keep the whole history (learning + stats)
+        ts0, base = int(rs["ts"]), float(rs["balance"])
+        since = compute([t for t in trades if t["status"] == "closed" and (t["closed_ts"] or 0) >= ts0], base)
+        out["all_time"] = {k: out[k] for k in ("net", "trades", "wins", "losses", "win_rate", "max_drawdown", "max_drawdown_pct")}
+        for k in ("net", "max_drawdown", "max_drawdown_pct"):
+            out[k] = since[k]
+        out["since_reset"] = {k: since[k] for k in ("net", "trades", "wins", "losses", "win_rate")}
+        out["equity_curve"] = [{"time": ts0, "value": base}] + since["equity_curve"][1:] if since["trades"] else []
+        out["reset"] = {"ts": ts0, "balance": base, "from_balance": rs.get("from_balance")}
+        out["start_balance"] = base
     if out.get("profit_factor") == float("inf"):
         out["profit_factor"] = None
         out["profit_factor_note"] = "no losing trades yet"

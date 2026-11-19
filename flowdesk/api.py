@@ -285,9 +285,11 @@ def api_journal(limit: int = 300, symbol: str | None = None, side: str | None = 
 def api_performance():
     b = B()
     p = performance(J(), b.start_balance)
-    eq = J().q("SELECT ts, equity FROM equity ORDER BY ts DESC LIMIT 2000")
+    ts0 = (p.get("reset") or {}).get("ts", 0)
+    eq = J().q("SELECT ts, equity FROM equity WHERE ts >= ? ORDER BY ts DESC LIMIT 2000", (ts0,))
     p["equity_snapshots"] = [{"time": r["ts"], "value": round(r["equity"], 2)} for r in reversed(eq)]
-    p["balance"], p["equity"], p["start_balance"] = round(b.balance, 2), round(b.equity(), 2), b.start_balance
+    p["balance"], p["equity"] = round(b.balance, 2), round(b.equity(), 2)
+    p["start_balance"] = p.get("start_balance", b.start_balance)
     p.update(_cur())
     return p
 
@@ -313,8 +315,8 @@ def api_dashboard():
     except Exception:
         pass
     return {
-        "paper": True, "balance": round(b.balance, 2), "equity": round(b.equity(), 2), "start_balance": b.start_balance,
-        "today_pnl": round(b.realized_today(), 2), "net": perf["net"], "win_rate": perf["win_rate"],
+        "paper": True, "balance": round(b.balance, 2), "equity": round(b.equity(), 2), "start_balance": perf.get("start_balance", b.start_balance),
+        "reset": perf.get("reset"), "today_pnl": round(b.realized_today(), 2), "net": perf["net"], "win_rate": perf["win_rate"],
         "profit_factor": perf["profit_factor"], "trades": perf["trades"], "streak": perf["streak"],
         "best_streak": perf["best_streak"], "last_trades": perf["last_trades"], "daily_30": perf["daily_30"],
         "heatmap": perf["heatmap"], "open_positions": _positions(),
@@ -334,6 +336,9 @@ def _plan() -> list[str]:
     bc = c.get("broker", {}) or {}
     return [_risk_plan(c),
             f"Max {bc.get('max_positions', 4)} open positions · total open risk ≤ {float(bc.get('max_open_risk_pct', 0) or 0):g}% of equity",
+            f"Same direction: all buys (or all sells) together ≤ {float(bc.get('max_same_direction_risk_pct', 0) or 0):g}% of equity · "
+            f"max {int(bc.get('max_same_direction_per_group', 0) or 0)} trades the same way on things that move together "
+            "(stock indices + crypto, yen pairs, dollar pairs)",
             f"Stop after -{float(bc.get('daily_loss_limit_pct', 30)):g}% day",
             f"No entries {(c.get('events', {}) or {}).get('block_minutes_before', 30)} min before high-impact news",
             f"Min confluence {(c.get('strategy', {}) or {}).get('min_score', 55)}/100 (learning may raise it)",
@@ -349,6 +354,7 @@ def api_config():
     sz = sizing.settings(c)
     rules = learning.load_rules()
     keys = ("account_currency", "starting_balance", "max_positions", "max_per_symbol", "max_open_risk_pct", "daily_loss_limit_pct",
+            "max_same_direction_risk_pct", "max_same_direction_per_group",
             "max_leverage", "tp1_close_pct", "trail_atr", "slippage_bps", "spread_bps")
     return {"ok": True, "paper": True, "plan": _plan(), "sizing": {k: sz.get(k) for k in (
                 "enabled", "low_sample_n", "base_risk_pct", "negative_risk_pct", "skip_expectancy_r", "skip_min_n", "tiers")},

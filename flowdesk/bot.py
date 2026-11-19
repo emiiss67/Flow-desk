@@ -149,7 +149,7 @@ class Bot:
         r["sizing"] = sz
         ok, why = learning.allow(rules, stream, sym, {k: v for k, v in feats.items()}, r.get("confluence"))
         if ok:
-            ok, why = self.b.can_open(sym, setup)
+            ok, why = self.b.can_open(sym, setup, r["decision"])
         if ok and sc.get("require_killzone") and not killzone():
             ok, why = False, "outside killzone"
         if ok and sz["skip"]:

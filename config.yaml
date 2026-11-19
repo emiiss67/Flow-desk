@@ -36,11 +36,11 @@ telegram:
 sizing:                       # win-rate based risk per trade (from the walk-forward backtest of that symbol / setup / score band)
   enabled: true
   low_sample_n: 20            # n below this -> base risk
-  base_risk_pct: 35.0        # low sample (n < low_sample_n) or win rate not ready yet
-  negative_risk_pct: 20.0    # expectancy below 0R
+  base_risk_pct: 7.0         # low sample (n < low_sample_n) or win rate not ready yet
+  negative_risk_pct: 5.0     # expectancy below 0R
   skip_expectancy_r: -0.25    # skip entirely when expectancy <= this ...
   skip_min_n: 50              # ... and the sample has at least this many trades
-  tiers: [[70, 80.0], [60, 65.0], [50, 50.0], [40, 35.0], [0, 20.0]]   # [win % at least, risk %] - very aggressive, paper only
+  tiers: [[70, 35.0], [60, 15.0], [50, 12.0], [40, 10.0], [0, 5.0]]   # [win % at least, risk %] - paper only (reset 2026-11-19)
   prewarm_minutes: 50         # bot recomputes watchlist win rates in the background this often
 
 scanner:
@@ -88,14 +88,17 @@ endpoint_publish:            # tunnel URL changes -> docs/endpoint.json (URL onl
 broker:
   account_currency: EUR       # balance, sizing and P&L are kept in this currency (live FX from the data provider)
   starting_balance: 50        # paper balance in the account currency (€50)
-  risk_pct: 10.0              # % of equity risked per trade (10% of €50 = €5) - aggressive, paper only
+  risk_pct: 7.0               # legacy fixed risk % (only used when win-rate sizing is off)
   min_qty: 0                  # 0 = fractional units/contracts allowed (paper/CFD-style). >0 rejects smaller sizes
   qty_step: 0                 # 0 = no rounding; e.g. 0.01 to round lots down to a step
   max_leverage: 5000          # paper notional cap = equity x this; high so 80% risk on a tight forex stop isn't cut
   max_positions: 15          # concurrent paper positions across all symbols
   daily_loss_limit_pct: 30.0  # stop opening trades after losing this % of day-start equity
   max_per_symbol: 2          # a 2nd position on a symbol only if it comes from a different setup
-  max_open_risk_pct: 200.0    # total risk of all open trades (to their stops) can't exceed this % of equity (paper, very aggressive)
+  max_open_risk_pct: 60.0     # total risk of all open trades (to their stops) can't exceed this % of equity
+  max_same_direction_risk_pct: 45.0   # all open BUY (or all SELL) trades together can't risk more than this % of equity
+  max_same_direction_per_group: 2     # max open trades betting the same way inside one correlated group
+                                      # (stock indices+crypto+AUD/NZD-JPY = risk-on, yen pairs, US-dollar pairs)
   tp1_close_pct: 50           # % of position closed at TP1, then stop to breakeven
   trail_atr: 1.0              # after TP1, trail stop at this many ATR
   spread_bps: {forex: 0.8, indices: 1.0, futures: 1.0, commodities: 2.0, crypto: 5.0, rates: 1.0, other: 2.0}
