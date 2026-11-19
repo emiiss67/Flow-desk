@@ -24,12 +24,14 @@ Views.dashboard = async (v) => {
     if (wd === 6 || (wd === 0 && t < 18) || (wd === 5 && t >= 17)) return 'Markets closed (weekend)'; if (t >= 2 && t < 5) return 'London killzone active'; if (t >= 7 && t < 10) return 'New York killzone active'; if (t >= 20) return 'Asia session'; return 'Markets open'; })();
   $('#mkt').textContent = kz;
   const net30 = d.daily_30.reduce((a, b) => a + b.pnl, 0);
+  const heroNet = d.reset ? (d.net ?? 0) : net30;   // after a paper reset the headline counts from the fresh €50 start
+  const heroLbl = d.reset ? `Net P&amp;L · since reset ${new Date(d.reset.ts * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'Net P&amp;L · 30 days';
   const st = d.status; const stCls = st === 'running' ? '' : st === 'paused' ? 'pause' : 'off';
   const lt = d.last_trades || []; const mx = Math.max(1, ...lt.map(t => Math.abs(t.pnl)));
   const dm = Math.max(1, ...d.daily_30.map(x => Math.abs(x.pnl)));
   const streakDash = Array.from({ length: 14 }, (_, i) => { const t = lt[lt.length - 14 + i]; return `<i class="${t ? (t.pnl > 0 ? 'w' : 'l') : ''}"></i>`; }).join('');
   $('#dMain').innerHTML = `
-    <div class="hero"><div class="label">Net P&amp;L · 30 days</div><div class="huge num ${net30 > 0 ? 'glow-g' : net30 < 0 ? 'glow-r' : ''}">${money(net30)}</div>
+    <div class="hero"><div class="label">${heroLbl}</div><div class="huge num ${heroNet > 0 ? 'glow-g' : heroNet < 0 ? 'glow-r' : ''}">${money(heroNet)}</div>
       <div class="sub">Paper balance <b class="num hi">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span></div></div>
     <div class="grid cols-4" style="margin-top:26px">
       <div class="panel stat"><div class="label">Status today</div><div class="v"><span class="dot-live ${stCls}"></span>${st === 'running' ? 'Clean' : st === 'paused' ? 'Paused' : 'Offline'}</div><div class="sub">${d.daily_limit_hit ? `<span class="r">Daily loss limit hit</span>${API.demo ? '' : ' <button class="btn" id="resetDL" style="padding:6px 10px;margin-top:6px">Reset daily limit</button>'}` : 'Bot ' + esc(st) + (d.heartbeat ? ' · scan ' + ago(d.heartbeat) : '')}</div></div>
