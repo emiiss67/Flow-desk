@@ -19,7 +19,7 @@ from .config import get_config, data_dir
 from .data import get_provider, DataUnavailable
 
 log = logging.getLogger("flowdesk.backtest")
-VERSION = 2
+VERSION = 3          # 3: R is net of spread + slippage, 'cost' stored per outcome
 _lock = threading.Lock()
 _running: dict = {}
 _pool = ThreadPoolExecutor(max_workers=2)
@@ -62,7 +62,7 @@ def simulate(direction: str, entry: float, sl: float, tp1: float, tp2: float, fu
 
 
 def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None = None, max_evals: int = 1500,
-        max_hold: int = 96) -> list[dict]:
+        max_hold: int = 96, sym: str | None = None) -> list[dict]:
     """Evaluate the engine on every bar (walk-forward) and simulate both directions. Pure function of df."""
     from .strategy import analyze_frame, trade_levels
     cfg = cfg or get_config()
@@ -87,6 +87,10 @@ def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None =
             lv = trade_levels(side, ev, scfg)
             o = simulate(side, lv["entry"], lv["sl"], lv["tp1"], lv["tp2"], future, ia["atr"],
                          bcfg.get("tp1_close_pct", 50) / 100, bcfg.get("trail_atr", 1.0), max_hold)
+            if o is not None:                                  # net of spread + slippage, like the live fills
+                from .quality import cost_r
+                c = cost_r(sym or "", float(lv["entry"]), abs(float(lv["entry"]) - float(lv["sl"])), cfg) if sym else 0.0
+                o = dict(o, r=o["r"] - c, cost=c)
             rec[side.lower() + "_o"] = o and {k: (round(v, 3) if isinstance(v, float) else v) for k, v in o.items()}
         out.append(rec)
     return out
@@ -95,6 +99,9 @@ def run(df: pd.DataFrame, tf: str, cfg: dict | None = None, window: int | None =
 def stats(records: list[dict], direction: str, score: float, band: float = 10.0, min_score: float | None = None,
           setup: str | None = None) -> dict:
     side = direction.lower()
+    from .quality import cfg as qcfg
+    q = qcfg()
+    mx_cost = float(q["max_cost_r"]) if q.get("enabled", True) and q.get("max_cost_r") is not None else None
     if setup:   # every past bar where this named setup fired on this side, any score
         records = [r for r in records if r.get("setup_" + side) == setup]
         score, band = 50, 1000
@@ -110,6 +117,8 @@ def stats(records: list[dict], direction: str, score: float, band: float = 10.0,
         o = r.get(side + "_o")
         if o is None or not (lo <= s <= hi) or s <= r[other]:
             continue
+        if mx_cost is not None and o.get("cost") is not None and o["cost"] > mx_cost:
+            continue                                          # the live quality gate would skip it too
         taken.append(o)
         busy_until = r["i"] + o["exit"]
     n = len(taken)
@@ -150,7 +159,7 @@ def compute(symbol: str, tf: str) -> dict:
         df = get_provider().candles(sym, tf)
     except DataUnavailable as e:
         return {"v": VERSION, "ok": False, "error": "data unavailable"}
-    recs = run(df, tf)
+    recs = run(df, tf, sym=sym)
     d = {"v": VERSION, "ok": True, "symbol": sym, "tf": tf, "records": recs, "bars": len(df),
          "from": recs[0]["t"] if recs else None, "to": recs[-1]["t"] if recs else None,
          "computed": int(time.time()), "seconds": round(time.time() - t0, 1)}

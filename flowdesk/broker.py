@@ -28,6 +28,7 @@ class PaperBroker:
         self.max_open_risk_pct = float(c.get("max_open_risk_pct", 0) or 0)
         self.max_same_group = int(c.get("max_same_direction_per_group", 0) or 0)     # 0 = off
         self.max_side_risk_pct = float(c.get("max_same_direction_risk_pct", 0) or 0)  # 0 = off
+        self.max_side_open = int(c.get("max_same_direction_open", 0) or 0)              # 0 = off; all symbols together
         self.last_reject = ""
         self.daily_loss_pct = float(c.get("daily_loss_limit_pct", 2.0))
         self.tp1_close = float(c.get("tp1_close_pct", 50)) / 100
@@ -252,6 +253,9 @@ class PaperBroker:
         if self.max_open_risk_pct and self.open_risk_usd() >= self.equity() * self.max_open_risk_pct / 100 * 0.995:
             return False, f"open-risk cap ({self.max_open_risk_pct:g}% of equity) reached"
         if side:
+            if self.max_side_open and sum(1 for t in opens if t["side"] == side) >= self.max_side_open:
+                word = "buy" if side == "LONG" else "sell"
+                return False, f"already {self.max_side_open} open {word} trades - no more in that direction until one closes"
             why = self.correlated_block(symbol, side)
             if why:
                 return False, why

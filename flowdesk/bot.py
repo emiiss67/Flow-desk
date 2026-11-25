@@ -94,16 +94,20 @@ class Bot:
         from . import backtest, learning, regime, sizing, strategies as S
         sc = self.cfg.get("scanner", {})
         rules = learning.load_rules()
+        from . import quality
+        from .data import closed_bars
+        closed_only = bool(quality.cfg(self.cfg).get("closed_bars_only", True))
         for w in self.cfg.get("watchlist", []):
             sym, tf = instruments.normalize(w["symbol"]), w.get("tf", "15m")
             try:
-                r = check(sym, tf, with_chart=False, winrate="off")
+                r = check(sym, tf, with_chart=False, winrate="off", closed_only=closed_only)
             except Exception as e:
                 log.warning("check %s failed: %s", sym, e)
                 continue
             R = None
             try:
-                R = S.rows(S.indicators(self.p.candles(sym, tf)))
+                cdf = self.p.candles(sym, tf)
+                R = S.rows(S.indicators(closed_bars(cdf, sym, tf) if closed_only else cdf))
             except Exception as e:
                 log.debug("indicators %s failed: %s", sym, e)
             if r.get("ok") and r["decision"] in ("LONG", "SHORT"):
@@ -138,16 +142,41 @@ class Bot:
                 lv["rr2"] = round(sg["rr"], 2)
                 label = learning.NAMES[name]
                 res = {"symbol": sym, "tf": tf, "decision": sg["side"], "confluence": None, "price": r["price"], "levels": lv,
+                       "live_price": r.get("live_price"),
                        "atr": sg["atr"], "setup": label,
                        "reasons": [{"text": S.STRATEGIES[name]["desc"], "tag": label}],
                        "winrate": learning.stats_for(rules, name, sym)}
                 self._enter(res, sym, tf, label, name, S.features(R, len(R) - 1, sg["side"], sg["sl_atr"]), rules, sc)
+
+    def _quality(self, r: dict, sym: str, stream: str, feats: dict) -> tuple[bool, str]:
+        """Quality gate (costs / blocked setups / quiet markets) + re-anchor the fill to the live quote: the signal is
+        from the last CLOSED candle, so the trade must still offer at least min_rr_at_fill R to TP1 from where price is now."""
+        from . import quality
+        q = quality.cfg(self.cfg)
+        lv = r["levels"]
+        ok, why = quality.check(stream, sym, feats, lv["entry"], lv["sl"], c=self.cfg)
+        if not ok:
+            return ok, why
+        px = r.get("live_price")
+        if q.get("closed_bars_only", True) and px:
+            sgn = 1 if r["decision"] == "LONG" else -1
+            risk = (float(px) - lv["sl"]) * sgn
+            if risk <= 0:
+                return False, "price already through the stop since the candle closed"
+            rr = (lv["tp1"] - float(px)) * sgn / risk
+            mn = float(q.get("min_rr_at_fill", 1.0) or 0)
+            if rr < mn:
+                return False, f"price moved since the candle closed: only {rr:.2f}R left to TP1 (min {mn:g}R)"
+            r["levels"] = dict(lv, entry=float(px))
+        return True, ""
 
     def _enter(self, r: dict, sym: str, tf: str, setup, stream: str, feats: dict, rules: dict, sc: dict) -> None:
         from . import learning, sizing
         sz = sizing.choose(r["winrate"], self.cfg)
         r["sizing"] = sz
         ok, why = learning.allow(rules, stream, sym, {k: v for k, v in feats.items()}, r.get("confluence"))
+        if ok:
+            ok, why = self._quality(r, sym, stream, feats)
         if ok:
             ok, why = self.b.can_open(sym, setup, r["decision"])
         if ok and sc.get("require_killzone") and not killzone():

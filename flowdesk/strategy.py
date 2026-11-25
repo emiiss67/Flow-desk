@@ -316,8 +316,10 @@ def analyze_frame(df: pd.DataFrame, tf: str, cfg: dict | None = None, now=None) 
     return {"ia": ia, "flow": flow, "f": f, "sc": score_features(f), "htf_tf": htf_tf, "htf_trend": htf_trend}
 
 
-def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int = 300, winrate: str = "sync") -> dict:
-    """winrate: 'sync' = compute backtest now if not cached, 'async' = start in background, 'off' = skip."""
+def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int = 300, winrate: str = "sync",
+          closed_only: bool = False) -> dict:
+    """winrate: 'sync' = compute backtest now if not cached, 'async' = start in background, 'off' = skip.
+    closed_only: decide on CLOSED candles only (the bot's scanner) - 'live_price' still carries the latest quote."""
     cfg = get_config()
     scfg = cfg.get("strategy", {})
     sym = instruments.normalize(symbol)
@@ -335,6 +337,14 @@ def check(symbol: str, tf: str = "15m", with_chart: bool = True, bars_out: int =
         out.update({"ok": False, "decision": "DATA UNAVAILABLE", "error": "data unavailable",
                     "detail": f"only {len(df)} bars returned"})
         return out
+    live_price = float(df["close"].iloc[-1])
+    if closed_only:
+        from .data import closed_bars
+        df = closed_bars(df, sym, tf)
+        if len(df) < 60:
+            out.update({"ok": False, "decision": "DATA UNAVAILABLE", "error": "data unavailable", "detail": "not enough closed bars"})
+            return out
+    out["live_price"] = live_price
     lookback = int(scfg.get("lookback_bars", 300))
     ev = analyze_frame(df.iloc[-lookback:], tf, cfg)   # same window the backtest replays
     ia, flow, f, sc, htf_tf, htf_trend = ev["ia"], ev["flow"], ev["f"], ev["sc"], ev["htf_tf"], ev["htf_trend"]

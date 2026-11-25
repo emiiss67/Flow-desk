@@ -3,8 +3,7 @@
 Walk-forward on the newest data (15m, the timeframe the bot trades):
   * window A ("pick")  = trading days -10 .. -5   -> choose what to test (whole strategy or one session / trend state / instrument)
   * window B ("check") = the newest 4 trading days -> out-of-sample: the choice must ALSO make money here
-Every trade is after costs (spread + slippage; the replayed core/setup trades get the same cost estimate with a
-1-ATR stop). Trend vs range per bar = 1-hour ADX(14) from completed hours only (>=25 trend, <20 range).
+Every trade is after costs (spread + slippage, using each trade's own stop distance). Trend vs range per bar = 1-hour ADX(14) from completed hours only (>=25 trend, <20 range).
 
 Switched-off strategies are turned ON for a scope only with a positive expectancy in BOTH windows and a minimum
 sample in each; live strategies (core / HVN / KLAR) are PAUSED when both recent windows lose with enough trades.
@@ -61,9 +60,7 @@ def recent_trades(data: list[dict], rules: dict) -> dict[str, list[dict]]:
             k = x["idx"].get(t["t"])
             if k is None or t["strategy"] not in out:
                 continue
-            atr = float(R[k]["atr"] or 0)
-            t["r"] = t["r"] - (L._cost_r(x["sym"], float(R[k]["close"]), atr) if atr > 0 else 0)
-            t["win"] = t["r"] > 0
+            t["win"] = t["r"] > 0                          # replay R is already net of spread + slippage (backtest v3)
             out[t["strategy"]].append(t)
         for name in S.STRATEGIES:
             if name in out:

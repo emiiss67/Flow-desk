@@ -15,7 +15,7 @@ import math
 import time
 from pathlib import Path
 
-from . import backtest, instruments, strategies as S
+from . import backtest, instruments, quality, strategies as S
 from .config import get_config, data_dir
 from .data import get_provider, DataUnavailable
 
@@ -160,7 +160,10 @@ def simulate_strategy(sym: str, name: str, x: dict, params: dict, max_hold: int 
                               sg["tp1_frac"], b.get("trail_atr", 1.0), max_hold)
         if o is None:
             continue
-        r = o["r"] - _cost_r(sym, sg["entry"], abs(sg["entry"] - sg["sl"]))   # spread + slippage, round trip
+        cr = _cost_r(sym, sg["entry"], abs(sg["entry"] - sg["sl"]))
+        if not quality.check(name, sym, S.features(R, i, sg["side"], sg["sl_atr"]), cost=cr, c=_cfg())[0]:
+            continue
+        r = o["r"] - cr   # spread + slippage, round trip
         out.append({"t": x["ts"][i], "i": i, "strategy": name, "side": sg["side"], "r": r, "win": r > 0,
                     "f": dict(S.features(R, i, sg["side"], sg["sl_atr"]), symbol=sym)})
         busy = i + o["exit"]
@@ -186,8 +189,11 @@ def core_trades(sym: str, x: dict, min_score: float, min_margin: float) -> list[
             if r["i"] < busy[stream]:
                 continue
             S_ = side.upper()
+            f = S.features(R, k, S_, None, r[side])
+            if not quality.check(stream, sym, f, cost=o.get("cost"), c=_cfg())[0]:
+                continue                                  # the live quality gate would not have taken it
             out.append({"t": r["t"], "i": r["i"], "strategy": stream, "side": S_, "r": float(o["r"]), "win": float(o["r"]) > 0,
-                        "score": r[side], "f": dict(S.features(R, k, S_, None, r[side]), symbol=sym)})
+                        "score": r[side], "f": dict(f, symbol=sym)})
             busy[stream] = r["i"] + o["exit"]
     return out
 
@@ -410,9 +416,14 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         if name in ("setup_hvn", "setup_klar"):     # already-live setups: drop only when clearly negative in BOTH periods
             t_ = seg["train"]
             en = not (v["n"] >= LIMITS["min_val_n"] and v["exp_r"] < 0 and (t_["exp_r"] or 0) < 0)
+        qblock = name in (quality.cfg(cfg).get("block_streams") or []) and quality.cfg(cfg).get("enabled", True)
+        if qblock:
+            en = False
         st["stats"], st["enabled"] = seg, en
         vt = f"validation {v['exp_r']:+.2f}R over {v['n']} trades" if v["n"] else "no validation trades"
-        if S.STRATEGIES.get(name, {}).get("fixed") and not en and v["n"] >= LIMITS["enable_min_n"] and (v["exp_r"] or 0) > LIMITS["enable_min_exp"] and both["exp_r"] > 0:
+        if qblock:
+            st["reason"] = "Off: switched off by the quality gate (lost after spread + slippage in the win-rate review)"
+        elif S.STRATEGIES.get(name, {}).get("fixed") and not en and v["n"] >= LIMITS["enable_min_n"] and (v["exp_r"] or 0) > LIMITS["enable_min_exp"] and both["exp_r"] > 0:
             te = seg["test"]
             st["reason"] = (f"Off: {vt}, but the untouched test period shows "
                             + (f"{te['exp_r']:+.2f}R over {te['n']} trades" if te["n"] else "no trades")
@@ -465,7 +476,7 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
     new["summary"] = {"before": summarize(before), "after": summarize(after),
                       "split": "per symbol by time: train 50% / validation 25% / test 25% (test only reported)",
                       "period": [min(x["ts"][220] for x in data), max(x["ts"][-1] for x in data)],
-                      "symbols": len(data), "costs": "extra strategies include spread + slippage; replayed core/setups do not",
+                      "symbols": len(data), "costs": "all trades net of spread + slippage",
                       "test_from": min(int(x["split"][1]) for x in data)}
     # 6) live paper trades: per-strategy results and where the losses came from (reported; the sample is small)
     live = {"strategies": {}, "loss_buckets": [], "n": 0}

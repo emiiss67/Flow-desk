@@ -23,6 +23,26 @@ TIMEFRAMES = {  # tf -> (yahoo interval, yahoo period, resample rule or None)
 HTF = {"1m": "15m", "5m": "1h", "15m": "1h", "30m": "4h", "1h": "4h", "4h": "1d", "1d": "1d"}
 
 
+TF_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400}
+
+
+def delay_seconds(symbol: str) -> int:
+    """Yahoo futures / index quotes run about 10 minutes behind; forex and crypto are live."""
+    return 660 if symbol.endswith("=F") or symbol.startswith("^") else 0
+
+
+def closed_bars(df: pd.DataFrame, symbol: str, tf: str, now: float | None = None) -> pd.DataFrame:
+    """Drop the still-forming candle(s): a bar counts only once its close time (+ the feed delay) has passed.
+    The backtest only ever sees closed bars, so live signals must too (a forming candle can flip before it closes)."""
+    import time as _t
+    if df is None or df.empty:
+        return df
+    now = _t.time() if now is None else now
+    cut = now - TF_SECONDS.get(tf, 900) - delay_seconds(symbol)
+    ts = df.index.map(lambda x: x.timestamp())
+    return df[ts <= cut]
+
+
 class DataUnavailable(Exception):
     pass
 
