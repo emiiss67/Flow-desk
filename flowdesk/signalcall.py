@@ -158,7 +158,7 @@ def evaluate(sym: str, broker, journal, fx, cfg: dict | None = None, provider=No
         out.update(ok=False, call="NO TRADE", waiting="price data is unavailable right now", strategies=[])
         return out
     try:
-        R = S.rows(S.indicators(closed_bars(provider.candles(sym, tf), sym, tf)))
+        R = S.rows(S.indicators(closed_bars(provider.candles(sym, tf), sym, tf), S.peer_frame(provider, sym, tf, closed_bars), tail=8))
     except Exception:
         R = None
     uni = universe(rules, sym)

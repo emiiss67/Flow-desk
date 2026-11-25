@@ -2,7 +2,7 @@
 
 Seven videos were downloaded (yt-dlp), transcribed (Whisper) and read frame by frame. Only rules the video states are
 used; everything the video leaves open is marked **unclear** and the choice made is listed under *assumed*.
-FlowDesk is paper-only. All four implementable strategies are **off**: none has a positive result on data it was not tuned on.
+FlowDesk is paper-only. All implementable strategies are **off**: none has a positive result on data it was not tuned on.
 
 Method (same as every other extra strategy): the live 15m scanner code (`flowdesk/strategies.py`), walk-forward on the
 19-symbol watchlist (about 45 days of Yahoo 15m bars), exits simulated bar by bar (stop first when both are in one bar),
@@ -19,6 +19,8 @@ The regime check can not switch them on. Raw results: `research/tiktok_native_5m
 | 5 | itrades.capital first candle | First candle + FVG retest + engulfing (`fcr_fvg`) | 146 | 20.5 | -0.55 | 31 trades, 16.1%, -0.64R | off |
 | 6 | thequantbuilder session momentum | First candle vs 12 EMA + trailing stop (`session_mom`) | 593 | 47.6 | -0.22 | 112 trades, 44.6%, -0.22R | off |
 | 7 | keepssy OTE | ICT optimal trade entry 70.5% (`ote_fib`) | 538 | 26.2 | -0.25 | 101 trades, 26.7%, -0.11R | off |
+| 8 | "wicked's trading model" (3 screenshots) | LVN ledge 3-step: TPO bias + SMT + LVN (`lvn_ledge`) | 26 | 11.5 | -0.69 | 4 trades, 0%, -1.15R | off (every symbol) |
+| 8b | same, NY-open aggressive | LVN ledge at 09:30-10:30 ET, no SMT (`lvn_ledge_open`) | 2 | 50.0 | +0.52 | 1 trade, 100%, +2.05R | off (every symbol) |
 
 ## 1. victornqq - "@marketmaker #wicked #NQ"
 12 s clip of GBP/USD and Micro Nasdaq trade screenshots with an anime voice-over. No entry, stop, target or filter is shown or said. Nothing to implement.
@@ -63,3 +65,62 @@ Stated: price sweeps the sell-side liquidity under a low; displacement breaks st
 Unclear: what counts as a swept low / displacement / structure break, timeframe, limit vs market entry, the short side (only a long is shown).
 Assumed: sweep = new low under the previous 10 bars; displacement = a bar with body >= 0.6 ATR closing above the highest high of those 10 bars; move >= 1 ATR; first pullback only;
 the tap bar must trade to 70.5% and close inside the 62-79% zone; entered at that bar's close (market, not a limit at 70.5%); target = the high (needs >= 1R); mirrored for shorts; skipped when the stop is under 0.4 or over 3 ATR.
+
+## 8. "wicked's trading model" - LVN ledge 3-step (`lvn_ledge`, `lvn_ledge_open`) - added 25 Nov 2026
+Source: three screenshots of a notes doc (not a video). Stated:
+* 1-minute chart, **Session Volume Profile 6PM-6PM New York** (a full daily profile).
+* Mark **LVNs ("ledges")**. Filter them: they should **line up with LVNs of other session profiles**; avoid LVNs that **push straight
+  into a POC**; drop any LVN price has **clearly consolidated through**. Keep only clean, respected levels.
+* **Single prints** are mainly **targets**, and help with bias (especially ones respected overnight).
+* **3-step model: single print + ISMT/SMT + LVN** = high-quality setup. ISMT = a simple SMT between two candles; classic SMT between
+  correlated markets also works.
+* **Aggressive ledge trades** around the 09:30 NY open, where ledges are respected well.
+* **Bias from the 30-minute TPO**: stronger acceptance in the upper half = bullish, lower half = bearish; LVNs are for entries, not bias.
+  Order: bias first, then the LVN entry, single prints as targets.
+
+Unclear: exact LVN / single-print definitions, how close "aligned" is, what "consolidated through" means, the stop, entry trigger,
+which TPO (current or previous session), trading hours, one trade per level or more.
+
+Assumed (code: `flowdesk/ledge.py` + `_lvn_ledge` in `flowdesk/strategies.py`; all causal, tested in `tests/test_lvn_ledge.py`):
+* Profiles: each completed 18:00-18:00 NY session (80 price bins) + **the current session's developing profile** (bars before the current
+  30-minute period, used once it has 4 hours). Each bar's volume is spread evenly over its high-low.
+* LVN = local minimum of the 3-bin-smoothed profile at <= 35% of the POC with a node >= 2x on both sides. Kept only if it lies within
+  2.5 bins of an LVN of a **different** profile (developing or one of the last three sessions); dropped once 4+ bars this session have
+  straddled it (consolidated through).
+* "Pushes straight into a POC": skipped if the previous session's or the developing POC lies between entry and 1R in the trade direction.
+* Single prints = runs of 2+ bins touched by exactly one 30-minute TPO period (last two sessions + developing). Target = the nearest
+  single print at least 1R away; if none, 2R. Full exit at the target (no partial).
+* Bias = current session's 30-min TPO so far: share of TPO range in the upper half of the session range; >= 0.55 long only, <= 0.45 short only, needs 2 h of TPO.
+* Entry (closed 15m bar, 03:00-16:00 NY): the bar trades into a ledge from the bias side (wick within -0.5/+0.25 ATR of it) and
+  **closes back on the bias side**, with an SMT on this bar or the two before: **ISMT** = the newer candle's wick takes the older
+  candle's low (high) while its body low (high) holds, closing green (red); or **classic SMT** = a new 5-bar low (high) that the
+  correlated market does not make (NQ/ES, YM/ES, RTY/ES, EUR/USD-GBP/USD, AUD/USD-NZD/USD, EUR/JPY-GBP/JPY; others ISMT only).
+  Stop = beyond the sweep low/high and the ledge, at least 0.5 ATR (the doc gives no stop); skipped if over 3 ATR.
+* Aggressive variant `lvn_ledge_open`: 09:30-10:30 NY only, bias + ledge tap + a rejection candle (green/red, closing in the far half), no SMT.
+* Switch-on rule (stricter than other strategies, `per_symbol`): **on only for a symbol whose validation AND untouched test are both
+  positive** with >= 10 validation and >= 8 test trades on that symbol; blocked on every other symbol. Off until then, but the 04:00
+  learning loop re-tests it every night (fixed rules, never tuned, never switched on by the regime check).
+
+**Approximations (honest caveats):**
+* **No 1-minute history**: Yahoo keeps 1m bars for only ~5 days, so the model runs on 15m bars (the live scanner's chart); a 5m check was also run.
+  Wicks, ISMT and ledge taps on 15m are much coarser than on 1m.
+* **Forex has no volume on Yahoo**: FX "volume profiles" are time-at-price (TPO-style) profiles, every bar weighted equally.
+  Futures use Yahoo's exchange volume per 15m bar (not tick-level, futures data ~10 min delayed). BTC uses Yahoo's volume.
+* Profiles are built from bar ranges (volume spread evenly over high-low), not from real traded prices - LVNs are estimates.
+* Short history (~45-60 days) -> few setups. The held-out window is the learning loop's: 14-20 Nov (validation) and 20-25 Nov (test).
+
+**Results** (`tools/ledge_check.py`, raw numbers in `research/lvn_ledge_check.json`; spread + slippage charged, live quality gate applied):
+
+| Variant | Chart | All trades | Train (before 14 Nov) | Validation (14-20 Nov) | Test (20-25 Nov) |
+|---|---|---|---|---|---|
+| `lvn_ledge` | 15m | 26, 11.5% win, -0.69R | 22, 13.6%, -0.60R | 1, 0%, -1.16R | 3, 0%, -1.15R |
+| `lvn_ledge_open` | 15m | 2, 50%, +0.52R | 1, 0%, -1.02R | 1 (crude oil), 100%, +2.05R | 0 |
+| `lvn_ledge` | 5m | 7, 0% | 1, 0% | 5, 0%, -1.13R | 1, 0%, -1.19R |
+| `lvn_ledge_open` | 5m | 5, 20% | 1, 100%, +2.35R | 4, 0%, -1.13R | 0 |
+
+Per symbol (15m held-out = validation + test): EUR/USD 1 trade -1.19R; GBP/JPY 1, -1.15R; Nasdaq 1, -1.10R; S&P 1, -1.16R; crude oil (open variant) 1, +2.05R;
+every other symbol 0 held-out trades. **No symbol comes close to the switch-on rule** (needs >= 10 validation + >= 8 test trades, both positive).
+Before costs and the quality gate the 15m model took 84 trades at 20% win, **-0.17R gross** (-0.56R after costs): the setup itself
+lost money here, it is not only the spread. Of 117 raw 15m signals, 76 were skipped because spread + slippage would cost > 0.20R
+(ledge stops are tight) and 7 for low volatility; 34 passed (overlapping trades on one symbol are then skipped -> 26).
+Verdict: **off on every symbol**, tracked nightly by the learning loop; it switches on by itself for a symbol only if it earns it there.

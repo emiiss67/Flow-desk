@@ -9,7 +9,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from . import ict
+from . import ict, ledge
 
 NY = "America/New_York"
 
@@ -34,12 +34,22 @@ STRATEGIES = {
     "ote_fib": {"name": "ICT optimal trade entry (70.5% fib)", "video": 7, "fixed": True, "no_regime": True,
                 "params": {"sl_pad_atr": 0.0, "tp1_r": 1.0, "tp2_r": 2.5},
                 "desc": "Liquidity sweep of a low, displacement breaks structure to a new high; fib from the swing low to that high; first pullback into the 62-79% zone (70.5% sweet spot) = long, stop under the swing low, target the high (mirrored for shorts)."},
+    # owner's screenshots of "wicked's trading model" (research/tiktok_strategies.md #8). per_symbol: switched on only on the
+    # symbols where held-out AND test are both positive (the learning loop blocks it everywhere else).
+    "lvn_ledge": {"name": "LVN ledge 3-step (bias + SMT + LVN)", "video": 8, "fixed": True, "no_regime": True, "per_symbol": True,
+                  "params": {"sl_pad_atr": 0.0, "tp1_r": 2.0, "tp2_r": 2.0},
+                  "desc": "Bias from the 30-min TPO (upper-half acceptance = buy, lower half = sell). Price taps a clean low-volume node (ledge) of yesterday's 6pm-6pm profile that lines up with an earlier session's LVN, with an SMT divergence (two-candle ISMT or vs a correlated market): enter, stop beyond the ledge, target the next single print."},
+    "lvn_ledge_open": {"name": "LVN ledge - NY open aggressive", "video": 8, "fixed": True, "no_regime": True, "per_symbol": True,
+                       "params": {"sl_pad_atr": 0.0, "tp1_r": 2.0, "tp2_r": 2.0},
+                       "desc": "Aggressive ledge trade 09:30-10:30 New York: TPO bias plus a rejection candle off a clean aligned LVN (no SMT needed), stop beyond the ledge, target the next single print."},
 }
 DEFAULT_PARAMS = {"tp1_r": 1.0, "tp2_r": 2.5, "sl_pad_atr": 0.2, "tp1_frac": 0.5}
 GRID = {"tp1_r": [0.7, 1.0, 1.3, 1.6], "tp2_r": [1.6, 2.0, 2.5, 3.0], "sl_pad_atr": [0.1, 0.2, 0.35, 0.5]}   # TP1 close share stays the broker's tp1_close_pct
 
 
-def indicators(df: pd.DataFrame) -> pd.DataFrame:
+def indicators(df: pd.DataFrame, peer: pd.DataFrame | None = None, tail: int | None = None) -> pd.DataFrame:
+    """peer = candles of a correlated instrument (ledge.PEERS) for SMT; optional.
+    tail = live scans: market-profile columns only for the newest `tail` bars (same values, much faster)."""
     d = pd.DataFrame(index=df.index)
     o, h, l, c = (df[k].astype(float) for k in ("open", "high", "low", "close"))
     v = df["volume"].astype(float).fillna(0)
@@ -89,7 +99,24 @@ def indicators(df: pd.DataFrame) -> pd.DataFrame:
     d["low3"] = l.rolling(3, min_periods=1).min()
     d["high3"] = h.rolling(3, min_periods=1).max()
     d["adx1h"] = adx_1h(df)
+    try:                                                                # market-profile levels for the LVN ledge model
+        d = d.join(ledge.compute(df, tail)).join(ledge.smt(df, peer))
+    except Exception as e:                                              # never break the other strategies over it
+        import logging
+        logging.getLogger("flowdesk.strategies").warning("ledge levels failed: %s", e)
     return d
+
+
+def peer_frame(provider, sym: str, tf: str, closed=None) -> pd.DataFrame | None:
+    """Candles of the correlated instrument used for SMT (ledge.PEERS), or None. closed = closed-bars filter (live)."""
+    ps = ledge.PEERS.get(sym)
+    if not ps:
+        return None
+    try:
+        pdf = provider.candles(ps, tf)
+        return closed(pdf, ps, tf) if closed else pdf
+    except Exception:
+        return None
 
 
 def adx_1h(df: pd.DataFrame, n: int = 14) -> pd.Series:
@@ -260,7 +287,63 @@ def _ote_fib(R: list[dict], i: int, win: int = 40, look: int = 10, disp_atr: flo
     return None
 
 
-_VIDEO = {"orb15": _orb15, "fcr_fvg": _fcr_fvg, "session_mom": _session_mom, "ote_fib": _ote_fib}
+def _lvn_ledge(R: list[dict], i: int, aggressive: bool = False):
+    """LVN ledge 3-step: TPO bias -> tap + hold of a clean aligned LVN (+ SMT unless aggressive) -> target the next single print."""
+    r = R[i]
+    lv = r.get("vp_lvn")
+    if not lv or not isinstance(lv, tuple):
+        return None
+    nh = r["ny_hour"]
+    if aggressive:
+        if not (9.5 <= nh < 10.5):
+            return None
+    elif not (3 <= nh < 16) or (r.get("tpo_n") or 0) < 4:
+        return None
+    up = r.get("tpo_up")
+    if up is None or not math.isfinite(up):
+        return None
+    side = "LONG" if up >= 0.55 else "SHORT" if up <= 0.45 else None
+    if side is None:
+        return None
+    atr, c, o, h, l = r["atr"], r["close"], r["open"], r["high"], r["low"]
+    pc = R[i - 1]["close"]
+    rng = (h - l) or 1e-12
+    if side == "LONG":
+        hits = [x for x in lv if x - 0.5 * atr <= l <= x + 0.25 * atr and c > x and max(o, pc) > x]
+        if not hits:
+            return None
+        x = max(hits)
+        if aggressive:
+            if not (c > o and (c - l) / rng >= 0.5):
+                return None
+        elif not any(R[k].get("ismt_bull") or R[k].get("psmt_bull") for k in (i - 2, i - 1, i)):
+            return None
+        stop = min(l, x, c - 0.4 * atr) - 0.1 * atr                   # beyond the sweep / ledge, at least 0.5 ATR
+        dist = c - stop
+        if any(c < poc <= c + dist for poc in (r.get("vp_poc") or ())):
+            return None                                                 # ledge pushes straight into a POC
+        tg = sorted(a for a, b in (r.get("vp_sp") or ()) if a >= c + dist)
+        tgt = tg[0] if tg else c + 2.0 * dist
+        return "LONG", (stop, tgt)
+    hits = [x for x in lv if x - 0.25 * atr <= h <= x + 0.5 * atr and c < x and min(o, pc) < x]
+    if not hits:
+        return None
+    x = min(hits)
+    if aggressive:
+        if not (c < o and (h - c) / rng >= 0.5):
+            return None
+    elif not any(R[k].get("ismt_bear") or R[k].get("psmt_bear") for k in (i - 2, i - 1, i)):
+        return None
+    stop = max(h, x, c + 0.4 * atr) + 0.1 * atr
+    dist = stop - c
+    if any(c - dist <= poc < c for poc in (r.get("vp_poc") or ())):
+        return None
+    tg = sorted((b for a, b in (r.get("vp_sp") or ()) if b <= c - dist), reverse=True)
+    tgt = tg[0] if tg else c - 2.0 * dist
+    return "SHORT", (stop, tgt)
+
+
+_VIDEO = {"lvn_ledge": _lvn_ledge, "lvn_ledge_open": lambda R, i: _lvn_ledge(R, i, True), "orb15": _orb15, "fcr_fvg": _fcr_fvg, "session_mom": _session_mom, "ote_fib": _ote_fib}
 
 def _raw_signal(name: str, R: list[dict], i: int):
     """(side, raw stop) at bar i, or None. Uses rows <= i only."""

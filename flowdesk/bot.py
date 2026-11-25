@@ -108,7 +108,8 @@ class Bot:
             R = None
             try:
                 cdf = self.p.candles(sym, tf)
-                R = S.rows(S.indicators(closed_bars(cdf, sym, tf) if closed_only else cdf))
+                R = S.rows(S.indicators(closed_bars(cdf, sym, tf) if closed_only else cdf,
+                                        S.peer_frame(self.p, sym, tf, closed_bars if closed_only else None), tail=8))
             except Exception as e:
                 log.debug("indicators %s failed: %s", sym, e)
             if r.get("ok") and r["decision"] in ("LONG", "SHORT"):

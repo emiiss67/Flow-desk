@@ -1,0 +1,761 @@
+{
+ "generated": "2026-11-25",
+ "data": "Yahoo snapshot taken 25 Nov 2026 ~15:30 Vilnius; 15m: FX 23 Sep-25 Nov, futures 5 Oct-25 Nov, BTC 12 Oct-25 Nov; 5m: ~30 days",
+ "method": "tools/ledge_check.py: live signal code, broker exits, spread+slippage, quality gate; 15m split = learning loop (replay window = last 1500 bars, val/test = its newest 50%, 25%/25%); 5m = whole-history 50/25/25",
+ "gross_15m_before_costs_and_gate": {
+  "lvn_ledge": {
+   "n": 84,
+   "win_rate": 20.2,
+   "exp_r_gross": -0.17,
+   "exp_r_net": -0.562,
+   "median_cost_r": 0.354
+  },
+  "lvn_ledge_open": {
+   "n": 5,
+   "win_rate": 40.0,
+   "exp_r_gross": 0.128,
+   "exp_r_net": -0.025,
+   "median_cost_r": 0.209
+  }
+ },
+ "15m": {
+  "lvn_ledge": {
+   "ALL": {
+    "train": {
+     "n": 22,
+     "win_rate": 13.6,
+     "exp_r": -0.599,
+     "total_r": -13.17,
+     "t": -1.8
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.16,
+     "total_r": -1.16,
+     "t": 0.0
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 0.0,
+     "exp_r": -1.146,
+     "total_r": -3.44,
+     "t": -47.64
+    },
+    "heldout": {
+     "n": 4,
+     "win_rate": 0.0,
+     "exp_r": -1.15,
+     "total_r": -4.6,
+     "t": -66.28
+    }
+   },
+   "symbols": {
+    "EURUSD=X": {
+     "train": {
+      "n": 1,
+      "win_rate": 100.0,
+      "exp_r": 1.821,
+      "total_r": 1.82,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.186,
+      "total_r": -1.19,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.186,
+      "total_r": -1.19,
+      "t": 0.0
+     }
+    },
+    "AUDUSD=X": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.193,
+      "total_r": -1.19,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "NZDUSD=X": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.199,
+      "total_r": -1.2,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "GBPJPY=X": {
+     "train": {
+      "n": 3,
+      "win_rate": 33.3,
+      "exp_r": -0.398,
+      "total_r": -1.19,
+      "t": -0.55
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.151,
+      "total_r": -1.15,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.151,
+      "total_r": -1.15,
+      "t": 0.0
+     }
+    },
+    "NQ=F": {
+     "train": {
+      "n": 3,
+      "win_rate": 0.0,
+      "exp_r": -1.095,
+      "total_r": -3.28,
+      "t": -21.54
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.103,
+      "total_r": -1.1,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.103,
+      "total_r": -1.1,
+      "t": 0.0
+     }
+    },
+    "ES=F": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.196,
+      "total_r": -1.2,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.16,
+      "total_r": -1.16,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.16,
+      "total_r": -1.16,
+      "t": 0.0
+     }
+    },
+    "YM=F": {
+     "train": {
+      "n": 4,
+      "win_rate": 0.0,
+      "exp_r": -1.153,
+      "total_r": -4.61,
+      "t": -37.08
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "RTY=F": {
+     "train": {
+      "n": 4,
+      "win_rate": 0.0,
+      "exp_r": -1.114,
+      "total_r": -4.46,
+      "t": -60.73
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "GC=F": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.115,
+      "total_r": -1.11,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "CL=F": {
+     "train": {
+      "n": 2,
+      "win_rate": 50.0,
+      "exp_r": 2.197,
+      "total_r": 4.39,
+      "t": 0.67
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "BTC-USD": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.137,
+      "total_r": -1.14,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    }
+   }
+  },
+  "lvn_ledge_open": {
+   "ALL": {
+    "train": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.021,
+     "total_r": -1.02,
+     "t": 0.0
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 2.053,
+     "total_r": 2.05,
+     "t": 0.0
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "heldout": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 2.053,
+     "total_r": 2.05,
+     "t": 0.0
+    }
+   },
+   "symbols": {
+    "NQ=F": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.021,
+      "total_r": -1.02,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     }
+    },
+    "CL=F": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 100.0,
+      "exp_r": 2.053,
+      "total_r": 2.05,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 100.0,
+      "exp_r": 2.053,
+      "total_r": 2.05,
+      "t": 0.0
+     }
+    }
+   }
+  }
+ },
+ "5m": {
+  "lvn_ledge": {
+   "ALL": {
+    "train": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.2,
+     "total_r": -1.2,
+     "t": 0.0
+    },
+    "val": {
+     "n": 5,
+     "win_rate": 0.0,
+     "exp_r": -1.133,
+     "total_r": -5.67,
+     "t": -68.4
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.191,
+     "total_r": -1.19,
+     "t": 0.0
+    },
+    "heldout": {
+     "n": 6,
+     "win_rate": 0.0,
+     "exp_r": -1.143,
+     "total_r": -6.86,
+     "t": -68.93
+    }
+   },
+   "symbols": {
+    "AUDJPY=X": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "test": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.191,
+      "total_r": -1.19,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.191,
+      "total_r": -1.19,
+      "t": 0.0
+     }
+    },
+    "NQ=F": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.154,
+      "total_r": -1.15,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.154,
+      "total_r": -1.15,
+      "t": 0.0
+     }
+    },
+    "YM=F": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.069,
+      "total_r": -1.07,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.069,
+      "total_r": -1.07,
+      "t": 0.0
+     }
+    },
+    "RTY=F": {
+     "train": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.2,
+      "total_r": -1.2,
+      "t": 0.0
+     },
+     "val": {
+      "n": 3,
+      "win_rate": 0.0,
+      "exp_r": -1.148,
+      "total_r": -3.44,
+      "t": -161.66
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 3,
+      "win_rate": 0.0,
+      "exp_r": -1.148,
+      "total_r": -3.44,
+      "t": -161.66
+     }
+    }
+   }
+  },
+  "lvn_ledge_open": {
+   "ALL": {
+    "train": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 2.345,
+     "total_r": 2.35,
+     "t": 0.0
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 0.0,
+     "exp_r": -1.129,
+     "total_r": -4.52,
+     "t": -45.78
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "heldout": {
+     "n": 4,
+     "win_rate": 0.0,
+     "exp_r": -1.129,
+     "total_r": -4.52,
+     "t": -45.78
+    }
+   },
+   "symbols": {
+    "ES=F": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.189,
+      "total_r": -1.19,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.189,
+      "total_r": -1.19,
+      "t": 0.0
+     }
+    },
+    "YM=F": {
+     "train": {
+      "n": 1,
+      "win_rate": 100.0,
+      "exp_r": 2.345,
+      "total_r": 2.35,
+      "t": 0.0
+     },
+     "val": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.069,
+      "total_r": -1.07,
+      "t": 0.0
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 1,
+      "win_rate": 0.0,
+      "exp_r": -1.069,
+      "total_r": -1.07,
+      "t": 0.0
+     }
+    },
+    "RTY=F": {
+     "train": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "val": {
+      "n": 2,
+      "win_rate": 0.0,
+      "exp_r": -1.129,
+      "total_r": -2.26,
+      "t": -131.01
+     },
+     "test": {
+      "n": 0,
+      "win_rate": null,
+      "exp_r": null,
+      "total_r": 0.0,
+      "t": 0.0
+     },
+     "heldout": {
+      "n": 2,
+      "win_rate": 0.0,
+      "exp_r": -1.129,
+      "total_r": -2.26,
+      "t": -131.01
+     }
+    }
+   }
+  }
+ }
+}

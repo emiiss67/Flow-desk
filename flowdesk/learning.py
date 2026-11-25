@@ -22,7 +22,8 @@ from .data import get_provider, DataUnavailable
 log = logging.getLogger("flowdesk.learning")
 
 LIMITS = {"min_train_n": 20, "min_val_n": 8, "block_train_exp": -0.10, "block_t": -2.0, "max_new_blocks": 12, "max_blocks_per_strategy": 3, "max_param_steps": 1,
-          "min_improve_r": 0.02, "enable_min_n": 30, "enable_min_exp": 0.02, "symbol_min_n": 6, "fixed_min_test_n": 10}
+          "min_improve_r": 0.02, "enable_min_n": 30, "enable_min_exp": 0.02, "symbol_min_n": 6, "fixed_min_test_n": 10,
+          "sym_min_val_n": 10, "sym_min_test_n": 8}
 CORE = "core"
 SETUP_KEYS = {"HVN Absorption": "setup_hvn", "Key Level Absorption Reversal": "setup_klar"}
 NAMES = {CORE: "Confluence engine (structure)", "setup_hvn": "HVN Absorption", "setup_klar": "Key Level Absorption Reversal",
@@ -205,7 +206,7 @@ def load_symbol(sym: str, tf: str) -> dict | None:
         return None
     if len(df) < 400:
         return None
-    d = S.indicators(df)
+    d = S.indicators(df, S.peer_frame(get_provider(), sym, tf))
     bt = None
     p = backtest._path(sym, tf)
     if p.exists():
@@ -413,6 +414,18 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
             # on only when validation AND test are both positive and the test has a real sample
             te = seg["test"]
             en = bool(en and te["n"] >= LIMITS["fixed_min_test_n"] and (te["exp_r"] or 0) > 0)
+        per_sym = None
+        if S.STRATEGIES.get(name, {}).get("per_symbol"):
+            # per-symbol strategies (LVN ledge): on only for the symbols where validation AND the untouched test are both
+            # positive with a real sample on THAT symbol; blocked on every other symbol (step 4)
+            per_sym = {}
+            for sym in sorted({t["f"]["symbol"] for t in tr["val"] + tr["test"]}):
+                sv = summarize([t for t in filt(name, tr["val"]) if t["f"]["symbol"] == sym])
+                stt = summarize([t for t in filt(name, tr["test"]) if t["f"]["symbol"] == sym])
+                if sv["n"] >= LIMITS["sym_min_val_n"] and (sv["exp_r"] or 0) > 0 and stt["n"] >= LIMITS["sym_min_test_n"] and (stt["exp_r"] or 0) > 0:
+                    per_sym[sym] = {"val": sv, "test": stt}
+            en = bool(per_sym)
+            st["symbols_on"] = sorted(per_sym)
         if name in ("setup_hvn", "setup_klar"):     # already-live setups: drop only when clearly negative in BOTH periods
             t_ = seg["train"]
             en = not (v["n"] >= LIMITS["min_val_n"] and v["exp_r"] < 0 and (t_["exp_r"] or 0) < 0)
@@ -423,6 +436,11 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         vt = f"validation {v['exp_r']:+.2f}R over {v['n']} trades" if v["n"] else "no validation trades"
         if qblock:
             st["reason"] = "Off: switched off by the quality gate (lost after spread + slippage in the win-rate review)"
+        elif per_sym is not None:
+            te = seg["test"]
+            st["reason"] = ((f"On for {', '.join(instruments.display(x) for x in sorted(per_sym))} only: validation and test both positive there"
+                             if en else f"Off on every symbol: no symbol has positive validation (>= {LIMITS['sym_min_val_n']} trades) AND test (>= {LIMITS['sym_min_test_n']} trades)")
+                            + f" (all symbols: {vt}; test " + (f"{te['exp_r']:+.2f}R over {te['n']}" if te["n"] else "no trades") + ")")
         elif S.STRATEGIES.get(name, {}).get("fixed") and not en and v["n"] >= LIMITS["enable_min_n"] and (v["exp_r"] or 0) > LIMITS["enable_min_exp"] and both["exp_r"] > 0:
             te = seg["test"]
             st["reason"] = (f"Off: {vt}, but the untouched test period shows "
@@ -455,6 +473,8 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
             rank.append({"strategy": name, "name": NAMES[name], "n": vv["n"], "exp_r": vv["exp_r"], "win_rate": vv["win_rate"], "enabled": st["enabled"]})
             if st["enabled"] and vv["n"] >= LIMITS["symbol_min_n"] and vv["exp_r"] < -0.05 and (vonly["n"] == 0 or (vonly["exp_r"] or 0) < 0):
                 blocked.append(name)
+            elif st["enabled"] and S.STRATEGIES.get(name, {}).get("per_symbol") and x["sym"] not in (st.get("symbols_on") or []):
+                blocked.append(name)                                    # per-symbol strategy without its own edge here
         rank.sort(key=lambda z: -(z["exp_r"] if z["exp_r"] is not None else -9))
         # held-out (validation + test, after costs and the quality gate) per strategy on this symbol - what /signal ranks by
         held = {}
