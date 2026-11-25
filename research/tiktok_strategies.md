@@ -21,6 +21,14 @@ The regime check can not switch them on. Raw results: `research/tiktok_native_5m
 | 7 | keepssy OTE | ICT optimal trade entry 70.5% (`ote_fib`) | 538 | 26.2 | -0.25 | 101 trades, 26.7%, -0.11R | off |
 | 8 | "wicked's trading model" (3 screenshots) | LVN ledge 3-step: TPO bias + SMT + LVN (`lvn_ledge`) | 26 | 11.5 | -0.69 | 4 trades, 0%, -1.15R | off (every symbol) |
 | 8b | same, NY-open aggressive | LVN ledge at 09:30-10:30 ET, no SMT (`lvn_ledge_open`) | 2 | 50.0 | +0.52 | 1 trade, 100%, +2.05R | off (every symbol) |
+| 9 | OTE PDF (owner's photos; same PDF as the account's "akram explains OTE" post) | OTE golden zone, major leg (`ote_major`) | 275 | 41.1 | -0.04 | val 35, 42.9%, +0.09R / test 34, 38.2%, -0.10R | off (every symbol) |
+| 9b | same, internal leg | OTE golden zone, internal leg + rejection candle (`ote_internal`) | 35 | 48.6 | +0.09 | val 6, 66.7%, +0.56R / test 6, 16.7%, -0.64R | off (every symbol) |
+| 10 | resellingleague - Powell / Dodgy | Data high / low, 08:30 ET candle (`data_hl`) | 46 | 19.6 | -0.67 | val 3, 66.7%, +0.45R / test 1, 0%, -1.14R | off (every symbol) |
+| 11 | resellingleague - Powell | 10 AM key open (`ko10`) | 18 | 55.6 | -0.15 | val 0 / test 1, 100%, +0.87R | off (every symbol) |
+| 12 | resellingleague - Powell | Rejection block, wick 50% (`rej_block`) | 41 | 41.5 | -0.40 | val 6, 66.7%, +0.27R / test 3, 0%, -1.10R | off (every symbol) |
+| 13 | resellingleague - PB | Mech model, inversion FVG (`pb_mech`) | 114 | 34.2 | -0.23 | val 15, 40.0%, -0.12R / test 9, 33.3%, -0.39R | off (every symbol) |
+| 14 | resellingleague - Dutch / Wicked | Std deviations of the London leg (`stdv_london`) | 3 | 0.0 | -1.16 | val 0 / test 1, 0%, -1.10R | off (every symbol) |
+| 15 | resellingleague - Aval | Sweep + change in state of delivery (`cisd`) | 388 | 32.0 | -0.19 | val 45, 31.1%, -0.24R / test 52, 32.7%, -0.22R | off (every symbol) |
 
 ## 1. victornqq - "@marketmaker #wicked #NQ"
 12 s clip of GBP/USD and Micro Nasdaq trade screenshots with an anime voice-over. No entry, stop, target or filter is shown or said. Nothing to implement.
@@ -124,3 +132,81 @@ Before costs and the quality gate the 15m model took 84 trades at 20% win, **-0.
 lost money here, it is not only the spread. Of 117 raw 15m signals, 76 were skipped because spread + slippage would cost > 0.20R
 (ledge stops are tight) and 7 for low volatility; 34 passed (overlapping trades on one symbol are then skipped -> 26).
 Verdict: **off on every symbol**, tracked nightly by the learning loop; it switches on by itself for a symbol only if it earns it there.
+
+
+## Batch 2 (25 Nov 2026): the OTE PDF + the @resellingleague account
+
+Columns 9-15 in the table above: "Trades / Win % / Exp R" = the TRAIN segment, then validation and the untouched test separately.
+Same method as above (live 15m scanner code, `learning.simulate_strategy`: spread + slippage, the live quality gate - costs <= 0.20R,
+no quiet markets - one position per symbol, per-symbol time split train 50% / validation 25% / test 25%). Numbers are from the server's own
+data on 25 Nov 2026 (`tools/strategy_eval.py`, raw output `research/batch2_check.json`). The validation and test windows are only about
+four trading days each (the replay period of the cached walk-forward), so samples are small. All are fixed rules (never tuned), never
+regime-switched, and `per_symbol`: the learning loop switches one on only for a symbol where validation (>= 10 trades) AND the test (>= 8)
+are both positive on that symbol. **Result: no symbol qualifies for any of them, so all are off but tracked** (the nightly 04:00 cycle
+re-checks them on fresh data every night).
+
+### 9. OTE (optimal trade entry) - the 18-page PDF (`ote_major`, `ote_internal`)
+Stated: Fibonacci 0 / 0.5 / 0.62 / 0.7 / 0.78 / 1; the 0.62-0.78 "golden zone" is the entry; long = fib from the swing low (1) to the
+swing high (0), wait for the retrace into the zone; short mirrored; above 0.5 premium, below discount. Usually drawn on the big move
+(highest to lowest point), internal legs also work. Target = opposing liquidity (the 0 level or beyond). Examples put the stop just
+beyond 0.78 or near the 1. Needs extra confirmation, never a sure thing.
+Assumed: *major leg* = lowest low -> highest high of the last 64 closed 15m bars (16 h), low first, >= 3 ATR, the 0 at least 3 bars old;
+*internal leg* = newest confirmed 2-bar fractal swing high and the lowest low since the swing high before it, >= 1.5 ATR. Entry = close
+of the first bar that trades into the zone (<= 0.62) without breaking the 1, closing between 0.78 and the 0. Target = the 0 level (needs >= 1R).
+Variants (12): leg {major, internal} x stop {beyond 0.78 by 0.1 ATR, at the 1 level} x filter {none, 50/200 EMA trend, rejection candle
+closing back above 0.62}. **The variant was picked on TRAIN only** (best train expectancy with >= 30 trades), never on held-out data:
+major -> stop at the 1, no filter (train -0.04R / 275 - every major variant lost in training); internal -> stop beyond 0.78 + rejection
+candle (train +0.09R / 35). Train results of all 12 are in `research/batch2_check.json` (several look good on validation alone - e.g.
+major + trend +0.62R over 24 - but all of them lose on the untouched test, so picking them would have been curve-fitting).
+**Nasdaq (NQ=F) on its own** (the PDF's examples are NQ): `ote_major` train 17 trades, 41.2%, +0.17R; validation 1 trade (loss, -1.04R);
+test 1 trade (win, +2.41R). `ote_internal` train 5, 60%, +0.35R; validation 1 (win, +0.96R); test none. Best-looking NQ variant in training was
+major + trend filter (9 trades, 55.6%, +0.61R) - same 1 loss / 1 win out of sample. Nasdaq looks positive in training but has only 1-2
+out-of-sample trades, far below the 10 validation / 8 test needed, so it stays off on NQ too. (ES: `ote_major` train 15, 46.7%, +0.03R; 1 + 2 held-out trades.)
+The account's "akram explains OTE in PDF" post is this same PDF; Powell's "fib levels and OTE" clip (0.62 / 0.79, enter at the level,
+target the high) is the same idea. The older `ote_fib` (keepssy, 70.5%) stays as it was.
+
+### The @resellingleague account
+60 newest posts listed (yt-dlp), 59 downloaded (one blocked for this IP), audio transcribed (faster-whisper base.en), photo posts read
+image by image. It reposts clips from paid "ICT"-style Discord courses (Powell, Dodgy, PB, Aval, Arctic, Hunnyu, Dutch, Wicked, LIT, Fearing,
+luc tran, MMXM, Casper, Salman). Most clips are discretionary chart replays; the concrete models were built:
+
+| Model (source clips) | Built as | Why / why not |
+|---|---|---|
+| Data high / low (Powell "data high and low", Dodgy "one setup for life") | `data_hl` | concrete: 08:30 candle high/low, first side taken, opposite close, target the other side |
+| 10 AM key open + rejection block (Powell "10 AM KO") | `ko10` | concrete enough: sweep into 10:00, return to the 10:00 open, stop < 20 pts, break-even then runner |
+| Rejection block / wick CE (Powell "rejection wicks", "wick theory", "entry triggers"; Aval 583 s) | `rej_block` | concrete: wick that swept liquidity, enter at the wick's 50%, stop beyond the wick |
+| PB Mech model (PB "Mech Model", 30 min) | `pb_mech` | concrete: inversion of the leg's highest-timeframe FVG, target an unfilled 5/15m gap, stop at the swing |
+| Standard deviations / last London leg (Dutch course, Wicked "stdv") | `stdv_london` | concrete: last London leg wick to wick, negative SDs, reversals in the -2 to -4 zone |
+| Sweep + CISD toward the draw on liquidity (Aval 57 min + 2 min) | `cisd` | concrete: sweep, close through the open of the delivery run, target relative equal highs/lows |
+| OTE PDF (akram) / Powell fib + OTE | `ote_major`, `ote_internal` | = part 9 |
+| "Wicked's trading model" (3 screenshots) | `lvn_ledge` (separate job) | duplicate - already built |
+| Dodgy 30-second model | not built | needs a 30-second chart and fixed 10/12-point stop/target; meaningless on 15m bars |
+| SMT divergence (Aval 2 min, Hunnyu "anticipating SMT", Arctic) | not built standalone | needs a second instrument inside the entry rule; already part of `lvn_ledge` (ISMT + correlated SMT) |
+| Powell gap fills / new week + new day opening gaps | not built | levels and bias ("treat it as a key open", "free bias"), no entry/stop rule |
+| Time / killzones (Dodgy "uses time", Salman macros 09:45-10:15 etc.) | not built | a time filter, not an entry model (FlowDesk already records the killzone of every trade) |
+| Arctic PO3 / AMD, structure, liquidity, news; MMXM failure swings; Casper SMC structure; LIT inducement cycle; Fearing narrative; Powell top-down analysis and trade recaps | not built | discretionary narrative / bias, no fixed entry, stop or target |
+| luc tran | not built | risk-management talk (3:1 R:R), no entry |
+| 8 photo posts | not built | adverts for a paid Discord ("all for $47"), no content |
+| music-only clips (pb 16 s, arctic pdf 7 s) | not built | screen recordings of course folders |
+
+Rules as built (15m bars, entry at the close of a finished candle, everything from bars <= the entry bar):
+* **`data_hl`**: the 08:30-08:45 ET candle must be >= 1 ATR (FlowDesk has no calendar history, so a big 08:30 candle stands in for a news print).
+  The first side taken out (both in one bar = no trade); then the first candle closing back inside in the other direction (bearish close below the
+  high / bullish above the low) = entry, stop = the sweep extreme, target = the opposing side of the data candle (>= 1R). Valid 08:45-11:00 ET.
+  *Unclear*: 1-minute entry on the rejection block (here the 15m close), CPI / NFP use 5m. *Assumed*: as stated.
+* **`ko10`**: pre-market = 04:00-09:30 ET. If 09:30-10:00 takes the pre-market high (only one side) = buy-side manipulation -> short bias (mirror for the low).
+  After 10:00 a close >= 0.5 ATR away from the 10:00 open, then the first return to the 10:00 open that closes back on the bias side = entry;
+  stop = the 09:30+ extreme; 1R partial (the video moves to break-even there) and a 3R runner. Until 12:00 ET, no Mondays ("I don't trade Mondays").
+  *Unclear*: the 4h-wick "sufficient manipulation" test and the 1-minute entry trigger.
+* **`rej_block`**: a candle (last 30 bars) with range >= 1.2 ATR, a wick >= half its range that took the 20-bar high (low). Price must have left by >= 1 ATR
+  beyond its body; the first return to the wick's 50% (CE) that closes back below (above) it = entry; stop 0.05 ATR beyond the wick; 1R partial, 3R runner.
+* **`pb_mech`**: swing low of the last 20 bars that took the 10 bars before it (liquidity); the largest bearish FVG (>= 0.2 ATR) of the leg into it
+  (the 1-5m "highest timeframe gap" becomes the largest 15m gap); the first close above it = entry; stop 0.05 ATR under the swing low; target = the nearest
+  unfilled bearish FVG above (last 24 h, never traded back to its top), must be >= 1R; mirrored. *Not used*: "don't trade against SMT" (second instrument),
+  the HTF key-level rejection (the swept swing stands in for it).
+* **`stdv_london`**: last London leg = high/low of 04:30-05:30 ET (wick to wick), 0.5-3 ATR; bullish if the low came first (drawn bottom -> top), extensions
+  above it (mirror for bearish). 07:00-12:00 ET: the first candle reaching -2 SD (2 leg lengths beyond the leg) but not past -4 that closes against the move
+  = entry, stop 0.1 ATR beyond that candle, target = the leg's end (0). No trade once the leg's other side broke. Price rarely gets there (3 trades in 7 weeks).
+* **`cisd`**: within the last 6 bars a bar took the 20-bar high and is still the high; the run of up-close candles that made it; the first close below the
+  open of that run (change in state of delivery) = short, stop 0.05 ATR above the sweep high, target = the 20-bar low before the sweep (draw on liquidity,
+  >= 1R); mirrored; 02:00-16:00 ET.

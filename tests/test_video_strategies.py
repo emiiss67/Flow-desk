@@ -98,3 +98,103 @@ def test_video_strategies_are_off_fixed_and_not_regime_switched():
     from flowdesk import regime
     rules = dict(r, regime={"computed": 9e12, "strategies": {"orb15": {"state": "on"}}})
     assert regime.switched_on(rules, "orb15") is False
+
+
+# ---------------- batch 2: OTE PDF + @resellingleague models (flowdesk/videostrats.py) ----------------
+from flowdesk import videostrats as V
+
+BATCH2 = ("ote_major", "ote_internal", "data_hl", "ko10", "rej_block", "pb_mech", "stdv_london", "cisd")
+
+
+def build_at(start_utc, bars, warm=260):
+    """flat warm-up (o=c=100, range 0.2 -> ATR 0.2) ending at start_utc, then the given (o,h,l,c) bars."""
+    rows = [[100.0, 100.1, 99.9, 100.0, 100.0] for _ in range(warm)] + [[o, h, l, c, 100.0] for o, h, l, c in bars]
+    start = pd.Timestamp(start_utc, tz="UTC") - pd.Timedelta(minutes=15 * warm)
+    idx = pd.date_range(start, periods=len(rows), freq="15min", tz="UTC")
+    df = pd.DataFrame(rows, columns=["open", "high", "low", "close", "volume"], index=idx)
+    return S.rows(S.indicators(df)), warm
+
+
+def test_data_hl_short_after_high_taken_and_bearish_close_back_inside():
+    bars = [(100.0, 100.6, 99.4, 100.1),                  # 08:30 ET data candle (Tue 6 Jan 2026 = 13:30 UTC)
+            (100.1, 100.8, 100.0, 100.7),                  # takes the data high, closes up: no entry yet
+            (100.7, 100.75, 100.3, 100.4)]                 # bearish close back below the data high
+    R, w = build_at("2026-01-06 13:30", bars)
+    assert sigs("data_hl", R, w) == [(2, "SHORT")]
+    side, (stop, tgt) = V.data_hl(R, w + 2)
+    assert stop == 100.8 and tgt == 99.4                   # stop beyond the sweep, target the opposing side
+
+
+def test_ko10_long_after_premarket_low_swept_and_key_open_retest():
+    bars = [(100.0, 100.05, 99.6, 99.7), (99.7, 99.95, 99.65, 99.9),     # 09:30-10:00 sweeps the pre-market low (99.9)
+            (100.0, 100.45, 99.98, 100.4),                                 # 10:00 key open 100.0, displaces up
+            (100.4, 100.6, 100.3, 100.5),
+            (100.5, 100.55, 99.95, 100.2)]                                 # first return to the 10 AM open, closes above
+    R, w = build_at("2026-01-06 14:30", bars)
+    assert sigs("ko10", R, w) == [(4, "LONG")]
+    assert V.ko10(R, w + 4) == ("LONG", 99.6)
+
+
+def test_rej_block_short_at_the_wick_ce():
+    bars = [(100.0, 100.8, 99.95, 100.05),                # rejection wick through the 20-bar high (CE 100.425)
+            (100.05, 100.1, 99.8, 99.85), (99.85, 99.9, 99.6, 99.7),       # leaves by more than 1 ATR
+            (99.7, 100.5, 99.65, 100.2)]                                    # back to the CE, closes below it
+    R, w = build_at("2026-01-06 15:00", bars)
+    assert sigs("rej_block", R, w) == [(3, "SHORT")]
+    assert V.rej_block(R, w + 3)[1] > 100.8
+
+
+def test_cisd_short_close_below_the_open_of_the_sweep_run():
+    bars = [(100.0, 100.3, 99.95, 100.25), (100.25, 100.55, 100.2, 100.5), (100.5, 100.9, 100.45, 100.85),   # up-run sweeps the highs
+            (100.85, 100.88, 100.4, 100.45), (100.45, 100.5, 99.9, 99.95)]                                     # closes under the run's open (100.0)
+    R, w = build_at("2026-01-06 15:00", bars)
+    assert sigs("cisd", R, w) == [(4, "SHORT")]
+    side, (stop, tgt) = V.cisd(R, w + 4)
+    assert stop > 100.9 and tgt == 99.9                     # draw on liquidity: the opposite 20-bar extreme
+
+
+def test_ote_major_long_first_golden_zone_tap():
+    up = [(99.6, 99.7, 99.0, 99.2)] + [(99.2 + 0.2 * k, 99.45 + 0.2 * k, 99.15 + 0.2 * k, 99.4 + 0.2 * k) for k in range(8)]
+    up += [(100.8, 101.0, 100.7, 100.9), (100.9, 100.95, 100.4, 100.5), (100.5, 100.55, 100.0, 100.1)]   # high 101.0, pullback
+    tap = [(100.1, 100.15, 99.7, 99.9)]                     # 0.62 = 99.76 touched, closes above 0.78 (99.44)
+    R, w = build_at("2026-01-06 15:00", up + tap)
+    n = len(up)
+    assert (n, "LONG") in sigs("ote_major", R, w)
+    st, tgt = V.ote(R, w + n, "major", "s1", "none")[1]
+    assert abs(tgt - 101.0) < 1e-9 and st < 99.0            # target the 0 level, stop at the 1 level
+
+
+def test_batch2_strategies_never_look_ahead():
+    rng = np.random.default_rng(7)
+    n = 1400
+    ret = rng.normal(0, 0.0012, n).cumsum()
+    c = 100 * np.exp(ret); o = np.r_[100, c[:-1]]
+    h = np.maximum(o, c) * (1 + np.abs(rng.normal(0, 0.0008, n))); l = np.minimum(o, c) * (1 - np.abs(rng.normal(0, 0.0008, n)))
+    idx = pd.date_range("2026-01-05 00:00", periods=n, freq="15min", tz="UTC")
+    df = pd.DataFrame({"open": o, "high": h, "low": l, "close": c, "volume": 100.0}, index=idx)
+    R = S.rows(S.indicators(df))
+    for name in BATCH2:
+        full = {i: s for i, s, _ in S.raw_signals(name, R, start=300)}
+        for i in list(full)[:6] + list(range(400, n, 97)):
+            cut = S.rows(S.indicators(df.iloc[:i + 1]))
+            got = S._raw_signal(name, cut, i)
+            assert (got[0] if got else None) == full.get(i), (name, i)
+
+
+def test_batch2_off_by_default_fixed_and_per_symbol():
+    r = learning.default_rules()
+    for k in BATCH2:
+        assert r["strategies"][k]["enabled"] is False
+        assert S.STRATEGIES[k]["fixed"] and S.STRATEGIES[k]["no_regime"] and S.STRATEGIES[k]["per_symbol"]
+        assert S.STRATEGIES[k]["desc"] and k in learning.NAMES
+
+
+def test_stdv_london_fades_the_2_to_4_sd_zone_back_to_the_leg():
+    leg = [(100.0, 100.1, 99.8, 99.9), (99.9, 100.0, 99.85, 99.95), (99.95, 100.1, 99.9, 100.05), (100.05, 100.2, 100.0, 100.15)]  # 04:30-05:30 ET, low -> high
+    climb = [(100.15, 100.4, 100.1, 100.35), (100.35, 100.55, 100.3, 100.5), (100.5, 100.7, 100.45, 100.65),
+             (100.65, 100.85, 100.6, 100.8), (100.8, 100.95, 100.75, 100.9), (100.9, 100.98, 100.85, 100.95)]
+    rej = [(100.95, 101.2, 100.7, 100.75)]                  # 07:00 ET: into -2 SD (101.0), bearish close
+    R, w = build_at("2026-01-06 09:30", leg + climb + rej)
+    assert sigs("stdv_london", R, w) == [(10, "SHORT")]
+    side, (stop, tgt) = V.stdv_london(R, w + 10)
+    assert stop > 101.2 and abs(tgt - 100.2) < 1e-9

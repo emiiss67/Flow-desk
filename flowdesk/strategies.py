@@ -9,7 +9,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from . import ict, ledge
+from . import ict, ledge, videostrats as V
 
 NY = "America/New_York"
 
@@ -344,6 +344,8 @@ def _lvn_ledge(R: list[dict], i: int, aggressive: bool = False):
 
 
 _VIDEO = {"lvn_ledge": _lvn_ledge, "lvn_ledge_open": lambda R, i: _lvn_ledge(R, i, True), "orb15": _orb15, "fcr_fvg": _fcr_fvg, "session_mom": _session_mom, "ote_fib": _ote_fib}
+STRATEGIES.update(V.STRATEGIES)                  # batch 2: OTE PDF + @resellingleague models (flowdesk/videostrats.py)
+_VIDEO.update({k: V.FUNCS[k] for k in V.STRATEGIES})
 
 def _raw_signal(name: str, R: list[dict], i: int):
     """(side, raw stop) at bar i, or None. Uses rows <= i only."""
