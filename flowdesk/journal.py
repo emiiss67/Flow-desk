@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS fills (
   id INTEGER PRIMARY KEY AUTOINCREMENT, trade_id INTEGER, ts INTEGER, kind TEXT, price REAL, qty REAL, pnl_usd REAL);
 CREATE TABLE IF NOT EXISTS equity (ts INTEGER PRIMARY KEY, balance REAL, equity REAL);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS deposits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, amount REAL, kind TEXT, note TEXT, balance_after REAL);
 """
 
 
@@ -66,6 +68,20 @@ class Journal:
 
     def set(self, k: str, v) -> None:
         self.x("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (k, json.dumps(v)))
+
+
+    def add_deposit(self, amount: float, kind: str, note: str = "", balance_after: float | None = None,
+                    ts: int | None = None) -> int:
+        """Ledger row: top-up (positive amount) or withdrawal (negative). Not trade P&L."""
+        return self.x("INSERT INTO deposits(ts,amount,kind,note,balance_after) VALUES(?,?,?,?,?)",
+                      (int(ts or time.time()), float(amount), kind, note or "", balance_after))
+
+    def deposits(self, since: int = 0, limit: int = 500) -> list[dict]:
+        return self.q("SELECT * FROM deposits WHERE ts>=? ORDER BY ts, id LIMIT ?", (int(since), int(limit)))
+
+    def deposits_sum(self, since: int = 0) -> float:
+        r = self.q("SELECT COALESCE(SUM(amount),0) s FROM deposits WHERE ts>=?", (int(since),))
+        return float(r[0]["s"])
 
     # --- signals ---
     def add_signal(self, res: dict, acted: bool = False, note: str = "") -> int:

@@ -12,7 +12,9 @@ from .currency import fmt_money, account_ccy
 HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/check SYMBOL [tf] - long/short call with entry, SL, TP\n"
         "/positions - open paper positions\n/pnl - P&amp;L and stats\n"
-        "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n/close SYMBOL - close a paper position\n"
+        "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n"
+        "/topup [amount] - add paper funds (no amount: show usage) · /withdraw amount\n"
+        "/close SYMBOL - close a paper position\n"
         "/watchlist, /news, /calendar, /status, /desk")
 
 
@@ -117,8 +119,10 @@ class Commands:
         s = performance(self.j, self.b.start_balance)
         pf = s["profit_factor"] if s["profit_factor"] is not None else "-"
         c = self.b.ccy
+        dep = s.get("deposited") or 0
+        dep_line = f" | Deposits {fmt_money(dep, c, False)} (not in net)" if dep else ""
         return (f"<b>Paper P&amp;L</b> ({c})\nBalance {fmt_money(self.b.balance, c, False)} | Equity {fmt_money(self.b.equity(), c, False)}\n"
-                f"Today {fmt_money(self.b.realized_today(), c)} | Net {fmt_money(s['net'], c)}\n"
+                f"Today {fmt_money(self.b.realized_today(), c)} | Net {fmt_money(s['net'], c)}{dep_line}\n"
                 f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {fmt_money(s['max_drawdown'], c, False)}"
                 + self._stake_lines(c))
 
@@ -152,6 +156,53 @@ class Commands:
     def cmd_resume(self, a):
         self.j.set("paused", False)
         return "▶️ Resumed. Scanning for paper entries."
+
+    def _parse_eur(self, raw: str):
+        s = (raw or "").strip().replace("€", "").replace("EUR", "").replace("eur", "").replace(" ", "").replace(",", ".")
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+    def _cash_status(self) -> str:
+        from .stats import performance
+        s = performance(self.j, self.b.start_balance)
+        c = self.b.ccy
+        dep = s.get("deposited") or 0
+        return (f"Balance {fmt_money(self.b.balance, c, False)} | Equity {fmt_money(self.b.equity(), c, False)}\n"
+                f"Deposits {fmt_money(dep, c, False)} (not counted in P&amp;L)\n"
+                f"Daily-loss baseline {fmt_money(self.b.daily_limit_baseline(), c, False)}")
+
+    def cmd_topup(self, a):
+        if not a:
+            return ("<b>Paper top-up</b> (EUR). This is a deposit, not profit.\n"
+                    "Usage: /topup 50\n"
+                    "         /withdraw 20\n\n" + self._cash_status())
+        amt = self._parse_eur(a[0])
+        if amt is None:
+            return "Usage: /topup 50  (amount in euros)"
+        try:
+            r = self.b.topup(amt)
+        except ValueError as e:
+            return f"{esc(str(e))}. Usage: /topup 50"
+        return (f"✅ Topped up {fmt_money(r['amount'], self.b.ccy, False)} (paper deposit, not profit).\n"
+                f"New balance {fmt_money(r['balance'], self.b.ccy, False)}. "
+                f"Daily-loss baseline is now {fmt_money(r['baseline'], self.b.ccy, False)}.")
+
+    def cmd_withdraw(self, a):
+        if not a:
+            return ("<b>Paper withdrawal</b> (EUR). This is a withdrawal, not a trading loss.\n"
+                    "Usage: /withdraw 20\n\n" + self._cash_status())
+        amt = self._parse_eur(a[0])
+        if amt is None:
+            return "Usage: /withdraw 20  (amount in euros)"
+        try:
+            r = self.b.withdraw(amt)
+        except ValueError as e:
+            return f"{esc(str(e))}. Usage: /withdraw 20"
+        return (f"✅ Withdrew {fmt_money(r['amount'], self.b.ccy, False)} (not a trading loss).\n"
+                f"New balance {fmt_money(r['balance'], self.b.ccy, False)}. "
+                f"Daily-loss baseline is now {fmt_money(r['baseline'], self.b.ccy, False)}.")
 
     def cmd_close(self, a):
         if not a:

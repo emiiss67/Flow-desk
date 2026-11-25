@@ -316,7 +316,8 @@ def api_dashboard():
         pass
     return {
         "paper": True, "balance": round(b.balance, 2), "equity": round(b.equity(), 2), "start_balance": perf.get("start_balance", b.start_balance),
-        "reset": perf.get("reset"), "today_pnl": round(b.realized_today(), 2), "net": perf["net"], "win_rate": perf["win_rate"],
+        "reset": perf.get("reset"), "deposited": perf.get("deposited", 0), "deposits": perf.get("deposits") or [],
+        "today_pnl": round(b.realized_today(), 2), "net": perf["net"], "win_rate": perf["win_rate"],
         "profit_factor": perf["profit_factor"], "trades": perf["trades"], "streak": perf["streak"],
         "best_streak": perf["best_streak"], "last_trades": perf["last_trades"], "daily_30": perf["daily_30"],
         "heatmap": perf["heatmap"], "open_positions": _positions(),
@@ -410,6 +411,30 @@ def api_reset_daily(confirm: int = 0):
         raise HTTPException(400, "add confirm=1")
     r = B().reset_daily_limit()
     J().set("paused", False)
+    return dict(r, ok=True, paper=True, **_cur())
+
+
+@app.get("/api/topup")
+def api_topup(amount: float, confirm: int = 0, note: str = ""):
+    """Owner action: add paper funds (a deposit, not profit). Daily-loss baseline moves up by the amount."""
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    try:
+        r = B().topup(amount, note)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return dict(r, ok=True, paper=True, **_cur())
+
+
+@app.get("/api/withdraw")
+def api_withdraw(amount: float, confirm: int = 0, note: str = ""):
+    """Owner action: remove paper funds (a withdrawal, not a trading loss). Daily-loss baseline moves down."""
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    try:
+        r = B().withdraw(amount, note)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return dict(r, ok=True, paper=True, **_cur())
 
 

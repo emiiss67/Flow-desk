@@ -163,7 +163,7 @@ const DEMO = (() => {
     Object.values(bys).forEach(b => { b.win_rate = +(100 * b.w / b.n).toFixed(1); b.pnl = +b.pnl.toFixed(2); });
     return { demo: true, trades: tr.length, wins: w, losses: tr.length - w, net: +(eq - 50).toFixed(2), win_rate: +(100 * w / tr.length).toFixed(1),
       profit_factor: +(gw / gl).toFixed(2), avg_win: +(gw / w).toFixed(2), avg_loss: -(gl / (tr.length - w)).toFixed(2), avg_r: 0.62, max_drawdown: +mdd.toFixed(2), max_drawdown_pct: +(100 * mdd / peak).toFixed(2),
-      equity_curve: curve, equity_snapshots: [], streak, best_streak: best, balance: +eq.toFixed(2), equity: +(eq + 0.19).toFixed(2), start_balance: 50,
+      equity_curve: curve, equity_snapshots: [], streak, best_streak: best, balance: +eq.toFixed(2), equity: +(eq + 0.19).toFixed(2), start_balance: 50, deposited: 0, deposits: [],
       last_trades: tr.slice(-14).map(t => ({ id: t.id, symbol: t.symbol, side: t.side, pnl: t.pnl_usd, time: t.closed_ts, stake: t.stake })), daily_30: d30, heatmap: heat, by_symbol: bys };
   }
 
@@ -198,7 +198,7 @@ const DEMO = (() => {
 
   function dashboard() {
     const p = perf();
-    return { demo: true, paper: true, balance: p.balance, equity: p.equity, start_balance: 50, today_pnl: 6.2, session: session(), net: p.net, win_rate: p.win_rate, profit_factor: p.profit_factor, trades: p.trades,
+    return { demo: true, paper: true, balance: p.balance, equity: p.equity, start_balance: 50, deposited: 0, deposits: [], today_pnl: 6.2, session: session(), net: p.net, win_rate: p.win_rate, profit_factor: p.profit_factor, trades: p.trades,
       streak: p.streak, best_streak: p.best_streak, last_trades: p.last_trades, daily_30: p.daily_30, heatmap: p.heatmap, open_positions: positions(), status: 'running', heartbeat: now() - 40,
       signals_24h: 9, entries_24h: 3, blocked_24h: 2, daily_limit_hit: false,
       plan: ['Demo plan (connect your bot for the live rules)', 'Risk 5-35% per trade by backtest win rate', 'Stop after -30% day', 'No entries 30 min before high-impact news'],

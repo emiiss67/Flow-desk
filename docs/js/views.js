@@ -7,6 +7,40 @@ const unavailable = (what, err) => `<div class="unavail">${esc(what)}: data unav
 const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
 async function load(path, params) { try { return [await API.get(path, params), null]; } catch (e) { return [null, e.message || String(e)]; } }
 
+function topupBar() {
+  if (API.demo) return '';
+  return `<form class="topup-row" id="topupForm" action="#" onsubmit="return false">
+      <span class="m">${esc(Cur.sym)}</span>
+      <input id="topupAmt" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Amount" aria-label="Top-up amount in euros">
+      <button type="submit" class="btn pri" id="topupBtn">Top up</button>
+      <button type="button" class="btn" id="withdrawBtn">Withdraw</button>
+    </form>`;
+}
+function bindTopup() {
+  const go = async (kind) => {
+    const inp = $('#topupAmt');
+    if (!inp) return;
+    const amt = Number(String(inp.value || '').replace(',', '.'));
+    if (!isFinite(amt) || amt <= 0) { toast('Enter an amount in euros'); inp.focus(); return; }
+    const isW = kind === 'withdraw';
+    const msg = (isW ? 'Withdraw ' : 'Add ') + money2(amt) + (isW ? ' from' : ' to') + ' the paper balance? This is a ' + (isW ? 'withdrawal' : 'deposit') + ', not P&L.';
+    if (!confirm(msg)) return;
+    const btn = isW ? $('#withdrawBtn') : $('#topupBtn');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await API.get(isW ? '/api/withdraw' : '/api/topup', { amount: amt, confirm: 1 });
+      toast((isW ? 'Withdrew ' : 'Topped up ') + money2(r.amount || amt) + ' · balance ' + money2(r.balance));
+      App.go(App.tab || 'dashboard', false);
+    } catch (e) {
+      toast((isW ? 'Withdraw' : 'Top up') + ' failed: ' + e.message);
+      if (btn) btn.disabled = false;
+    }
+  };
+  const form = $('#topupForm'); if (!form) return;
+  form.addEventListener('submit', ev => { ev.preventDefault(); go('topup'); });
+  const w = $('#withdrawBtn'); if (w) w.addEventListener('click', () => go('withdraw'));
+}
+
 /* ================= DASHBOARD ================= */
 const SETUP_NAMES = ['HVN Absorption', 'Key Level Absorption Reversal'];
 const isSetup = x => SETUP_NAMES.includes(x);
@@ -32,7 +66,8 @@ Views.dashboard = async (v) => {
   const streakDash = Array.from({ length: 14 }, (_, i) => { const t = lt[lt.length - 14 + i]; return `<i class="${t ? (t.pnl > 0 ? 'w' : 'l') : ''}"></i>`; }).join('');
   $('#dMain').innerHTML = `
     <div class="hero"><div class="label">${heroLbl}</div><div class="huge num ${heroNet > 0 ? 'glow-g' : heroNet < 0 ? 'glow-r' : ''}">${money(heroNet)}</div>
-      <div class="sub">Paper balance <b class="num hi">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span></div></div>
+      <div class="sub">Paper balance <b class="num hi">${money2(d.balance)}</b> · equity <span class="num">${money2(d.equity)}</span>${d.deposited ? ` · deposits <b class="num">${money2(d.deposited)}</b> <span class="m">(not in P&amp;L)</span>` : ''}</div>
+      ${topupBar()}</div>
     <div class="grid cols-4" style="margin-top:26px">
       <div class="panel stat"><div class="label">Status today</div><div class="v"><span class="dot-live ${stCls}"></span>${st === 'running' ? 'Clean' : st === 'paused' ? 'Paused' : 'Offline'}</div><div class="sub">${d.daily_limit_hit ? `<span class="r">Daily loss limit hit</span>${API.demo ? '' : ' <button class="btn" id="resetDL" style="padding:6px 10px;margin-top:6px">Reset daily limit</button>'}` : 'Bot ' + esc(st) + (d.heartbeat ? ' · scan ' + ago(d.heartbeat) : '')}</div></div>
       <div class="panel stat"><div class="label">Net result · today</div><div class="v num ${pnlClass(d.today_pnl)}">${money(d.today_pnl)}</div><div class="sub">Realized, paper</div></div>
@@ -51,6 +86,7 @@ Views.dashboard = async (v) => {
     if (!ser.length) ser = [{ time: nowS - 7 * 86400, value: d.balance }, { time: nowS, value: d.balance }];
     FX.equity($('#eqd'), ser, { base: perf?.start_balance ?? ser[0].value, small: true, pad: { t: 30, r: 64 } }); }
   const rb = $('#resetDL'); if (rb) rb.onclick = async () => { if (!confirm('Restart today\'s daily-loss window from the current balance? The ' + 'limit % stays the same.')) return; rb.disabled = true; try { const r = await API.get('/api/reset_daily', { confirm: 1 }); toast('Daily limit reset · new baseline ' + money2(r.baseline)); App.go('dashboard', false); } catch (e) { toast('Reset failed: ' + e.message); rb.disabled = false; } };
+  bindTopup();
   const ev = d.upcoming_events || [];
   $('#dSide').innerHTML = sessionCard(d.session) + `
     <div class="panel"><h3>Today's plan</h3><ul class="plan">${d.plan.map(p => `<li><span class="ck">✓</span>${esc(p)}</li>`).join('')}</ul></div>
@@ -361,7 +397,7 @@ Views.journal = async (v) => {
 
 /* ================= PERFORMANCE ================= */
 Views.performance = async (v) => {
-  v.innerHTML = `<div class="page-title">Performance</div><div class="page-sub">Paper account since start.</div><div id="pf"><div class="skeleton" style="height:520px"></div></div>`;
+  v.innerHTML = `<div class="page-title">Performance</div><div class="page-sub">Paper account since start. Deposits are not counted as profit.</div><div id="pf"><div class="skeleton" style="height:520px"></div></div>`;
   const [p, err] = await load('/api/performance'); if (!p) { $('#pf').innerHTML = `<div class="panel">${unavailable('Performance', err)}</div>`; return; }
   const pf = p.profit_factor; const good = pf != null && pf >= 1;
   const ret = p.start_balance ? (p.net / p.start_balance * 100) : 0;
@@ -375,6 +411,10 @@ Views.performance = async (v) => {
       <div class="panel stat"><div class="label">${smp('Won per €1 lost ' + tip('Profit factor: money won divided by money lost. Above 1 means the wins outweigh the losses.'), 'Profit factor')}</div><div class="v num">${pf ?? '–'}</div><div>${p.trades ? (good ? `<span class="badge-ok">${smp('Profitable', 'PROFITABLE')}</span>` : `<span class="badge-bad">${smp('Below 1.0', 'BELOW 1.0')}</span>`) : ''} <span class="sub">Max drawdown ${money2(p.max_drawdown)}</span></div></div>
       <div class="panel stat"><div class="label">Average trade</div><div class="v num"><span class="g">${money(p.avg_win)}</span> <span class="m" style="font-size:16px">/</span> <span class="r">${money(p.avg_loss)}</span></div><div class="sub">avg win / avg loss</div></div>
     </div>
+    <div class="panel" style="margin-top:16px"><h3>Deposits <span class="right num">${money2(p.deposited || 0)}</span></h3>
+      <div class="sub" style="margin:0 0 10px">Top-ups and withdrawals are cash movements, not P&amp;L. Net return above is trades only.</div>
+      ${topupBar()}
+      ${(p.deposits || []).length ? `<div class="rows" style="margin-top:10px">${p.deposits.slice().reverse().slice(0, 8).map(x => `<div class="ev" style="grid-template-columns:90px 1fr 90px"><span class="m num">${dmy(x.ts)} ${hm(x.ts)}</span><span>${x.kind === 'withdraw' ? 'Withdrawal' : 'Top-up'}</span><b class="num ${x.amount >= 0 ? 'g' : 'r'}" style="text-align:right">${money2(x.amount)}</b></div>`).join('')}</div>` : ''}</div>
     <div class="panel perf-hero" style="margin-top:16px"><canvas id="eqc"></canvas>
       <div class="ph-top"><div><div class="label" style="margin:0 0 6px">Equity curve</div><div class="gap-line">${p.reset ? `<span class="a">Fresh start: reset to ${money2(p.reset.balance)} on ${new Date(p.reset.ts * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span> (was ${money2(p.reset.from_balance)}) · win rate &amp; stats keep all ${p.all_time?.trades ?? p.trades} trades · ` : ''}${flat ? '<span class="a">No closed paper trades yet</span> · line shows realized balance · ' : ''}<b>${money(p.net)}</b> over the period · max drawdown <span class="r">${money2(p.max_drawdown)}</span> (${p.max_drawdown_pct}%)</div></div>
       <div class="legend" style="margin:0"><span><i style="background:var(--green)"></i>Equity</span><span><i style="background:transparent;border-top:2px dashed #6E8BFF;height:0"></i>Start balance</span></div></div></div>
@@ -383,6 +423,7 @@ Views.performance = async (v) => {
       ${Mode.simple() ? '' : `<div class="panel"><h3>Hour by weekday <span class="right">UTC</span></h3>${heatmap(p.heatmap)}</div>`}
     </div>${Mode.simple() ? fold('Hour by weekday (UTC)', heatmap(p.heatmap)) : ''}`;
   FX.equity($('#eqc'), series, { base: p.start_balance, empty: 'No closed paper trades yet - the curve fills as the bot trades.' });
+  bindTopup();
 };
 
 /* ================= LEARNING ================= */

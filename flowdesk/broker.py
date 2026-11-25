@@ -86,7 +86,7 @@ class PaperBroker:
 
     def daily_limit_hit(self) -> bool:
         r = self.realized_since(self.limit_window_start())
-        return r <= -(self.balance - r) * self.daily_loss_pct / 100
+        return r <= -self.daily_limit_baseline() * self.daily_loss_pct / 100
 
     def reset_daily_limit(self) -> dict:
         """Owner action: start a fresh daily-loss window from now (baseline = current balance). Limit % unchanged."""
@@ -97,6 +97,53 @@ class PaperBroker:
 
     def balance_day_start(self) -> float:
         return self.balance - self.realized_today()
+
+    def daily_limit_baseline(self) -> float:
+        """Balance at the start of the daily-loss window, plus deposits (minus withdrawals) since then."""
+        r = self.realized_since(self.limit_window_start())
+        return self.balance - r
+
+    MAX_CASH = 1_000_000.0
+
+    @staticmethod
+    def _cash_amount(amount) -> float:
+        try:
+            amt = float(amount)
+        except (TypeError, ValueError):
+            raise ValueError("enter an amount in euros, e.g. 50")
+        if not math.isfinite(amt) or amt <= 0:
+            raise ValueError("amount must be greater than 0")
+        amt = round(amt, 2)
+        if amt <= 0:
+            raise ValueError("amount must be greater than 0")
+        if amt > PaperBroker.MAX_CASH:
+            raise ValueError("max €1,000,000 per top-up or withdrawal")
+        return amt
+
+    def topup(self, amount: float, note: str = "", ts: int | None = None) -> dict:
+        """Add paper funds. Recorded as a deposit, not profit. Daily-loss baseline moves up by the same amount."""
+        return self._apply_cash(self._cash_amount(amount), "topup", note, ts)
+
+    def withdraw(self, amount: float, note: str = "", ts: int | None = None) -> dict:
+        """Remove paper funds. Recorded as a withdrawal, not a trading loss. Baseline moves down with it."""
+        amt = self._cash_amount(amount)
+        if amt > round(self.balance, 2) + 1e-9:
+            raise ValueError(f"not enough paper balance ({round(self.balance, 2):.2f})")
+        return self._apply_cash(amt, "withdraw", note, ts)
+
+    def _apply_cash(self, amount: float, kind: str, note: str = "", ts: int | None = None) -> dict:
+        now = int(ts or time.time())
+        signed = amount if kind == "topup" else -amount
+        new_bal = round(self.balance + signed, 2)
+        self.j.set("balance", new_bal)
+        row_id = self.j.add_deposit(signed, kind, note, new_bal, now)
+        self.snapshot_equity()
+        return {
+            "ok": True, "id": row_id, "ts": now, "kind": kind, "amount": amount,
+            "balance": new_bal, "equity": round(self.equity(), 2),
+            "baseline": round(self.daily_limit_baseline(), 2),
+            "deposited": round(self.j.deposits_sum(), 2), "note": note or "",
+        }
 
     def reset_paper(self, to: float, note: str = "") -> dict:
         """Owner action: start a fresh paper equity baseline at `to` (trade history is kept for stats/learning).
