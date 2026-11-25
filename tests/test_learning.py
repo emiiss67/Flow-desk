@@ -43,6 +43,9 @@ def test_signal_levels_sane():
     for name in S.STRATEGIES:
         for i, side, raw in S.raw_signals(name, R)[:20]:
             sg = S.signal(name, R, i, None, (side, raw))
+            if sg is None:                       # video strategies skip trades whose stop breaks the sanity limits
+                assert S.STRATEGIES[name].get("fixed")
+                continue
             sgn = 1 if side == "LONG" else -1
             assert sgn * (sg["entry"] - sg["sl"]) > 0 and sgn * (sg["tp2"] - sg["tp1"]) >= 0
             assert 0.39 <= sg["sl_atr"] <= 3.01

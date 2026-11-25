@@ -20,6 +20,20 @@ STRATEGIES = {
     "vwap_revert": {"name": "VWAP deviation mean-reversion", "desc": "Price stretched more than 2 standard deviations from the session VWAP turns back with a strong bar."},
     "ema_pullback": {"name": "Trend pullback (EMA + order flow)", "desc": "20 > 50 > 200 EMA trend, price dips to the 20 EMA and closes back with strong estimated buying (or the mirror for shorts)."},
     "break_retest": {"name": "Break & retest of prior-day level", "desc": "Prior-day high/low broken earlier today, retested and held with a strong close."},
+    # --- from the owner's TikTok videos (rules in research/tiktok_strategies.md). Fixed rules: never tuned by the learning loop,
+    # never switched on by the regime check; on only with a positive out-of-sample edge (validation AND test).
+    "orb15": {"name": "15-min opening range breakout (NY)", "video": 2, "fixed": True, "no_regime": True,
+              "params": {"sl_pad_atr": 0.0, "tp1_r": 2.0, "tp2_r": 2.0},
+              "desc": "New York open 09:30 ET: mark the first 15-minute candle's high/low. First close above the high = long, below the low = short; stop at the opposite end of the range, target 2R."},
+    "fcr_fvg": {"name": "First candle rule + FVG retest + engulfing", "video": 5, "fixed": True, "no_regime": True,
+                "params": {"sl_pad_atr": 0.0, "tp1_r": 3.0, "tp2_r": 3.0},
+                "desc": "First candle after the 09:30 ET open sets the high/low. Price breaks a level leaving a fair value gap, retests the gap, then an engulfing candle closes back the other way: enter at its close, stop at its far end, fixed 3R target."},
+    "session_mom": {"name": "Session momentum (first candle vs 12 EMA)", "video": 6, "fixed": True, "no_regime": True,
+                    "params": {"sl_pad_atr": 0.0, "tp1_r": 1.0, "tp2_r": 8.0},
+                    "desc": "At the 09:30 ET open the first candle closing above the 12 EMA = long, below = short; the winner is left to run with a trailing stop (stop = first candle's far end)."},
+    "ote_fib": {"name": "ICT optimal trade entry (70.5% fib)", "video": 7, "fixed": True, "no_regime": True,
+                "params": {"sl_pad_atr": 0.0, "tp1_r": 1.0, "tp2_r": 2.5},
+                "desc": "Liquidity sweep of a low, displacement breaks structure to a new high; fib from the swing low to that high; first pullback into the 62-79% zone (70.5% sweet spot) = long, stop under the swing low, target the high (mirrored for shorts)."},
 }
 DEFAULT_PARAMS = {"tp1_r": 1.0, "tp2_r": 2.5, "sl_pad_atr": 0.2, "tp1_frac": 0.5}
 GRID = {"tp1_r": [0.7, 1.0, 1.3, 1.6], "tp2_r": [1.6, 2.0, 2.5, 3.0], "sl_pad_atr": [0.1, 0.2, 0.35, 0.5]}   # TP1 close share stays the broker's tp1_close_pct
@@ -32,7 +46,7 @@ def indicators(df: pd.DataFrame) -> pd.DataFrame:
     d["open"], d["high"], d["low"], d["close"] = o, h, l, c
     d["atr"] = ict.atr(df, 14)
     d["atr_med"] = d["atr"].rolling(200, min_periods=20).median()
-    for n in (20, 50, 200):
+    for n in (12, 20, 50, 200):
         d[f"ema{n}"] = c.ewm(span=n, adjust=False).mean()
     rng = (h - l).replace(0, np.nan)
     d["flow"] = ((c - o) / rng).fillna(0)                                     # estimated order-flow pressure -1..1
@@ -40,6 +54,8 @@ def indicators(df: pd.DataFrame) -> pd.DataFrame:
     d["hour"] = utc.hour + utc.minute / 60
     ny = df.index.tz_convert(NY)
     d["ny_hour"] = ny.hour + ny.minute / 60
+    d["bar_min"] = float(pd.Series(df.index).diff().dt.total_seconds().median() / 60) if len(df) > 2 else 15.0
+    d["nyday"] = ny.year * 10000 + ny.month * 100 + ny.day              # New York calendar date as a number
     day = utc.normalize()
     d["day"] = day
     daily = df.groupby(day).agg(high=("high", "max"), low=("low", "min"))
@@ -110,7 +126,143 @@ def rows(d: pd.DataFrame) -> list[dict]:
     return d.drop(columns=["day"]).to_dict("records")
 
 
-def _raw_signal(name: str, R: list[dict], i: int) -> tuple[str, float] | None:
+
+# ---------------- TikTok-video strategies (New York open / structure). Causal: bars <= i only. ----------------
+def _range_bar(R: list[dict], i: int) -> int | None:
+    """Index of today's (New York date) 09:30 ET bar - the 'first candle' - or None."""
+    day = R[i]["nyday"]
+    for j in range(i, max(i - 100, -1), -1):
+        if R[j]["nyday"] != day:
+            return None
+        if R[j]["ny_hour"] == 9.5:
+            return j
+    return None
+
+
+def _orb15(R: list[dict], i: int):
+    j0 = _range_bar(R, i)
+    if j0 is None:
+        return None
+    nb = max(1, int(round(15 / (R[i].get("bar_min") or 15))))          # bars in the first 15 minutes (1 on the 15m chart)
+    j1 = j0 + nb - 1
+    if i <= j1 or R[i]["ny_hour"] >= 16 or R[j1]["nyday"] != R[i]["nyday"]:
+        return None
+    rh = max(R[k]["high"] for k in range(j0, j1 + 1))
+    rl = min(R[k]["low"] for k in range(j0, j1 + 1))
+    for k in range(j1 + 1, i + 1):                       # first close beyond the range, either side
+        c = R[k]["close"]
+        if c > rh or c < rl:
+            if k != i:
+                return None
+            return ("LONG", rl) if c > rh else ("SHORT", rh)
+    return None
+
+
+def _fcr_fvg(R: list[dict], i: int):
+    j0 = _range_bar(R, i)
+    if j0 is None or i < j0 + 3 or R[i]["ny_hour"] >= 16:
+        return None
+    rh, rl = R[j0]["high"], R[j0]["low"]
+    side = zlo = zhi = None
+    k_fvg = None
+    retested = False
+    for k in range(j0 + 2, i + 1):
+        a, m, b = R[k - 2], R[k - 1], R[k]
+        if side is None:
+            # a fair value gap whose middle candle closes through the first candle's high/low
+            if m["close"] < rl and b["high"] < a["low"]:
+                side, zlo, zhi, k_fvg = "SHORT", b["high"], a["low"], k
+            elif m["close"] > rh and b["low"] > a["high"]:
+                side, zlo, zhi, k_fvg = "LONG", a["high"], b["low"], k
+            continue
+        # waiting for the retest of the gap and then an engulfing candle
+        if side == "SHORT":
+            if b["close"] > zhi:
+                return None                                # gap fully reclaimed: setup dead
+            retested = retested or b["high"] >= zlo
+            p = R[k - 1]
+            engulf = (b["close"] < b["open"] and p["close"] > p["open"] and b["open"] >= p["close"] and b["close"] <= p["open"])
+            if retested and engulf:
+                return ("SHORT", b["high"]) if k == i else None
+        else:
+            if b["close"] < zlo:
+                return None
+            retested = retested or b["low"] <= zhi
+            p = R[k - 1]
+            engulf = (b["close"] > b["open"] and p["close"] < p["open"] and b["open"] <= p["close"] and b["close"] >= p["open"])
+            if retested and engulf:
+                return ("LONG", b["low"]) if k == i else None
+    return None
+
+
+def _session_mom(R: list[dict], i: int):
+    j0 = _range_bar(R, i)
+    if j0 is None or i != j0:
+        return None
+    r = R[i]
+    if r["close"] > r["ema12"]:
+        return "LONG", r["low"]
+    if r["close"] < r["ema12"]:
+        return "SHORT", r["high"]
+    return None
+
+
+def _ote_fib(R: list[dict], i: int, win: int = 40, look: int = 10, disp_atr: float = 0.6, min_rng_atr: float = 1.0):
+    """ICT OTE: sweep of a low (high) -> displacement through structure to a new high (low) -> first tap of the 70.5% retracement."""
+    if i < win + look + 2:
+        return None
+    r = R[i]
+    atr = r["atr"]
+    a0 = i - win
+    lows = [R[k]["low"] for k in range(a0, i)]
+    highs = [R[k]["high"] for k in range(a0, i)]
+    for side in ("LONG", "SHORT"):
+        if side == "LONG":
+            ext = min(lows); e_idx = a0 + lows.index(ext)                       # the swept swing low
+            if e_idx - look < 0 or e_idx > i - 3:
+                continue
+            if not ext < min(R[k]["low"] for k in range(e_idx - look, e_idx)):   # it took out the prior low (sell-side liquidity)
+                continue
+            ref = max(R[k]["high"] for k in range(e_idx - look, e_idx))        # structure level to break
+            tgt = max(highs[e_idx - a0 + 1:]); t_idx = e_idx + 1 + highs[e_idx - a0 + 1:].index(tgt)
+            if tgt <= ref or t_idx >= i:
+                continue
+            if not any(R[k]["close"] > ref and R[k]["close"] - R[k]["open"] >= disp_atr * atr for k in range(e_idx + 1, t_idx + 1)):
+                continue
+            rng = tgt - ext
+            if rng < min_rng_atr * atr:
+                continue
+            lvl = tgt - 0.705 * rng
+            if any(R[k]["low"] <= lvl for k in range(t_idx + 1, i)):                 # only the first pullback into the zone
+                continue
+            if r["low"] <= lvl and r["low"] > ext and r["close"] <= tgt - 0.62 * rng and r["close"] > ext:
+                return "LONG", (ext, tgt)
+        else:
+            ext = max(highs); e_idx = a0 + highs.index(ext)
+            if e_idx - look < 0 or e_idx > i - 3:
+                continue
+            if not ext > max(R[k]["high"] for k in range(e_idx - look, e_idx)):
+                continue
+            ref = min(R[k]["low"] for k in range(e_idx - look, e_idx))
+            tgt = min(lows[e_idx - a0 + 1:]); t_idx = e_idx + 1 + lows[e_idx - a0 + 1:].index(tgt)
+            if tgt >= ref or t_idx >= i:
+                continue
+            if not any(R[k]["close"] < ref and R[k]["open"] - R[k]["close"] >= disp_atr * atr for k in range(e_idx + 1, t_idx + 1)):
+                continue
+            rng = ext - tgt
+            if rng < min_rng_atr * atr:
+                continue
+            lvl = tgt + 0.705 * rng
+            if any(R[k]["high"] >= lvl for k in range(t_idx + 1, i)):
+                continue
+            if r["high"] >= lvl and r["high"] < ext and r["close"] >= tgt + 0.62 * rng and r["close"] < ext:
+                return "SHORT", (ext, tgt)
+    return None
+
+
+_VIDEO = {"orb15": _orb15, "fcr_fvg": _fcr_fvg, "session_mom": _session_mom, "ote_fib": _ote_fib}
+
+def _raw_signal(name: str, R: list[dict], i: int):
     """(side, raw stop) at bar i, or None. Uses rows <= i only."""
     if i < 5:
         return None
@@ -119,6 +271,8 @@ def _raw_signal(name: str, R: list[dict], i: int) -> tuple[str, float] | None:
     if not atr or not math.isfinite(atr) or atr <= 0:
         return None
     c, o, h, l = r["close"], r["open"], r["high"], r["low"]
+    if name in _VIDEO:
+        return _VIDEO[name](R, i)
     if name == "silver_bullet":
         nh = r["ny_hour"]
         if not any(a <= nh < a + 1 for a in (3, 10, 14)):
@@ -190,25 +344,40 @@ def raw_signals(name: str, R: list[dict], start: int = 210) -> list[tuple[int, s
     out = []
     for i in range(start, len(R)):
         s = _raw_signal(name, R, i)
-        if s and math.isfinite(s[1]):
-            out.append((i, s[0], float(s[1])))
+        if s:
+            st = s[1][0] if isinstance(s[1], tuple) else s[1]
+            if math.isfinite(st):
+                out.append((i, s[0], s[1] if isinstance(s[1], tuple) else float(s[1])))
     return out
 
 
 def signal(name: str, R: list[dict], i: int, params: dict | None = None, raw: tuple[str, float] | None = None) -> dict | None:
     """Full trade plan at bar i (entry = that bar's close)."""
-    p = dict(DEFAULT_PARAMS, **(params or {}))
+    p = {**DEFAULT_PARAMS, **STRATEGIES.get(name, {}).get("params", {}), **(params or {})}
     s = raw or _raw_signal(name, R, i)
     if not s:
         return None
     side, raw = s
+    tgt = None
+    if isinstance(raw, tuple):                      # (stop, target price) from a structure strategy
+        raw, tgt = raw
     r = R[i]
     atr, entry = float(r["atr"]), float(r["close"])
     sgn = 1 if side == "LONG" else -1
     sl = raw - sgn * p["sl_pad_atr"] * atr
     dist = (entry - sl) * sgn
-    dist = min(max(dist, 0.4 * atr), 3.0 * atr)
-    sl = entry - sgn * dist
+    if STRATEGIES.get(name, {}).get("fixed"):       # video rules: the stop is where the video puts it - skip, never move it
+        if not (0.4 * atr <= dist <= 3.0 * atr):
+            return None
+        if tgt is not None:
+            if (tgt - entry) * sgn < 1.0 * dist:
+                return None
+            tr = (tgt - entry) * sgn / dist
+            return {"strategy": name, "side": side, "entry": entry, "sl": sl, "tp1": tgt, "tp2": tgt, "atr": atr,
+                    "sl_atr": dist / atr, "tp1_frac": p["tp1_frac"], "rr": tr}
+    else:
+        dist = min(max(dist, 0.4 * atr), 3.0 * atr)
+        sl = entry - sgn * dist
     return {"strategy": name, "side": side, "entry": entry, "sl": sl, "tp1": entry + sgn * p["tp1_r"] * dist,
             "tp2": entry + sgn * max(p["tp2_r"], p["tp1_r"]) * dist, "atr": atr, "sl_atr": dist / atr,
             "tp1_frac": p["tp1_frac"], "rr": max(p["tp2_r"], p["tp1_r"])}

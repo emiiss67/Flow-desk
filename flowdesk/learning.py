@@ -22,7 +22,7 @@ from .data import get_provider, DataUnavailable
 log = logging.getLogger("flowdesk.learning")
 
 LIMITS = {"min_train_n": 20, "min_val_n": 8, "block_train_exp": -0.10, "block_t": -2.0, "max_new_blocks": 12, "max_blocks_per_strategy": 3, "max_param_steps": 1,
-          "min_improve_r": 0.02, "enable_min_n": 30, "enable_min_exp": 0.02, "symbol_min_n": 6}
+          "min_improve_r": 0.02, "enable_min_n": 30, "enable_min_exp": 0.02, "symbol_min_n": 6, "fixed_min_test_n": 10}
 CORE = "core"
 SETUP_KEYS = {"HVN Absorption": "setup_hvn", "Key Level Absorption Reversal": "setup_klar"}
 NAMES = {CORE: "Confluence engine (structure)", "setup_hvn": "HVN Absorption", "setup_klar": "Key Level Absorption Reversal",
@@ -45,7 +45,7 @@ def default_rules() -> dict:
     st = {CORE: {"enabled": True, "params": {"min_score": float(sc.get("min_score", 55))}},
           "setup_hvn": {"enabled": True, "params": {}}, "setup_klar": {"enabled": True, "params": {}}}
     for k in S.STRATEGIES:
-        st[k] = {"enabled": False, "params": dict(S.DEFAULT_PARAMS)}       # new strategies start OFF until they earn it
+        st[k] = {"enabled": False, "params": dict(S.DEFAULT_PARAMS, **S.STRATEGIES[k].get("params", {}))}       # new strategies start OFF until they earn it
     return {"version": 0, "created": 0, "note": "defaults (nothing learned yet)", "strategies": st, "blocks": [], "symbols": {},
             "changes": [], "summary": {}}
 
@@ -315,7 +315,8 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         if name == CORE:
             grid = {"min_score": [cur.get("min_score", 55) + d_ for d_ in (-5, 5)]}
         elif name in S.STRATEGIES:
-            grid = {k: [v for v in S.GRID[k] if v != cur.get(k)] for k in S.GRID}
+            # video strategies keep the video's rules: nothing to tune
+            grid = {} if S.STRATEGIES[name].get("fixed") else {k: [v for v in S.GRID[k] if v != cur.get(k)] for k in S.GRID}
         else:
             grid = {}
         props = []
@@ -401,12 +402,22 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         both = summarize(filt(name, tr["train"] + tr["val"]))
         # needs a positive validation edge AND must not be a loser over train+validation combined
         en = bool(v["n"] >= LIMITS["enable_min_n"] and v["exp_r"] > LIMITS["enable_min_exp"] and both["exp_r"] > 0) if name != CORE else bool(v["n"] == 0 or v["exp_r"] > -0.05 or seg["train"]["exp_r"] > 0)
+        if S.STRATEGIES.get(name, {}).get("fixed"):
+            # fixed (video) rules are never tuned, so the TEST segment is a second untouched out-of-sample check:
+            # on only when validation AND test are both positive and the test has a real sample
+            te = seg["test"]
+            en = bool(en and te["n"] >= LIMITS["fixed_min_test_n"] and (te["exp_r"] or 0) > 0)
         if name in ("setup_hvn", "setup_klar"):     # already-live setups: drop only when clearly negative in BOTH periods
             t_ = seg["train"]
             en = not (v["n"] >= LIMITS["min_val_n"] and v["exp_r"] < 0 and (t_["exp_r"] or 0) < 0)
         st["stats"], st["enabled"] = seg, en
         vt = f"validation {v['exp_r']:+.2f}R over {v['n']} trades" if v["n"] else "no validation trades"
-        if name in S.STRATEGIES:
+        if S.STRATEGIES.get(name, {}).get("fixed") and not en and v["n"] >= LIMITS["enable_min_n"] and (v["exp_r"] or 0) > LIMITS["enable_min_exp"] and both["exp_r"] > 0:
+            te = seg["test"]
+            st["reason"] = (f"Off: {vt}, but the untouched test period shows "
+                            + (f"{te['exp_r']:+.2f}R over {te['n']} trades" if te["n"] else "no trades")
+                            + f" - needs a positive test over at least {LIMITS['fixed_min_test_n']} trades")
+        elif name in S.STRATEGIES:
             st["reason"] = (f"On: {vt} and positive over learning + validation combined" if en else
                             f"Off: {vt} - needs at least {LIMITS['enable_min_n']}" if v["n"] < LIMITS["enable_min_n"] else
                             f"Off: lost money in validation ({vt})" if v["exp_r"] <= 0 else

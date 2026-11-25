@@ -177,6 +177,8 @@ def current(rules: dict, now: float | None = None) -> dict:
 
 
 def switched_on(rules: dict, name: str) -> bool:
+    if S.STRATEGIES.get(name, {}).get("no_regime"):
+        return False                                   # video strategies are on/off by the long-term test only
     return (current(rules).get(name) or {}).get("state") == "on" and not (rules.get("strategies", {}).get(name) or {}).get("enabled")
 
 
