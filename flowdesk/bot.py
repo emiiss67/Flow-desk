@@ -70,12 +70,29 @@ class Bot:
                 df = self.p.candles(t["symbol"], t["tf"] or "15m")
             except DataUnavailable:
                 continue
-            last = self.j.get(f"last_bar_{t['id']}", t["opened_ts"])
-            bars = df[df.index.map(lambda x: int(x.timestamp())) >= last]
+            from .broker import fresh_range
+            from .data import TF_SECONDS
+            tf_sec = int(TF_SECONDS.get(t["tf"] or "15m", 900))
+            state = self.j.get(f"mgmt_{t['id']}")
+            if state is None:
+                legacy = self.j.get(f"last_bar_{t['id']}")      # pre-fix trades: that candle's range is unknown
+                state = {"ts": int(legacy), "h": None, "l": None, "c": t["last_price"]} if legacy else None
+            start = state["ts"] if state else int(t["opened_ts"]) - tf_sec
+            bars = df[df.index.map(lambda x: int(x.timestamp())) >= start]
             if bars.empty:
                 continue
             for ts, r in bars.iterrows():
-                evs = self.b.update(t["id"], float(r.high), float(r.low), float(r.close), ts=int(ts.timestamp()))
+                bts = int(ts.timestamp())
+                rng = fresh_range(bts, float(r.high), float(r.low), float(r.close), tf_sec, int(t["opened_ts"]),
+                                  float(t["entry"]), state)
+                if state is None or bts >= state["ts"]:
+                    same = state is not None and bts == state["ts"]
+                    state = {"ts": bts, "h": max(float(r.high), state["h"]) if same and state.get("h") is not None else float(r.high),
+                             "l": min(float(r.low), state["l"]) if same and state.get("l") is not None else float(r.low),
+                             "c": float(r.close)}
+                if rng is None:
+                    continue
+                evs = self.b.update(t["id"], rng[0], rng[1], float(r.close), ts=bts)
                 for ev in evs:
                     tr = ev["trade"]
                     emoji = "✅" if ev["pnl"] >= 0 else "❌"
@@ -85,7 +102,8 @@ class Bot:
                                   "\nRest running, stop moved to breakeven"))
                 if self.b._get(t["id"])["status"] != "open":
                     break
-            self.j.set(f"last_bar_{t['id']}", int(bars.index[-1].timestamp()))
+            if state:
+                self.j.set(f"mgmt_{t['id']}", state)
 
     # ---------- scanning ----------
     def scan_once(self) -> None:
@@ -159,6 +177,9 @@ class Bot:
         sz = sizing.choose(r["winrate"], self.cfg)
         r["sizing"] = sz
         ok, why = learning.allow(rules, stream, sym, {k: v for k, v in feats.items()}, r.get("confluence"))
+        if ok:
+            from . import guard
+            ok, why = guard.check(rules, stream, sym, self.j, self.cfg)
         if ok:
             ok, why = self._quality(r, sym, stream, feats)
         if ok:

@@ -362,7 +362,10 @@ def _plan() -> list[str]:
             f"Same direction: all buys (or all sells) together ≤ {float(bc.get('max_same_direction_risk_pct', 0) or 0):g}% of equity · "
             f"max {int(bc.get('max_same_direction_per_group', 0) or 0)} trades the same way on things that move together "
             "(stock indices + crypto, yen pairs, dollar pairs)",
-            f"Stop after -{float(bc.get('daily_loss_limit_pct', 30)):g}% day",
+            f"Stop after -{float(bc.get('daily_loss_limit_pct', 30)):g}% day"
+            + (f" · never more than {float(bc['max_risk_per_trade_pct']):g}% on one trade" if bc.get("max_risk_per_trade_pct") else ""),
+            "Evidence gate: a strategy trades a market only with positive held-out results there (validation AND untouched "
+            "test) and is switched off where it keeps losing live",
             f"No entries {(c.get('events', {}) or {}).get('block_minutes_before', 30)} min before high-impact news",
             f"Min confluence {(c.get('strategy', {}) or {}).get('min_score', 55)}/100 (learning may raise it)",
             f"TP1 closes {bc.get('tp1_close_pct', 50)}%, stop to breakeven"] + _regime_plan()

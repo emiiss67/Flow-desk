@@ -11,7 +11,8 @@ from __future__ import annotations
 from .config import get_config
 
 DEFAULTS = {"enabled": True, "max_cost_r": 0.20, "block_streams": ["setup_hvn"], "block_atr_regime": ["low"],
-            "min_rr_at_fill": 1.0, "max_same_direction_open": 2, "closed_bars_only": True}
+            "min_rr_at_fill": 1.0, "max_same_direction_open": 2, "closed_bars_only": True,
+            "max_entry_drift_r": 0.15}
 
 
 def cfg(c: dict | None = None) -> dict:
@@ -64,6 +65,12 @@ def fill_check(r: dict, symbol: str, stream: str, feats: dict, c: dict | None = 
         risk = (float(px) - lv["sl"]) * sgn
         if risk <= 0:
             return False, "price already through the stop since the candle closed"
+        risk0 = abs(lv["entry"] - lv["sl"])
+        drift = (float(px) - lv["entry"]) * sgn / risk0 if risk0 > 0 else 0.0
+        mxd = q.get("max_entry_drift_r")
+        if mxd is not None and drift > float(mxd):
+            return False, (f"price ran {drift:.2f}R past the signal close (max {float(mxd):.2f}R) - "
+                           "chasing a worse fill than the backtest assumes")
         rr = (lv["tp1"] - float(px)) * sgn / risk
         mn = float(q.get("min_rr_at_fill", 1.0) or 0)
         if rr < mn:

@@ -9,7 +9,8 @@ from flowdesk.journal import Journal
 
 CFG = {"broker": {"spread_bps": {"forex": 0.8, "futures": 1.0, "other": 2.0}, "slippage_bps": 0.5},
        "quality": {"enabled": True, "max_cost_r": 0.20, "block_streams": ["setup_hvn"], "block_atr_regime": ["low"],
-                   "min_rr_at_fill": 1.0, "closed_bars_only": True}}
+                   "min_rr_at_fill": 1.0, "closed_bars_only": True,
+                   "max_entry_drift_r": None}}
 
 
 def frame(start, n, freq="15min"):

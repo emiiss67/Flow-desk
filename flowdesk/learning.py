@@ -426,9 +426,11 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
                     per_sym[sym] = {"val": sv, "test": stt}
             en = bool(per_sym)
             st["symbols_on"] = sorted(per_sym)
-        if name in ("setup_hvn", "setup_klar"):     # already-live setups: drop only when clearly negative in BOTH periods
-            t_ = seg["train"]
-            en = not (v["n"] >= LIMITS["min_val_n"] and v["exp_r"] < 0 and (t_["exp_r"] or 0) < 0)
+        if name in ("setup_hvn", "setup_klar"):
+            # loss review 2026-11-25: Key Level Absorption stayed on with 3 validation trades and then lost 6 of 7 live
+            # trades. Setups now need the same proof as every other strategy: >= enable_min_n validation trades with a
+            # positive edge, and not a loser over learning + validation combined.
+            en = bool(v["n"] >= LIMITS["enable_min_n"] and (v["exp_r"] or 0) > LIMITS["enable_min_exp"] and (both["exp_r"] or 0) > 0)
         qblock = name in (quality.cfg(cfg).get("block_streams") or []) and quality.cfg(cfg).get("enabled", True)
         if qblock:
             en = False
@@ -455,7 +457,8 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
         elif name == CORE:
             st["reason"] = f"{'On' if en else 'Off'}: {vt}"
         else:
-            st["reason"] = (f"Off: lost in both learning ({seg['train']['exp_r']:+.2f}R) and validation ({v['exp_r']:+.2f}R)" if not en else
+            st["reason"] = (f"Off: {vt} - needs at least {LIMITS['enable_min_n']} with a positive edge" if not en and v["n"] < LIMITS["enable_min_n"] else
+                            f"Off: {vt}, learning + validation {both['exp_r'] if both['exp_r'] is not None else 0:+.2f}R - no positive edge" if not en else
                             f"On: {vt}" if (v["exp_r"] or 0) >= 0 else
                             f"Kept on: {vt} but {seg['train']['exp_r']:+.2f}R in learning - mixed, not clearly negative; its losing buckets are blocked")
         if en != was:

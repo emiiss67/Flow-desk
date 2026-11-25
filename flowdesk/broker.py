@@ -22,6 +22,36 @@ from . import instruments
 from .journal import Journal
 
 
+def fresh_range(bar_ts: int, high: float, low: float, close: float, tf_sec: int, opened_ts: int, entry: float,
+                state: dict | None) -> tuple[float, float] | None:
+    """The part of a bar's range that happened AFTER the last time we processed it (loss review 2026-11-25).
+
+    The scanner re-reads the still-forming candle every cycle. Re-testing its FULL high/low against a stop that was moved
+    during that same candle (stop to breakeven at TP1, ATR trail) closed winners on price action from BEFORE the move:
+    23 of 34 TP1 trades were stopped out on the very candle that hit TP1. Now:
+      * a candle that ended before the entry is skipped;
+      * the entry candle seen for the first time only counts the move from the entry price to its current close;
+      * a candle seen before only counts its new extremes (beyond the high/low already seen) and the path between the
+        previous close and the current close;
+      * a new candle counts its full range.
+    Returns (high, low) to test, or None to skip. `state` = {"ts", "h", "l", "c"} of the last processed candle."""
+    if bar_ts + tf_sec <= opened_ts:
+        return None
+    if state and state.get("ts") is not None:
+        if bar_ts < state["ts"]:
+            return None
+        if bar_ts == state["ts"]:
+            pc = state.get("c")
+            pc = close if pc is None else pc
+            hs, ls = state.get("h"), state.get("l")
+            h = max(pc, close, high if hs is not None and high > hs else -math.inf)
+            l = min(pc, close, low if ls is not None and low < ls else math.inf)
+            return h, l
+    if bar_ts <= opened_ts < bar_ts + tf_sec:
+        return max(entry, close), min(entry, close)
+    return high, low
+
+
 class PaperBroker:
     def __init__(self, journal: Journal, cfg: dict | None = None):
         self.j = journal
@@ -35,6 +65,7 @@ class PaperBroker:
         self.max_positions = int(c.get("max_positions", 4))
         self.max_per_symbol = int(c.get("max_per_symbol", 1))
         self.max_open_risk_pct = float(c.get("max_open_risk_pct", 0) or 0)
+        self.max_risk_per_trade_pct = float(c.get("max_risk_per_trade_pct", 0) or 0)   # 0 = off; hard cap on any sizing
         self.max_same_group = int(c.get("max_same_direction_per_group", 0) or 0)     # 0 = off
         self.max_side_risk_pct = float(c.get("max_same_direction_risk_pct", 0) or 0)  # 0 = off
         self.max_side_open = int(c.get("max_same_direction_open", 0) or 0)              # 0 = off; all symbols together
@@ -298,6 +329,9 @@ class PaperBroker:
             return None
         eq = self.equity()
         rp = float(self.risk_pct if risk_pct is None else risk_pct)
+        if self.max_risk_per_trade_pct and rp > self.max_risk_per_trade_pct:
+            rp = self.max_risk_per_trade_pct
+            risk_reason = (risk_reason + "; " if risk_reason else "") + f"capped at {rp:g}% per trade"
         if self.max_open_risk_pct:                      # never risk more than the account can lose in total
             room = eq * self.max_open_risk_pct / 100 - self.open_risk_usd()
             if room < eq * 0.005:

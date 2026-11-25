@@ -11,14 +11,16 @@ SYM = "EURUSD=X"
 CFG = {"watchlist": [{"symbol": "EURUSD=X", "tf": "15m"}, {"symbol": "NQ=F", "tf": "15m"}],
        "broker": {"starting_balance": 1000, "account_currency": "USD", "risk_pct": 1.0, "max_positions": 5,
                   "spread_bps": {"forex": 0.8}, "slippage_bps": 0.5},
-       "quality": {"enabled": True, "max_cost_r": 0.20, "block_streams": [], "block_atr_regime": [], "min_rr_at_fill": 1.0, "closed_bars_only": True},
+       "quality": {"enabled": True, "max_cost_r": 0.20, "block_streams": [], "block_atr_regime": [], "min_rr_at_fill": 1.0, "closed_bars_only": True,
+                   "max_entry_drift_r": None},
        "sizing": {"enabled": True}, "strategy": {"min_score": 55, "min_margin": 15}, "scanner": {}}
 
 
 def rules(**kw):
     ho = {"core": {"n": 40, "win_rate": 52.0, "exp_r": 0.10}, "silver_bullet": {"n": 25, "win_rate": 58.0, "exp_r": 0.30},
           "orb": {"n": 5, "win_rate": 80.0, "exp_r": 0.90}}
-    r = {"strategies": {"core": {"enabled": True, "params": {"min_score": 60}, "stats": {"val": {"n": 90, "win_rate": 50, "exp_r": 0.05}}},
+    r = {"strategies": {"core": {"enabled": True, "params": {"min_score": 60}, "stats": {"val": {"n": 90, "win_rate": 50, "exp_r": 0.05},
+                                                                                   "test": {"n": 40, "win_rate": 50, "exp_r": 0.04}}},
                         "silver_bullet": {"enabled": True, "params": {}}, "orb": {"enabled": True, "params": {}},
                         "vwap_revert": {"enabled": False, "params": {}}, "setup_hvn": {"enabled": True, "params": {}}},
          "symbols": {SYM: {"blocked": ["setup_hvn"], "heldout": ho}}}
@@ -166,3 +168,11 @@ def test_symbol_without_heldout_data_ranks_after_proven_ones_and_is_not_called_b
     assert [z["tier"] for z in u] == sorted(z["tier"] for z in u)
     assert next(z for z in u if z["strategy"] == "orb")["basis"] == "validation, all symbols"
     assert next(z for z in u if z["strategy"] == "orb")["tier"] == 2
+
+
+def test_evidence_gate_says_no_trade_without_an_untouched_test_record(env):
+    ST, b, mp = env
+    rl = rules()
+    rl["strategies"]["core"]["stats"].pop("test")
+    d = run(ST, b, mp, fake_check("SHORT", live=1.0995), rl)
+    assert d["call"] == "NO TRADE" and "gate:" in d["waiting"]

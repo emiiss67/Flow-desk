@@ -89,6 +89,10 @@ def size_preview(broker, fx, sym: str, side: str, entry: float, sl: float, risk_
     """What the broker would do at the current balance (same caps and sizing as PaperBroker.open)."""
     eq = broker.equity()
     rp, notes = float(risk_pct), []
+    cap = float(getattr(broker, "max_risk_per_trade_pct", 0) or 0)
+    if cap and rp > cap:
+        rp = cap
+        notes.append(f"capped at {cap:g}% per trade")
     if broker.max_open_risk_pct:
         room = eq * broker.max_open_risk_pct / 100 - broker.open_risk_usd()
         if room < eq * 0.005:
@@ -200,6 +204,9 @@ def evaluate(sym: str, broker, journal, fx, cfg: dict | None = None, provider=No
             item.update(state="blocked", why=f"{learning.NAMES.get(st, st)} is not allowed on {out['name']} right now")
         else:
             ok, why = learning.allow(rules, st, sym, dict(c["feats"]), res.get("confluence"))
+            if ok:
+                from . import guard
+                ok, why = guard.check(rules, st, sym, getattr(broker, "j", None), cfg)
             if ok:
                 ok, why = quality.fill_check(res, sym, st, c["feats"], cfg)
             if ok:

@@ -11,8 +11,13 @@ def wr(win, n, exp, setup_stats=None):
     return d
 
 
+# the tier / skip MECHANISM with the pre-2026-11-25 numbers (the live config is pinned in test_loss_review.py)
+LEGACY = {"sizing": {"enabled": True, "low_sample_n": 20, "base_risk_pct": 7.0, "negative_risk_pct": 5.0, "skip_expectancy_r": -0.25,
+                     "skip_min_n": 50, "tiers": [[70, 35.0], [60, 15.0], [50, 12.0], [40, 10.0], [0, 5.0]]}}
+
+
 def test_tiers():
-    c = get_config()
+    c = LEGACY
     assert sizing.choose(wr(75, 30, 0.8), c)["risk_pct"] == 35
     assert sizing.choose(wr(65, 30, 0.5), c)["risk_pct"] == 15
     assert sizing.choose(wr(55, 30, 0.2), c)["risk_pct"] == 12
@@ -21,7 +26,7 @@ def test_tiers():
 
 
 def test_negative_low_sample_and_skip():
-    c = get_config()
+    c = LEGACY
     assert sizing.choose(wr(55, 30, -0.1), c)["risk_pct"] == 5             # negative expectancy
     z = sizing.choose(wr(30, 60, -0.4), c)
     assert z["skip"] and z["risk_pct"] == 0                               # strongly negative, big sample
@@ -33,7 +38,7 @@ def test_negative_low_sample_and_skip():
 
 
 def test_setup_history_preferred_when_big_enough():
-    c = get_config()
+    c = LEGACY
     z = sizing.choose(wr(45, 100, 0.1, {"setup": "HVN Absorption", "n": 25, "win_rate": 66, "avg_r": 0.6}), c)
     assert z["risk_pct"] == 15 and "HVN Absorption" in z["reason"]
     z = sizing.choose(wr(45, 100, 0.1, {"setup": "HVN Absorption", "n": 5, "win_rate": 90, "avg_r": 2}), c)
@@ -100,7 +105,7 @@ def test_no_unsolicited_telegram():
 
 def test_config_defaults():
     c = get_config()
-    assert c["broker"]["max_positions"] >= 15 and c["broker"]["max_open_risk_pct"] == 60 and c["broker"]["daily_loss_limit_pct"] == 30
+    assert c["broker"]["max_positions"] == 4 and c["broker"]["max_open_risk_pct"] == 8 and c["broker"]["daily_loss_limit_pct"] == 6
     syms = {w["symbol"] for w in c["watchlist"]}
     assert {"EURUSD=X", "GBPJPY=X", "NQ=F", "GC=F", "CL=F", "BTC-USD"} <= syms and len(syms) >= 15
 
@@ -123,16 +128,16 @@ def test_80pct_risk_not_cut_by_leverage_on_tight_forex_stop():
 def test_plan_shows_config_tier_range():
     from flowdesk.api import _risk_plan
     t = _risk_plan()
-    assert "5-35%" in t and "7%" in t
+    assert "1-3%" in t and "1.5%" in t
 
 
 def test_open_risk_cap_from_config_60pct():
     from flowdesk.api import _plan
     c = get_config()["broker"]
-    assert float(c["max_open_risk_pct"]) == 60 and float(c["max_same_direction_risk_pct"]) == 45
+    assert float(c["max_open_risk_pct"]) == 8 and float(c["max_same_direction_risk_pct"]) == 6
     assert int(c["max_same_direction_per_group"]) == 2
     p = _plan()
-    assert any("60% of equity" in x for x in p) and any("45% of equity" in x and "max 2" in x for x in p)
+    assert any("8% of equity" in x for x in p) and any("6% of equity" in x and "max 2" in x for x in p)
     b = PaperBroker(Journal(":memory:"), dict(CFG, starting_balance=100, max_open_risk_pct=60, max_leverage=5000))
     assert b.open("EURUSD=X", "LONG", 100, 99, 101, 102, risk_pct=35)["risk_pct"] == 35   # a single 35% trade fits
     t = b.open("GC=F", "LONG", 100, 99, 101, 102, risk_pct=35)                            # cut to the remaining 25%
