@@ -44,14 +44,14 @@ All endpoints need the desk key: header `X-Desk-Key: <key>` or `?key=<key>`. The
 `reasons[]`, `against[]`, `warnings[]` (upcoming high-impact events), `headlines[]`, and `chart` (candles, estimated delta,
 FVGs, order blocks, liquidity, sweeps, structure, volume profile, killzone boxes).
 
-Also: `/api/dashboard`, `/api/positions`, `/api/signals`, `/api/journal`, `/api/performance`, `/api/calendar`, `/api/news`, `/api/topup`, `/api/withdraw`,
+Also: `/api/dashboard`, `/api/positions`, `/api/signals`, `/api/journal`, `/api/performance`, `/api/calendar`, `/api/news`, `/api/topup`, `/api/withdraw`, `/api/reset_pnl`,
 `/api/instruments?q=&category=`, `/api/chart?symbol=&tf=`, `/health` (no key).
 
 Timeframes: `1m 5m 15m 30m 1h 4h 1d`. Symbols: anything Yahoo knows (`EURUSD=X`, `NQ=F`, `^GDAXI`, `GC=F`, `BTC-USD`, `AAPL`…);
 shortcuts like `EURUSD`, `NQ`, `XAUUSD`, `US100`, `DAX` are normalised.
 
 ## Telegram
-`/check SYMBOL [tf]`, `/positions`, `/pnl`, `/pause`, `/resume`, `/resetlimit`, `/topup [amount]`, `/withdraw amount`, `/close SYMBOL`, `/watchlist`, `/news`, `/calendar`, `/status`, `/desk`.
+`/check SYMBOL [tf]`, `/positions`, `/pnl`, `/pause`, `/resume`, `/resetlimit`, `/resetpnl`, `/topup [amount]`, `/withdraw amount`, `/close SYMBOL`, `/watchlist`, `/news`, `/calendar`, `/status`, `/desk`.
 Alerts: paper entries/exits, and high-impact events 30 min ahead for watched instruments.
 
 Find your chat id after pressing **Start** on the bot:

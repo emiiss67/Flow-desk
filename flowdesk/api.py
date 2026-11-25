@@ -337,7 +337,8 @@ def api_dashboard():
         pass
     return {
         "paper": True, "balance": round(b.balance, 2), "equity": round(b.equity(), 2), "start_balance": perf.get("start_balance", b.start_balance),
-        "reset": perf.get("reset"), "deposited": perf.get("deposited", 0), "deposits": perf.get("deposits") or [],
+        "reset": perf.get("reset"), "calendar_reset": perf.get("calendar_reset"),
+        "deposited": perf.get("deposited", 0), "deposits": perf.get("deposits") or [],
         "today_pnl": round(b.realized_today(), 2), "net": perf["net"], "win_rate": perf["win_rate"],
         "profit_factor": perf["profit_factor"], "trades": perf["trades"], "streak": perf["streak"],
         "best_streak": perf["best_streak"], "last_trades": perf["last_trades"], "daily_30": perf["daily_30"],
@@ -432,6 +433,15 @@ def api_reset_daily(confirm: int = 0):
         raise HTTPException(400, "add confirm=1")
     r = B().reset_daily_limit()
     J().set("paused", False)
+    return dict(r, ok=True, paper=True, **_cur())
+
+
+@app.get("/api/reset_pnl")
+def api_reset_pnl(confirm: int = 0):
+    """Owner action: start the P&L calendar from today (Europe/Vilnius). History and balance are unchanged."""
+    if confirm != 1:
+        raise HTTPException(400, "add confirm=1")
+    r = B().reset_pnl_calendar(note="desk")
     return dict(r, ok=True, paper=True, **_cur())
 
 

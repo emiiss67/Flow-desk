@@ -8,6 +8,15 @@ import json
 import math
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+VILNIUS = ZoneInfo("Europe/Vilnius")
+
+
+def start_of_vilnius_day(ts: int | None = None) -> int:
+    """Midnight in Europe/Vilnius for ts (default: now), as a Unix timestamp."""
+    dt = datetime.fromtimestamp(int(time.time() if ts is None else ts), VILNIUS)
+    return int(dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
 
 from . import instruments
 from .journal import Journal
@@ -158,6 +167,15 @@ class PaperBroker:
         self.j.set("daily_reset_ts", now)
         self.j.set("daily_reset_log", (self.j.get("daily_reset_log", []) or [])[-19:] + [{"ts": now, "balance": round(float(to), 2), "why": "paper reset"}])
         self.snapshot_equity()
+        return rec
+
+    def reset_pnl_calendar(self, at: int | None = None, note: str = "") -> dict:
+        """Start the P&L calendar from `at` (default: start of today in Europe/Vilnius).
+        Trade history, open positions and the paper balance are left unchanged."""
+        ts = int(at if at is not None else start_of_vilnius_day())
+        rec = {"ts": ts, "note": note or "", "set_ts": int(time.time())}
+        self.j.set("pnl_calendar_reset", rec)
+        self.j.set("pnl_calendar_reset_log", (self.j.get("pnl_calendar_reset_log") or [])[-19:] + [rec])
         return rec
 
     # ----- price helpers -----

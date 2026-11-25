@@ -13,7 +13,7 @@ HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/signal SYMBOL - best strategy for that pair/index + BUY / SELL / NO TRADE (no symbol: top setups now)\n"
         "/check SYMBOL [tf] - long/short call with entry, SL, TP\n"
         "/positions - open paper positions\n/pnl - P&amp;L and stats\n"
-        "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n"
+        "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n/resetpnl - start the P&amp;L calendar from today (history and balance stay)\n"
         "/topup [amount] - add paper funds (no amount: show usage) · /withdraw amount\n"
         "/close SYMBOL - close a paper position\n"
         "/watchlist, /news, /calendar, /status, /desk")
@@ -137,8 +137,16 @@ class Commands:
         c = self.b.ccy
         dep = s.get("deposited") or 0
         dep_line = f" | Deposits {fmt_money(dep, c, False)} (not in net)" if dep else ""
+        cal = s.get("calendar_reset")
+        if cal and cal.get("ts"):
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            since = datetime.fromtimestamp(int(cal["ts"]), ZoneInfo("Europe/Vilnius")).strftime("%d %b %Y")
+            net_lab = f"Net {fmt_money(s['net'], c)} (since {since})"
+        else:
+            net_lab = f"Net {fmt_money(s['net'], c)}"
         return (f"<b>Paper P&amp;L</b> ({c})\nBalance {fmt_money(self.b.balance, c, False)} | Equity {fmt_money(self.b.equity(), c, False)}\n"
-                f"Today {fmt_money(self.b.realized_today(), c)} | Net {fmt_money(s['net'], c)}{dep_line}\n"
+                f"Today {fmt_money(self.b.realized_today(), c)} | {net_lab}{dep_line}\n"
                 f"Trades {s['trades']} | Win {s['win_rate']}% | PF {pf} | Max DD {fmt_money(s['max_drawdown'], c, False)}"
                 + self._stake_lines(c))
 
@@ -168,6 +176,14 @@ class Commands:
         self.j.set("paused", False)
         return (f"🔄 Daily loss limit reset. New baseline {fmt_money(r['baseline'], self.b.ccy, False)}; "
                 f"the bot stops again after -{r['limit_pct']:g}% from here. (paper)")
+
+    def cmd_resetpnl(self, a):
+        r = self.b.reset_pnl_calendar(note="telegram")
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        since = datetime.fromtimestamp(int(r["ts"]), ZoneInfo("Europe/Vilnius")).strftime("%d %b %Y")
+        return (f"🔄 P&amp;L calendar reset. It now starts from {since}. "
+                f"Trade history and the paper balance are unchanged.")
 
     def cmd_resume(self, a):
         self.j.set("paused", False)

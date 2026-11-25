@@ -1,9 +1,12 @@
 """Performance statistics from the journal."""
 from __future__ import annotations
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from .journal import Journal
+
+ACCOUNT_TZ = ZoneInfo("Europe/Vilnius")
 
 
 def compute(trades: list[dict], start_balance: float, deposits: list[dict] | None = None,
@@ -37,10 +40,10 @@ def compute(trades: list[dict], start_balance: float, deposits: list[dict] | Non
     for p in pnls:
         cur = cur + 1 if p > 0 else 0
         best = max(best, cur)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(ACCOUNT_TZ)
     daily = defaultdict(float)
     for t, p in zip(closed, pnls):
-        d = datetime.fromtimestamp(t["closed_ts"], timezone.utc).date().isoformat()
+        d = datetime.fromtimestamp(t["closed_ts"], ACCOUNT_TZ).date().isoformat()
         daily[d] += p
     days30 = [(now.date() - timedelta(days=i)).isoformat() for i in range(29, -1, -1)]
     heat = defaultdict(lambda: {"pnl": 0.0, "n": 0})
@@ -91,27 +94,64 @@ def _deposit_rows(rows: list[dict]) -> list[dict]:
             for d in rows]
 
 
+
+def _day(ts: int) -> str:
+    return datetime.fromtimestamp(int(ts), ACCOUNT_TZ).date().isoformat()
+
+
+def _equity_at(out: dict, ts: int, default: float) -> float:
+    """Paper equity just before ts, walked from the current curve."""
+    val = out.get("start_balance", default)
+    for p in out.get("equity_curve") or []:
+        if int(p["time"]) < int(ts):
+            val = p["value"]
+        else:
+            break
+    return float(val)
+
+
+def _trim_daily(days: list[dict], ts0: int) -> list[dict]:
+    start = _day(ts0)
+    trimmed = [d for d in days if d["date"] >= start]
+    return trimmed or days[-1:]
+
+
+def _apply_period(out: dict, trades: list[dict], deps: list[dict], ts0: int, base: float) -> dict:
+    since_deps = [d for d in deps if int(d["ts"] or 0) >= ts0]
+    since_tr = [t for t in trades if t["status"] == "closed" and (t["closed_ts"] or 0) >= ts0]
+    since = compute(since_tr, base, since_deps, curve_start_ts=ts0)
+    out["net"] = since["net"]
+    out["max_drawdown"] = since["max_drawdown"]
+    out["max_drawdown_pct"] = since["max_drawdown_pct"]
+    out["equity_curve"] = since["equity_curve"] if since["equity_curve"] else []
+    out["start_balance"] = base
+    out["daily_30"] = _trim_daily(since["daily_30"], ts0)
+    return since
+
+
 def performance(j: Journal, start_balance: float) -> dict:
     trades = j.trades(limit=100000)
     deps = j.deposits(limit=100000)
     out = compute(trades, start_balance, deps)
+    out["start_balance"] = start_balance
     rs = j.get("equity_reset")
     ts0 = 0
     if rs and rs.get("ts"):
-        # fresh equity baseline: the curve, net, drawdown and return start at the reset;
+        # fresh equity baseline: the curve, net, drawdown, calendar and return start at the reset;
         # win rate / profit factor / R / heatmap / per-symbol keep the whole history (learning + stats)
         ts0, base = int(rs["ts"]), float(rs["balance"])
-        since_deps = [d for d in deps if int(d["ts"] or 0) >= ts0]
-        since = compute([t for t in trades if t["status"] == "closed" and (t["closed_ts"] or 0) >= ts0],
-                        base, since_deps, curve_start_ts=ts0)
         out["all_time"] = {k: out[k] for k in ("net", "trades", "wins", "losses", "win_rate", "max_drawdown", "max_drawdown_pct")}
-        for k in ("net", "max_drawdown", "max_drawdown_pct"):
-            out[k] = since[k]
+        since = _apply_period(out, trades, deps, ts0, base)
         out["since_reset"] = {k: since[k] for k in ("net", "trades", "wins", "losses", "win_rate")}
-        out["equity_curve"] = since["equity_curve"] if since["equity_curve"] else []
         out["reset"] = {"ts": ts0, "balance": base, "from_balance": rs.get("from_balance")}
-        out["start_balance"] = base
-        deps = since_deps
+        deps = [d for d in deps if int(d["ts"] or 0) >= ts0]
+    cal = j.get("pnl_calendar_reset")
+    if cal and cal.get("ts"):
+        ts1 = int(cal["ts"])
+        base = _equity_at(out, ts1, out.get("start_balance", start_balance))
+        since = _apply_period(out, trades, deps, ts1, base)
+        out["calendar_reset"] = {"ts": ts1, "note": cal.get("note") or "", "net": since["net"],
+                                 "trades": since["trades"], "balance_at": round(base, 2)}
     out["deposited"] = round(sum(float(d["amount"] or 0) for d in deps), 2)
     out["deposits"] = _deposit_rows(deps)
     if out.get("profit_factor") == float("inf"):
