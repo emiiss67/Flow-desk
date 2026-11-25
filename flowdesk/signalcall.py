@@ -369,7 +369,7 @@ def fmt_one(d: dict, ccy: str = "EUR") -> str:
         L.append("Runner-ups:")
         for z in ru[:3]:
             tail = (z["action"] + " signal, skipped" if z.get("action") else "no signal now")
-            L.append(f"• {esc(z['name'])} - {_stat(z)} · {esc(tail)}")
+            L.append(f"• {esc(z['name'])} - {_stat(z)}{' (all-symbol validation)' if z.get('basis') == 'validation, all symbols' else ''} · {esc(tail)}")
     if d.get("blackout"):
         L.append("⚠️ High-impact news window")
     L.append("<i>Same rules as the live bot (finished candles, costs included). Paper trading only.</i>")
