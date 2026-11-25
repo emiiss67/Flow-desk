@@ -456,7 +456,12 @@ def run_cycle(symbols: list[tuple[str, str]] | None = None, progress=None, journ
             if st["enabled"] and vv["n"] >= LIMITS["symbol_min_n"] and vv["exp_r"] < -0.05 and (vonly["n"] == 0 or (vonly["exp_r"] or 0) < 0):
                 blocked.append(name)
         rank.sort(key=lambda z: -(z["exp_r"] if z["exp_r"] is not None else -9))
-        syms[x["sym"]] = {"ranking": rank, "blocked": blocked, "stats": sstats}
+        # held-out (validation + test, after costs and the quality gate) per strategy on this symbol - what /signal ranks by
+        held = {}
+        for name in new["strategies"]:
+            ho = summarize([t for t in filt(name, all_tr[name]["val"] + all_tr[name]["test"]) if t["f"]["symbol"] == x["sym"]])
+            held[name] = {k: ho[k] for k in ("n", "win_rate", "exp_r")}
+        syms[x["sym"]] = {"ranking": rank, "blocked": blocked, "stats": sstats, "heldout": held}
     new["symbols"] = syms
 
     # 5) honest before/after on the TEST segment (never used for any decision above)

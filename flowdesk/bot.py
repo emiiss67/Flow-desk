@@ -38,6 +38,7 @@ class Bot:
             log.warning("currency migration postponed: %s", e)
         self.tg = tg or Telegram()
         self.cmds = Commands(self.j, self.b, self.p, self.tg)
+        self.cmds.fx = self.fx
         self.stop = threading.Event()
 
     # ---------- alerts ----------
@@ -149,26 +150,8 @@ class Bot:
                 self._enter(res, sym, tf, label, name, S.features(R, len(R) - 1, sg["side"], sg["sl_atr"]), rules, sc)
 
     def _quality(self, r: dict, sym: str, stream: str, feats: dict) -> tuple[bool, str]:
-        """Quality gate (costs / blocked setups / quiet markets) + re-anchor the fill to the live quote: the signal is
-        from the last CLOSED candle, so the trade must still offer at least min_rr_at_fill R to TP1 from where price is now."""
         from . import quality
-        q = quality.cfg(self.cfg)
-        lv = r["levels"]
-        ok, why = quality.check(stream, sym, feats, lv["entry"], lv["sl"], c=self.cfg)
-        if not ok:
-            return ok, why
-        px = r.get("live_price")
-        if q.get("closed_bars_only", True) and px:
-            sgn = 1 if r["decision"] == "LONG" else -1
-            risk = (float(px) - lv["sl"]) * sgn
-            if risk <= 0:
-                return False, "price already through the stop since the candle closed"
-            rr = (lv["tp1"] - float(px)) * sgn / risk
-            mn = float(q.get("min_rr_at_fill", 1.0) or 0)
-            if rr < mn:
-                return False, f"price moved since the candle closed: only {rr:.2f}R left to TP1 (min {mn:g}R)"
-            r["levels"] = dict(lv, entry=float(px))
-        return True, ""
+        return quality.fill_check(r, sym, stream, feats, self.cfg)
 
     def _enter(self, r: dict, sym: str, tf: str, setup, stream: str, feats: dict, rules: dict, sc: dict) -> None:
         from . import learning, sizing
@@ -315,6 +298,8 @@ class Bot:
             log.info("update %s ignored: not the owner chat", u.get("update_id"))
             return False  # answer ONLY the owner's chat
         cmd = text.split()[0].split("@")[0].lower() if text.startswith("/") else "(text)"
+        if cmd == "/signal":
+            self.tg.send("🔎 Reading the latest finished candles...", chat)
         if cmd == "/check":
             self.tg.send("🔎 Checking... (first check of a symbol also replays its history for the win rate, ~1 min)", chat)
         reply = self.cmds.handle(text) if text.startswith("/") else self.cmds.handle("/help")

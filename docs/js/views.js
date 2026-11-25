@@ -118,8 +118,9 @@ Views.check = async (v) => {
       <button class="check-btn" id="go">Check</button>
       <div class="sub" style="text-align:center;margin-top:10px">Analysis only · never places a trade</div>
     </div></div>
-    <div id="res"><div class="panel empty"><div><div class="big-ic">◎</div><div class="hi" style="font-weight:600;margin-bottom:6px">Ready when you are</div>Select an instrument and press <b>Check</b>.</div></div></div>
+    <div id="res"><div class="panel empty"><div><div class="big-ic">◎</div><div class="hi" style="font-weight:600;margin-bottom:6px">Ready when you are</div>Select an instrument and press <b>Check</b>.</div></div><div id="topBox"></div></div>
   </div>`;
+  load('/api/signal/top', { limit: 5 }).then(([t]) => { const b = $('#topBox'); if (b && t && t.ok) b.innerHTML = topHTML(t); });
   let items = INSTRUMENTS; let selected = sel; let tfSel = tf;
   load('/api/instruments').then(([r]) => { if (r?.items?.length) { items = r.items; draw(); } });
   const draw = () => {
@@ -153,7 +154,8 @@ function renderResult(r) {
   const col = D === 'LONG' ? Theme.g : D === 'SHORT' ? Theme.r : '#9CA3AF'; const lv = r.levels;
   const risk = lv ? Math.abs(lv.entry - lv.sl) : null;
   $('#res').innerHTML = `
-    <div class="panel">
+    <div id="sigBox"><div class="panel"><div class="skeleton" style="height:90px"></div></div></div>
+    <div class="panel" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div><div class="label" style="margin-bottom:6px">${nmH(r.symbol)}${r.name && r.name !== r.symbol && !Mode.simple() ? ' · ' + esc(r.name) : ''} · ${esc(r.tf)} · ${esc(r.category || '')}</div>
           ${r.setup ? `<div class="setup-badge" style="margin-bottom:10px">🎯 ${esc(r.setup)}</div>` : (r.setups || []).length ? `<div class="sub" style="margin:0 0 8px">Setup seen on the other side: ${esc(r.setups.map(x => x.name + ' (' + x.side + ')').join(', '))}</div>` : ''}
@@ -184,9 +186,52 @@ ${Mode.simple() ? simpleLevels(r, lv) : `
         ${(r.headlines || []).length ? `<h3 style="margin-top:16px">Related headlines</h3>${r.headlines.map(n => `<a class="news-item" href="${esc(n.link)}" target="_blank" rel="noopener"><div class="t">${esc(n.title)}</div><div class="meta">${esc(n.source)} · ${ago(n.ts)}</div></a>`).join('')}` : ''}
         <div class="sub" style="margin-top:14px">Source: ${esc(r.source)}. ${esc(r.source_note || '')} Order flow: <span class="est">estimated</span> (${esc(r.volume_source || 'OHLCV')}).</div></div>
     </div>${Mode.simple() ? '</details>' : ''}`;
+  load('/api/signal', { symbol: r.symbol }).then(([d]) => { const b = $('#sigBox'); if (!b) return; b.innerHTML = d && d.ok ? signalHTML(d) : ''; });
   const c = Charts.create($('#ckChart')); Charts.set(c, r, ckTg());
   $('#ckTg').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; const t = ckTg(); t[b.dataset.k] = !t[b.dataset.k]; store.set('ckToggles', t); b.classList.toggle('on', t[b.dataset.k]); c.opts[b.dataset.k] = t[b.dataset.k]; Charts.set(c, r, Object.assign({ fit: false }, t)); });
   if (r.winrate && r.winrate.status === 'computing') pollWR(r);
+}
+
+/* ---- "Best strategy" panel: same call the live bot would make (finished candles, costs, quality gate, risk caps) ---- */
+const sgStat = z => (!z || !z.n) ? '<span class="m">no history yet</span>'
+  : `<b class="num">${Math.round(z.win_rate)}%</b> win · <b class="num ${pnlClass(z.exp_r)}">${z.exp_r > 0 ? '+' : ''}${(+z.exp_r).toFixed(2)}R</b>${smp('', ' / trade')} · n=${z.n}${z.low_sample ? ' <span class="warn-t" title="Fewer than 10 held-out trades: anecdotal">⚠ low sample</span>' : ''}`;
+function signalHTML(d) {
+  const buy = d.call === 'BUY', sell = d.call === 'SELL', act = buy || sell, p = d.plan, z = d.size;
+  const col = buy ? Theme.g : sell ? Theme.r : '#9CA3AF';
+  const rg = d.regime ? `${esc(d.regime.trend)} · ${esc(d.regime.session)} · ${esc(d.regime.volatility)} volatility` : '';
+  const head = `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+    <div><div class="label" style="margin-bottom:6px">${smp('Best strategy for ' + esc(d.name), 'Best strategy · ' + esc(d.name) + ' · ' + esc(d.tf))}</div>
+      ${d.best ? `<div style="font-weight:700;font-size:16px">🏆 ${esc(d.best.name)}</div><div class="sub" style="margin:4px 0 0">${smp('Its record on this market (tested on data it never saw, after costs): ', esc(d.best.basis) + ': ')}${sgStat(d.best)}</div>` : '<div class="sub">No strategy is allowed to trade this market right now.</div>'}
+      ${rg && !Mode.simple() ? `<div class="sub" style="margin:4px 0 0">Regime now: ${rg}</div>` : ''}</div>
+    <div style="text-align:right"><div class="call ${buy ? 'long' : sell ? 'short' : 'none'}" style="font-size:26px">${smp(act ? (buy ? 'Buy' : 'Sell') : 'No trade', d.call)}</div>
+      ${act ? `<div class="sub" style="margin:2px 0 0">via ${esc(d.strategy.name)}</div>` : ''}</div></div>`;
+  let body = '';
+  if (act) {
+    body = `<div class="levels" style="margin-top:14px">
+      <div class="lv en"><div class="k">Entry</div><div class="v">${fp(p.entry)}</div></div>
+      <div class="lv sl"><div class="k">${smp('Stop loss', 'Stop')}</div><div class="v">${fp(p.sl)}</div>${z ? `<div class="sub">lose ${money2(z.risk_amount)}</div>` : ''}</div>
+      <div class="lv tp"><div class="k">${smp('Take profit 1', 'Target 1')} · ${p.rr1}R</div><div class="v">${fp(p.tp1)}</div></div>
+      <div class="lv tp"><div class="k">${smp('Take profit 2', 'Target 2')} · ${p.rr2}R</div><div class="v">${fp(p.tp2)}</div></div></div>
+      ${z ? `<div class="sz"><div class="sz-pct num">${z.risk_pct}%</div><div><div class="k">${smp('Money at risk on this trade', 'Suggested risk (win-rate sizing)')}</div><div class="sub" style="margin:2px 0 0">${esc(d.risk_reason || '')}${z.notes?.length ? ' · ' + esc(z.notes.join('; ')) : ''}</div><div class="sub" style="margin:4px 0 0"><b class="hi num">${money2(z.risk_amount)}</b> of your ${money2(z.equity)} balance · size <span class="num">${esc(z.size_text)}</span> · <b class="num">${levTxt(z.leverage)}</b></div></div></div>` : ''}
+      <div class="plain" style="margin-top:10px"><b>${buy ? 'Buy' : 'Sell'}</b>: ${esc((d.reason || '').charAt(0).toLowerCase() + (d.reason || '').slice(1))}</div>
+      ${d.note ? `<div class="sub" style="margin-top:6px">ℹ️ ${esc(d.note)}</div>` : ''}`;
+  } else {
+    body = `<div class="warn" style="margin-top:14px">⚪ <b>${smp('Nothing to do right now', 'NO TRADE')}</b> - ${smp('waiting for ', '')}${esc(d.waiting || '')}</div>`;
+  }
+  const ru = (d.runner_ups || []).slice(0, Mode.simple() ? 2 : 4);
+  const rus = ru.length ? `<div style="margin-top:14px"><div class="label" style="margin-bottom:6px">${smp('Other strategies for this market', 'Runner-ups')}</div>${ru.map(x => `<div class="sub" style="margin:3px 0"><b class="hi">${esc(x.name)}</b> · ${sgStat(x)} · ${x.action ? `<b class="${x.action === 'BUY' ? 'g' : 'r'}">${x.action} signal</b> (skipped: ${esc(x.note || '')})` : `<span class="m">${esc((x.note || 'no signal now').split(':')[0].slice(0, 70))}</span>`}</div>`).join('')}</div>` : '';
+  return `<div class="panel" style="border-left:3px solid ${col}">${head}${body}${rus}
+    <div class="sub" style="margin-top:10px">${smp('Uses the same rules as the live bot: only finished candles, costs included. Paper trading only.', 'Same gates as live trading: closed candles, learned blocks/regime, quality gate (cost ≤ 0.20R), live-quote re-anchor, risk caps, win-rate sizing. Held-out stats = validation + test, net of spread/slippage. Paper only.')}</div></div>`;
+}
+function topHTML(t) {
+  const rows = (t.actionable || []).map(d => { const buy = d.call === 'BUY';
+    return `<div class="inst" style="cursor:default;display:block"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>${nmH(d.symbol)}</b> <b class="${buy ? 'g' : 'r'}">${smp(buy ? 'Buy' : 'Sell', d.call)}</b> · <span class="hi">${esc(d.strategy.name)}</span></div><div class="sub" style="margin:0">${sgStat(d.strategy)}</div></div>
+      <div class="sub" style="margin:3px 0 0">Entry <span class="num">${fp(d.plan.entry)}</span> · ${smp('Stop', 'SL')} <span class="num">${fp(d.plan.sl)}</span> · ${smp('Take profit', 'TP1')} <span class="num">${fp(d.plan.tp1)}</span> (${d.plan.rr1}R) · risk ${d.risk_pct}%</div></div>`; }).join('');
+  const near = (t.near || []).map(d => `<div class="sub" style="margin:3px 0"><b class="hi">${nmH(d.symbol)}</b>: ${esc((d.waiting || '').slice(0, 150))}</div>`).join('');
+  return `<div style="margin-top:22px;text-align:left"><div class="label" style="margin-bottom:8px">${smp('Best chances right now', 'Top setups now')} · ${t.n_actionable} of ${t.n_symbols} ${smp('markets', 'symbols')}</div>
+    ${rows || `<div class="sub">${smp('No market has a good trade right now - the bot is waiting.', 'No watched symbol passes every gate right now.')}</div>`}
+    ${near ? `<div class="label" style="margin:12px 0 4px">${smp('Spotted but skipped', 'Signalled, skipped by the bot')}</div>${near}` : ''}
+    <div class="sub" style="margin-top:8px">${smp('Pick a market above and press Check for the full plan.', 'Finished candles · costs included · paper only')}</div></div>`;
 }
 
 /* Simple mode: one plain sentence for the call, levels in everyday words with € amounts */

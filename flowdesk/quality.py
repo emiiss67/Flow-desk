@@ -47,3 +47,26 @@ def check(stream: str, symbol: str, feats: dict | None, entry: float | None = No
     if cost is not None and mx is not None and cost > float(mx):
         return False, f"quality: spread + slippage would cost {cost:.2f}R (max {float(mx):.2f}R) - stop too tight for the spread"
     return True, ""
+
+
+def fill_check(r: dict, symbol: str, stream: str, feats: dict, c: dict | None = None) -> tuple[bool, str]:
+    """The gate every live entry passes (bot and /signal share it): quality rules + re-anchor the fill to the live quote.
+    The signal comes from the last CLOSED candle, so the trade must still offer at least min_rr_at_fill R to TP1 from where
+    price is now. On success r["levels"]["entry"] becomes the live price."""
+    q = cfg(c)
+    lv = r["levels"]
+    ok, why = check(stream, symbol, feats, lv["entry"], lv["sl"], c=c)
+    if not ok:
+        return ok, why
+    px = r.get("live_price")
+    if q.get("closed_bars_only", True) and px:
+        sgn = 1 if r["decision"] == "LONG" else -1
+        risk = (float(px) - lv["sl"]) * sgn
+        if risk <= 0:
+            return False, "price already through the stop since the candle closed"
+        rr = (lv["tp1"] - float(px)) * sgn / risk
+        mn = float(q.get("min_rr_at_fill", 1.0) or 0)
+        if rr < mn:
+            return False, f"price moved since the candle closed: only {rr:.2f}R left to TP1 (min {mn:g}R)"
+        r["levels"] = dict(lv, entry=float(px))
+    return True, ""

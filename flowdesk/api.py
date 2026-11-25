@@ -143,7 +143,7 @@ def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m", notify: 
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"tf must be one of {list(TIMEFRAMES)}")
     try:
-        r = run_check(symbol, tf, winrate="async")
+        r = run_check(symbol, tf, winrate="async", closed_only=True)     # same finished-candle rule as the live bot
     except ValueError as e:
         raise HTTPException(400, str(e))
     if notify and r.get("ok"):
@@ -157,6 +157,27 @@ def api_check(symbol: str = Query(..., max_length=24), tf: str = "15m", notify: 
     _size_info(r)
     r.update(_cur())
     return r
+
+
+@app.get("/api/signal")
+def api_signal(symbol: str = Query(..., max_length=40), fresh: int = 0):
+    """Best strategy for one symbol + BUY / SELL / NO TRADE with the same gates the live bot applies (see signalcall.py)."""
+    from . import signalcall as SC
+    sym = SC.resolve(symbol)
+    if not sym:
+        raise HTTPException(400, f"unknown symbol {symbol}")
+    d = dict(SC.get(sym, B(), J(), FX(), cfg, force=bool(fresh)))
+    d.update(_cur())
+    return d
+
+
+@app.get("/api/signal/top")
+def api_signal_top(limit: int = Query(5, ge=1, le=19)):
+    """Top current setups across the watchlist (actionable first)."""
+    from . import signalcall as SC
+    d = dict(SC.top(B(), J(), FX(), cfg, limit=limit))
+    d.update(_cur())
+    return d
 
 
 @app.get("/api/winrate")

@@ -10,6 +10,7 @@ from . import stake
 from .currency import fmt_money, account_ccy
 
 HELP = ("<b>FlowDesk</b> (PAPER)\n"
+        "/signal SYMBOL - best strategy for that pair/index + BUY / SELL / NO TRADE (no symbol: top setups now)\n"
         "/check SYMBOL [tf] - long/short call with entry, SL, TP\n"
         "/positions - open paper positions\n/pnl - P&amp;L and stats\n"
         "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n"
@@ -98,6 +99,21 @@ class Commands:
             return "Usage: /check EURUSD [15m]"
         tf = a[1] if len(a) > 1 else "15m"
         return fmt_check(check(a[0], tf, with_chart=False))
+
+    fx = None
+
+    def cmd_signal(self, a):
+        from . import signalcall as SC
+        if self.fx is None:
+            from .currency import FxConverter
+            self.fx = FxConverter(self.p, self.j)
+        if not a:
+            return SC.fmt_top(SC.top(self.b, self.j, self.fx, provider=self.p), self.b.ccy)
+        q = " ".join(a)
+        sym = SC.resolve(q)
+        if not sym:
+            return f"I don't know the symbol {esc(q)}. Try /signal EURUSD, /signal NAS100 or /signal GOLD."
+        return SC.fmt_one(SC.get(sym, self.b, self.j, self.fx, provider=self.p), self.b.ccy)
 
     def cmd_positions(self, a):
         ts = self.b.open_trades()
