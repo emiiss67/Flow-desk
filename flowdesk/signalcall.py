@@ -67,10 +67,13 @@ def universe(rules: dict, sym: str) -> list[dict]:
             ho = {"n": v.get("n") or 0, "win_rate": v.get("win_rate"), "exp_r": v.get("exp_r")} if v.get("n") else {"n": 0, "win_rate": None, "exp_r": None}
             basis = "validation, all symbols" if ho["n"] else "no history"
         n = int(ho.get("n") or 0)
-        out.append({"strategy": name, "name": learning.NAMES.get(name, name), "n": n, "win_rate": ho.get("win_rate"),
+        tier = 2 if basis != f"held-out on {instruments.display(sym)}" else (1 if n < MIN_RANK_N else 0)
+        out.append({"tier": tier, "edge": tier == 0 and (ho.get("exp_r") or 0) > 0, "strategy": name, "name": learning.NAMES.get(name, name), "n": n, "win_rate": ho.get("win_rate"),
                     "exp_r": ho.get("exp_r"), "low_sample": n < MIN_RANK_N, "basis": basis,
                     "regime": reg.get(name, {}).get("state") if name in reg else None})
-    out.sort(key=lambda z: (not z["low_sample"], z["exp_r"] if z["exp_r"] is not None else -9, z["n"]), reverse=True)
+    # tier 0: >= MIN_RANK_N held-out trades on THIS symbol; tier 1: fewer (anecdotal); tier 2: no held-out trade on this symbol,
+    # only the strategy's all-symbol validation record. Within a tier: held-out expectancy (R per trade, after costs), then sample size.
+    out.sort(key=lambda z: (-z["tier"], z["exp_r"] if z["exp_r"] is not None else -9, z["n"]), reverse=True)
     for i, z in enumerate(out):
         z["rank"] = i + 1
     return out
@@ -240,9 +243,7 @@ def evaluate(sym: str, broker, journal, fx, cfg: dict | None = None, provider=No
         pick = ready[0]
         u = by[pick["strategy"]]
         out.update(call="BUY" if pick["side"] == "LONG" else "SELL", strategy=u, **{k: pick[k] for k in ("plan", "risk_pct", "risk_reason", "size", "reason")})
-        out["runner_ups"] = [x for x in ({"strategy": z["strategy"], "name": z["name"], "state": z.get("state"), "exp_r": z["exp_r"], "win_rate": z["win_rate"], "n": z["n"],
-                                           "action": ("BUY" if live[z["strategy"]]["side"] == "LONG" else "SELL") if z["strategy"] in live else None,
-                                           "note": z.get("why") or z.get("waiting")} for z in uni) if x["strategy"] != pick["strategy"]][:4]
+        out["runner_ups"] = [_ru(z, live) for z in uni if z["strategy"] != pick["strategy"]][:4]
         if uni and uni[0]["strategy"] != pick["strategy"]:
             out["note"] = f"{uni[0]['name']} ranks first here but has no signal; {u['name']} has one."
     else:
@@ -255,12 +256,18 @@ def evaluate(sym: str, broker, journal, fx, cfg: dict | None = None, provider=No
             b = r["blackout"]
             out["waiting"] = f"a high-impact {b['ccy']} event ('{b['title']}') is too close - waiting until it has passed"
         elif uni:
-            out["waiting"] = uni[0].get("waiting") or "no strategy has a signal on the last finished candle"
+            out["waiting"] = f"{uni[0]['name']} is " + (uni[0].get("waiting") or "waiting for a signal on a finished candle")
         else:
             out["waiting"] = "no strategy is allowed to trade this symbol right now"
-        out["runner_ups"] = [{"strategy": z["strategy"], "name": z["name"], "state": z.get("state"), "exp_r": z["exp_r"], "win_rate": z["win_rate"], "n": z["n"],
-                              "action": None, "note": z.get("why") or z.get("waiting")} for z in uni[1:5]]
+        out["runner_ups"] = [_ru(z, live) for z in uni[1:5]]
     return out
+
+
+def _ru(z: dict, live: dict) -> dict:
+    it = live.get(z["strategy"])
+    return {"strategy": z["strategy"], "name": z["name"], "state": z.get("state"), "exp_r": z["exp_r"], "win_rate": z["win_rate"], "n": z["n"],
+            "low_sample": z["low_sample"], "basis": z["basis"], "edge": z["edge"],
+            "action": ("BUY" if it["side"] == "LONG" else "SELL") if it else None, "note": z.get("why") or z.get("waiting")}
 
 
 def _waiting(name: str, r: dict, rules: dict, cfg: dict) -> str:
@@ -268,12 +275,12 @@ def _waiting(name: str, r: dict, rules: dict, cfg: dict) -> str:
         ms = float(((rules.get("strategies") or {}).get(name) or {}).get("params", {}).get("min_score", cfg.get("strategy", {}).get("min_score", 55)))
         mm = float(cfg.get("strategy", {}).get("min_margin", 15))
         sc = r.get("scores") or {}
-        return (f"confluence of at least {ms:g} with a {mm:g}-point lead over the other side (now buy {sc.get('long', '?')} / sell {sc.get('short', '?')})")
+        return (f"waiting for confluence of at least {ms:g} with a {mm:g}-point lead over the other side (now buy {sc.get('long', '?')} / sell {sc.get('short', '?')})")
     if name in learning.SETUP_KEYS.values():
-        return f"a {learning.NAMES[name]} pattern on a finished candle (none now)"
+        return f"waiting for a {learning.NAMES[name]} pattern on a finished candle (none now)"
     if name in S.STRATEGIES:
-        return "its entry pattern on a finished candle: " + S.STRATEGIES[name]["desc"]
-    return "a valid signal on a finished candle"
+        return "waiting for its entry pattern on a finished candle - " + S.STRATEGIES[name]["desc"]
+    return "waiting for a valid signal on a finished candle"
 
 
 def get(sym: str, broker, journal, fx, cfg=None, provider=None, force: bool = False) -> dict:
@@ -339,7 +346,7 @@ def fmt_one(d: dict, ccy: str = "EUR") -> str:
     L.append(f"Price {fmt(d['price'])} (last finished candle {time.strftime('%H:%M', time.localtime(d['last_closed']))})")
     best = d.get("best")
     if best:
-        L.append(f"🏆 Best strategy here: <b>{esc(best['name'])}</b> - {best['basis']}: {_stat(best)}")
+        L.append(f"🏆 {'Best strategy here' if best.get('edge') else 'Best available here (no proven edge on this symbol)'}: <b>{esc(best['name'])}</b> - {best['basis']}: {_stat(best)}")
     else:
         L.append("No strategy is allowed to trade this symbol right now.")
     if d["call"] in ("BUY", "SELL"):

@@ -201,7 +201,7 @@ function signalHTML(d) {
   const rg = d.regime ? `${esc(d.regime.trend)} · ${esc(d.regime.session)} · ${esc(d.regime.volatility)} volatility` : '';
   const head = `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
     <div><div class="label" style="margin-bottom:6px">${smp('Best strategy for ' + esc(d.name), 'Best strategy · ' + esc(d.name) + ' · ' + esc(d.tf))}</div>
-      ${d.best ? `<div style="font-weight:700;font-size:16px">🏆 ${esc(d.best.name)}</div><div class="sub" style="margin:4px 0 0">${smp('Its record on this market (tested on data it never saw, after costs): ', esc(d.best.basis) + ': ')}${sgStat(d.best)}</div>` : '<div class="sub">No strategy is allowed to trade this market right now.</div>'}
+      ${d.best ? `<div style="font-weight:700;font-size:16px">🏆 ${esc(d.best.name)}${d.best.edge ? '' : ' <span class="sub">(best available - no proven edge here)</span>'}</div><div class="sub" style="margin:4px 0 0">${smp('Its record on this market (tested on data it never saw, after costs): ', esc(d.best.basis) + ': ')}${sgStat(d.best)}</div>` : '<div class="sub">No strategy is allowed to trade this market right now.</div>'}
       ${rg && !Mode.simple() ? `<div class="sub" style="margin:4px 0 0">Regime now: ${rg}</div>` : ''}</div>
     <div style="text-align:right"><div class="call ${buy ? 'long' : sell ? 'short' : 'none'}" style="font-size:26px">${smp(act ? (buy ? 'Buy' : 'Sell') : 'No trade', d.call)}</div>
       ${act ? `<div class="sub" style="margin:2px 0 0">via ${esc(d.strategy.name)}</div>` : ''}</div></div>`;
@@ -216,7 +216,7 @@ function signalHTML(d) {
       <div class="plain" style="margin-top:10px"><b>${buy ? 'Buy' : 'Sell'}</b>: ${esc((d.reason || '').charAt(0).toLowerCase() + (d.reason || '').slice(1))}</div>
       ${d.note ? `<div class="sub" style="margin-top:6px">ℹ️ ${esc(d.note)}</div>` : ''}`;
   } else {
-    body = `<div class="warn" style="margin-top:14px">⚪ <b>${smp('Nothing to do right now', 'NO TRADE')}</b> - ${smp('waiting for ', '')}${esc(d.waiting || '')}</div>`;
+    body = `<div class="warn" style="margin-top:14px">⚪ <b>${smp('Nothing to do right now', 'NO TRADE')}</b> - ${esc(d.waiting || '')}</div>`;
   }
   const ru = (d.runner_ups || []).slice(0, Mode.simple() ? 2 : 4);
   const rus = ru.length ? `<div style="margin-top:14px"><div class="label" style="margin-bottom:6px">${smp('Other strategies for this market', 'Runner-ups')}</div>${ru.map(x => `<div class="sub" style="margin:3px 0"><b class="hi">${esc(x.name)}</b> · ${sgStat(x)} · ${x.action ? `<b class="${x.action === 'BUY' ? 'g' : 'r'}">${x.action} signal</b> (skipped: ${esc(x.note || '')})` : `<span class="m">${esc((x.note || 'no signal now').split(':')[0].slice(0, 70))}</span>`}</div>`).join('')}</div>` : '';

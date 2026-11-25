@@ -155,3 +155,14 @@ def test_telegram_command(env):
     out = c.handle("/signal EURUSD")
     assert "SELL" in out and "Best strategy" in out
     assert "/signal" in c.handle("/help")
+
+
+def test_symbol_without_heldout_data_ranks_after_proven_ones_and_is_not_called_best_edge():
+    r = rules()
+    r["symbols"][SYM]["heldout"] = {"core": {"n": 0, "win_rate": None, "exp_r": None}, "silver_bullet": {"n": 12, "win_rate": 40.0, "exp_r": -0.2}}
+    r["strategies"]["orb"]["stats"] = {"val": {"n": 83, "win_rate": 54, "exp_r": 0.4}}
+    u = SC.universe(r, SYM)
+    assert u[0]["strategy"] == "silver_bullet" and not u[0]["edge"]       # has symbol data (tier 0), but negative: no "proven edge"
+    assert [z["tier"] for z in u] == sorted(z["tier"] for z in u)
+    assert next(z for z in u if z["strategy"] == "orb")["basis"] == "validation, all symbols"
+    assert next(z for z in u if z["strategy"] == "orb")["tier"] == 2
