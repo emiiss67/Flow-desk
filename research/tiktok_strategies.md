@@ -29,6 +29,7 @@ The regime check can not switch them on. Raw results: `research/tiktok_native_5m
 | 13 | resellingleague - PB | Mech model, inversion FVG (`pb_mech`) | 114 | 34.2 | -0.23 | val 15, 40.0%, -0.12R / test 9, 33.3%, -0.39R | off (every symbol) |
 | 14 | resellingleague - Dutch / Wicked | Std deviations of the London leg (`stdv_london`) | 3 | 0.0 | -1.16 | val 0 / test 1, 0%, -1.10R | off (every symbol) |
 | 15 | resellingleague - Aval | Sweep + change in state of delivery (`cisd`) | 388 | 32.0 | -0.19 | val 45, 31.1%, -0.24R / test 52, 32.7%, -0.22R | off (every symbol) |
+| 16 | evankrutchikk - "How I trade to have a 90% win rate" (TTP, time then price) | none - no entry/stop/target rules; it is the time-window idea already covered by #2, #10, #11, #14 | - | - | - | - | not implementable (duplicate idea, re-checked) |
 
 ## 1. victornqq - "@marketmaker #wicked #NQ"
 12 s clip of GBP/USD and Micro Nasdaq trade screenshots with an anime voice-over. No entry, stop, target or filter is shown or said. Nothing to implement.
@@ -210,3 +211,8 @@ Rules as built (15m bars, entry at the close of a finished candle, everything fr
 * **`cisd`**: within the last 6 bars a bar took the 20-bar high and is still the high; the run of up-close candles that made it; the first close below the
   open of that run (change in state of delivery) = short, stop 0.05 ATR above the sweep high, target = the 20-bar low before the sweep (draw on liquidity,
   >= 1R); mirrored; 02:00-16:00 ET.
+
+## 16. evankrutchikk - "How I trade to have a 90% win rate" (TTP model: Time Then Price) - 26 Nov
+74 s talking-head clip (yt-dlp, Whisper, 25 frames; the only chart shown is a single 1-min NQ screenshot with the 08:30 candle and a -2.5 std-dev level, no rules). What it says, in full: the model is built on **time** - he does not trade all day, only fixed time windows that show good price action; in a window price either runs to a liquidity target (continuation) or manipulates (reversal); he works on the **1-minute chart only**, no daily/4h/1h PD arrays; he trades "his own model" (not IFVG), "catches a trade almost every day", claims 90% win rate. **No entry trigger, stop, target, window times or filter are given** ("not giving away too much sauce"). The win-rate claim is unverifiable.
+Result: **not implementable** - nothing to code without inventing the rules. The only concrete hints (a time window such as the 08:30 candle, a std-dev extension, continuation vs reversal at liquidity) are already built and tested as `data_hl` (08:30 ET data high/low), `ko10` (10 AM key open), `stdv_london` (std deviations of the London leg), `orb15` (opening range) and `sweep+CISD`. Re-check of that family (research/batch2_check.json, tiktok_native_5m.json): all off on every symbol. Nasdaq (NQ): `data_hl` 3 trades in train (33%, -0.19R), none held-out; `ko10` 3 train trades (33%, -0.61R), none held-out; `stdv_london` 0 trades. Too few trades to judge, and the evidence gate (guard.py: validation >= 30 and test >= 10 trades, positive; per-symbol +0.10R over 8+ trades) stays closed. Real 1-min data would be needed to test the "1-minute, time-window" claim properly; we only have 15m bars (about 45 days).
+No code change; risk, end-of-day flat and open trades untouched. The model is not added to the strategy table.
