@@ -1,0 +1,1418 @@
+{
+ "session_mom_wide (24h max hold)": {
+  "all": {
+   "train": {
+    "n": 332,
+    "win_rate": 84.9,
+    "exp_r": -0.016,
+    "total_r": -5.27,
+    "t": -0.82
+   },
+   "val": {
+    "n": 56,
+    "win_rate": 83.9,
+    "exp_r": -0.001,
+    "total_r": -0.04,
+    "t": -0.02
+   },
+   "test": {
+    "n": 31,
+    "win_rate": 71.0,
+    "exp_r": -0.157,
+    "total_r": -4.88,
+    "t": -1.98
+   },
+   "heldout": {
+    "n": 87,
+    "win_rate": 79.3,
+    "exp_r": -0.057,
+    "total_r": -4.92,
+    "t": -1.38
+   },
+   "symbols_on": []
+  },
+  "per": {
+   "EURUSD=X": {
+    "train": {
+     "n": 17,
+     "win_rate": 94.1,
+     "exp_r": 0.03,
+     "total_r": 0.51,
+     "t": 0.44
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.151,
+     "total_r": 0.45,
+     "t": 2.37
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.148,
+     "total_r": -0.3,
+     "t": -0.32
+    }
+   },
+   "GBPUSD=X": {
+    "train": {
+     "n": 22,
+     "win_rate": 95.5,
+     "exp_r": 0.11,
+     "total_r": 2.43,
+     "t": 4.54
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 75.0,
+     "exp_r": -0.007,
+     "total_r": -0.03,
+     "t": -0.05
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.03,
+     "total_r": 0.03,
+     "t": 0.0
+    }
+   },
+   "USDJPY=X": {
+    "train": {
+     "n": 17,
+     "win_rate": 58.8,
+     "exp_r": -0.294,
+     "total_r": -5.0,
+     "t": -2.5
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.168,
+     "total_r": -0.34,
+     "t": -0.88
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.113,
+     "total_r": 0.23,
+     "t": 1.54
+    }
+   },
+   "AUDUSD=X": {
+    "train": {
+     "n": 19,
+     "win_rate": 84.2,
+     "exp_r": -0.014,
+     "total_r": -0.27,
+     "t": -0.16
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.091,
+     "total_r": 0.27,
+     "t": 1.54
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.033,
+     "total_r": 0.03,
+     "t": 0.0
+    }
+   },
+   "USDCAD=X": {
+    "train": {
+     "n": 19,
+     "win_rate": 78.9,
+     "exp_r": -0.057,
+     "total_r": -1.08,
+     "t": -0.71
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.036,
+     "total_r": 0.04,
+     "t": 0.0
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.052,
+     "total_r": 0.1,
+     "t": 3.45
+    }
+   },
+   "USDCHF=X": {
+    "train": {
+     "n": 19,
+     "win_rate": 84.2,
+     "exp_r": 0.003,
+     "total_r": 0.06,
+     "t": 0.05
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.046,
+     "total_r": -0.14,
+     "t": -0.43
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.132,
+     "total_r": 0.13,
+     "t": 0.0
+    }
+   },
+   "NZDUSD=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 87.5,
+     "exp_r": -0.002,
+     "total_r": -0.03,
+     "t": -0.02
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.154,
+     "total_r": 0.62,
+     "t": 2.41
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    }
+   },
+   "EURGBP=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 93.8,
+     "exp_r": 0.056,
+     "total_r": 0.89,
+     "t": 1.01
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": 0.025,
+     "total_r": 0.08,
+     "t": 1.65
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.058,
+     "total_r": 0.06,
+     "t": 0.0
+    }
+   },
+   "EURJPY=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 81.2,
+     "exp_r": -0.077,
+     "total_r": -1.23,
+     "t": -0.73
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.25,
+     "total_r": -0.75,
+     "t": -0.63
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.07,
+     "total_r": -0.21,
+     "t": -0.31
+    }
+   },
+   "GBPJPY=X": {
+    "train": {
+     "n": 20,
+     "win_rate": 60.0,
+     "exp_r": -0.298,
+     "total_r": -5.96,
+     "t": -2.65
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.061,
+     "total_r": 0.18,
+     "t": 4.62
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.19,
+     "total_r": -0.57,
+     "t": -0.77
+    }
+   },
+   "AUDJPY=X": {
+    "train": {
+     "n": 17,
+     "win_rate": 88.2,
+     "exp_r": 0.016,
+     "total_r": 0.27,
+     "t": 0.22
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.148,
+     "total_r": 0.44,
+     "t": 1.83
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.484,
+     "total_r": -0.97,
+     "t": -0.91
+    }
+   },
+   "EURAUD=X": {
+    "train": {
+     "n": 20,
+     "win_rate": 85.0,
+     "exp_r": -0.053,
+     "total_r": -1.07,
+     "t": -0.76
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.109,
+     "total_r": 0.33,
+     "t": 2.73
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.073,
+     "total_r": 0.07,
+     "t": 0.0
+    }
+   },
+   "NQ=F": {
+    "train": {
+     "n": 15,
+     "win_rate": 86.7,
+     "exp_r": 0.005,
+     "total_r": 0.08,
+     "t": 0.05
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 33.3,
+     "exp_r": -0.655,
+     "total_r": -1.96,
+     "t": -1.85
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.057,
+     "total_r": 0.06,
+     "t": 0.0
+    }
+   },
+   "ES=F": {
+    "train": {
+     "n": 15,
+     "win_rate": 86.7,
+     "exp_r": 0.042,
+     "total_r": 0.63,
+     "t": 0.46
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.285,
+     "total_r": 0.86,
+     "t": 2.07
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.009,
+     "total_r": -1.01,
+     "t": 0.0
+    }
+   },
+   "YM=F": {
+    "train": {
+     "n": 17,
+     "win_rate": 94.1,
+     "exp_r": 0.06,
+     "total_r": 1.03,
+     "t": 0.84
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.104,
+     "total_r": 0.21,
+     "t": 1.88
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.112,
+     "total_r": 0.34,
+     "t": 3.03
+    }
+   },
+   "RTY=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 93.8,
+     "exp_r": 0.073,
+     "total_r": 1.16,
+     "t": 0.92
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.127,
+     "total_r": 0.51,
+     "t": 3.1
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -0.23,
+     "total_r": -0.23,
+     "t": 0.0
+    }
+   },
+   "GC=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 87.5,
+     "exp_r": 0.025,
+     "total_r": 0.41,
+     "t": 0.31
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.071,
+     "total_r": 0.28,
+     "t": 2.76
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.3,
+     "total_r": -0.9,
+     "t": -0.84
+    }
+   },
+   "CL=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 100.0,
+     "exp_r": 0.122,
+     "total_r": 1.95,
+     "t": 4.24
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 50.0,
+     "exp_r": -0.38,
+     "total_r": -1.52,
+     "t": -1.44
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.281,
+     "total_r": 0.28,
+     "t": 0.0
+    }
+   },
+   "BTC-USD": {
+    "train": {
+     "n": 19,
+     "win_rate": 78.9,
+     "exp_r": -0.003,
+     "total_r": -0.06,
+     "t": -0.03
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.433,
+     "total_r": 0.43,
+     "t": 0.0
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.013,
+     "total_r": -2.03,
+     "t": -3358.04
+    }
+   }
+  }
+ },
+ "session_mom_wide intraday-only (28 bars, flat before 16:45 ET)": {
+  "all": {
+   "train": {
+    "n": 334,
+    "win_rate": 76.3,
+    "exp_r": 0.006,
+    "total_r": 1.9,
+    "t": 0.43
+   },
+   "val": {
+    "n": 59,
+    "win_rate": 83.1,
+    "exp_r": 0.021,
+    "total_r": 1.24,
+    "t": 0.6
+   },
+   "test": {
+    "n": 31,
+    "win_rate": 61.3,
+    "exp_r": -0.128,
+    "total_r": -3.98,
+    "t": -1.89
+   },
+   "heldout": {
+    "n": 90,
+    "win_rate": 75.6,
+    "exp_r": -0.031,
+    "total_r": -2.75,
+    "t": -0.92
+   },
+   "symbols_on": []
+  },
+  "per": {
+   "EURUSD=X": {
+    "train": {
+     "n": 17,
+     "win_rate": 88.2,
+     "exp_r": 0.046,
+     "total_r": 0.78,
+     "t": 1.01
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.172,
+     "total_r": 0.52,
+     "t": 2.62
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.0,
+     "total_r": -0.0,
+     "t": -0.0
+    }
+   },
+   "GBPUSD=X": {
+    "train": {
+     "n": 22,
+     "win_rate": 95.5,
+     "exp_r": 0.089,
+     "total_r": 1.97,
+     "t": 2.52
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 75.0,
+     "exp_r": 0.003,
+     "total_r": 0.01,
+     "t": 0.03
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.03,
+     "total_r": 0.03,
+     "t": 0.0
+    }
+   },
+   "USDJPY=X": {
+    "train": {
+     "n": 18,
+     "win_rate": 55.6,
+     "exp_r": -0.154,
+     "total_r": -2.78,
+     "t": -2.17
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.108,
+     "total_r": -0.22,
+     "t": -0.82
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.113,
+     "total_r": 0.23,
+     "t": 1.54
+    }
+   },
+   "AUDUSD=X": {
+    "train": {
+     "n": 20,
+     "win_rate": 75.0,
+     "exp_r": -0.063,
+     "total_r": -1.26,
+     "t": -0.79
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.091,
+     "total_r": 0.27,
+     "t": 1.54
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -0.352,
+     "total_r": -0.35,
+     "t": 0.0
+    }
+   },
+   "USDCAD=X": {
+    "train": {
+     "n": 19,
+     "win_rate": 73.7,
+     "exp_r": 0.018,
+     "total_r": 0.34,
+     "t": 0.42
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.035,
+     "total_r": 0.07,
+     "t": 34.91
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.052,
+     "total_r": 0.1,
+     "t": 3.45
+    }
+   },
+   "USDCHF=X": {
+    "train": {
+     "n": 19,
+     "win_rate": 73.7,
+     "exp_r": -0.041,
+     "total_r": -0.79,
+     "t": -0.62
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.078,
+     "total_r": -0.23,
+     "t": -0.56
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.132,
+     "total_r": 0.13,
+     "t": 0.0
+    }
+   },
+   "NZDUSD=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 81.2,
+     "exp_r": 0.005,
+     "total_r": 0.08,
+     "t": 0.08
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.154,
+     "total_r": 0.62,
+     "t": 2.41
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    }
+   },
+   "EURGBP=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 93.8,
+     "exp_r": 0.044,
+     "total_r": 0.7,
+     "t": 1.39
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": 0.025,
+     "total_r": 0.08,
+     "t": 1.65
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.058,
+     "total_r": 0.06,
+     "t": 0.0
+    }
+   },
+   "EURJPY=X": {
+    "train": {
+     "n": 16,
+     "win_rate": 68.8,
+     "exp_r": -0.015,
+     "total_r": -0.23,
+     "t": -0.24
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.068,
+     "total_r": -0.21,
+     "t": -0.3
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": 0.052,
+     "total_r": 0.16,
+     "t": 0.41
+    }
+   },
+   "GBPJPY=X": {
+    "train": {
+     "n": 20,
+     "win_rate": 50.0,
+     "exp_r": -0.133,
+     "total_r": -2.67,
+     "t": -2.49
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.061,
+     "total_r": 0.18,
+     "t": 4.62
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.214,
+     "total_r": -0.64,
+     "t": -0.79
+    }
+   },
+   "AUDJPY=X": {
+    "train": {
+     "n": 17,
+     "win_rate": 58.8,
+     "exp_r": -0.032,
+     "total_r": -0.54,
+     "t": -0.55
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.148,
+     "total_r": 0.44,
+     "t": 1.83
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -0.479,
+     "total_r": -0.96,
+     "t": -1.49
+    }
+   },
+   "EURAUD=X": {
+    "train": {
+     "n": 20,
+     "win_rate": 60.0,
+     "exp_r": -0.042,
+     "total_r": -0.84,
+     "t": -1.19
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.09,
+     "total_r": 0.36,
+     "t": 2.67
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -0.107,
+     "total_r": -0.11,
+     "t": 0.0
+    }
+   },
+   "NQ=F": {
+    "train": {
+     "n": 15,
+     "win_rate": 73.3,
+     "exp_r": 0.005,
+     "total_r": 0.08,
+     "t": 0.07
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 33.3,
+     "exp_r": -0.526,
+     "total_r": -1.58,
+     "t": -1.69
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.057,
+     "total_r": 0.06,
+     "t": 0.0
+    }
+   },
+   "ES=F": {
+    "train": {
+     "n": 15,
+     "win_rate": 80.0,
+     "exp_r": 0.033,
+     "total_r": 0.49,
+     "t": 0.39
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.285,
+     "total_r": 0.86,
+     "t": 2.07
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.009,
+     "total_r": -1.01,
+     "t": 0.0
+    }
+   },
+   "YM=F": {
+    "train": {
+     "n": 17,
+     "win_rate": 94.1,
+     "exp_r": 0.08,
+     "total_r": 1.36,
+     "t": 1.47
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.104,
+     "total_r": 0.21,
+     "t": 1.88
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 100.0,
+     "exp_r": 0.112,
+     "total_r": 0.34,
+     "t": 3.03
+    }
+   },
+   "RTY=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 93.8,
+     "exp_r": 0.117,
+     "total_r": 1.87,
+     "t": 2.76
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.127,
+     "total_r": 0.51,
+     "t": 3.1
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -0.297,
+     "total_r": -0.3,
+     "t": 0.0
+    }
+   },
+   "GC=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 75.0,
+     "exp_r": 0.058,
+     "total_r": 0.93,
+     "t": 1.34
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 0.071,
+     "total_r": 0.28,
+     "t": 2.76
+    },
+    "test": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": -0.25,
+     "total_r": -0.75,
+     "t": -0.82
+    }
+   },
+   "CL=F": {
+    "train": {
+     "n": 16,
+     "win_rate": 93.8,
+     "exp_r": 0.08,
+     "total_r": 1.28,
+     "t": 1.56
+    },
+    "val": {
+     "n": 5,
+     "win_rate": 40.0,
+     "exp_r": -0.275,
+     "total_r": -1.37,
+     "t": -1.68
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.281,
+     "total_r": 0.28,
+     "t": 0.0
+    }
+   },
+   "BTC-USD": {
+    "train": {
+     "n": 19,
+     "win_rate": 73.7,
+     "exp_r": 0.06,
+     "total_r": 1.14,
+     "t": 1.16
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.433,
+     "total_r": 0.43,
+     "t": 0.0
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -0.624,
+     "total_r": -1.25,
+     "t": -1.6
+    }
+   }
+  }
+ },
+ "session_mom (note #6: first-candle stop, 1R + 1-ATR trail)": {
+  "all": {
+   "train": {
+    "n": 169,
+    "win_rate": 54.4,
+    "exp_r": 0.011,
+    "total_r": 1.8,
+    "t": 0.13
+   },
+   "val": {
+    "n": 28,
+    "win_rate": 53.6,
+    "exp_r": 0.144,
+    "total_r": 4.04,
+    "t": 0.61
+   },
+   "test": {
+    "n": 24,
+    "win_rate": 33.3,
+    "exp_r": -0.364,
+    "total_r": -8.74,
+    "t": -1.67
+   },
+   "heldout": {
+    "n": 52,
+    "win_rate": 44.2,
+    "exp_r": -0.09,
+    "total_r": -4.69,
+    "t": -0.55
+   },
+   "symbols_on": []
+  },
+  "per": {
+   "EURUSD=X": {
+    "train": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    }
+   },
+   "GBPUSD=X": {
+    "train": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    }
+   },
+   "USDJPY=X": {
+    "train": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 0.665,
+     "total_r": 1.33,
+     "t": 16.64
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.925,
+     "total_r": 0.92,
+     "t": 0.0
+    }
+   },
+   "AUDUSD=X": {
+    "train": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.129,
+     "total_r": -1.13,
+     "t": 0.0
+    }
+   },
+   "USDCAD=X": {
+    "train": {
+     "n": 5,
+     "win_rate": 60.0,
+     "exp_r": -0.088,
+     "total_r": -0.44,
+     "t": -0.2
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    }
+   },
+   "USDCHF=X": {
+    "train": {
+     "n": 8,
+     "win_rate": 62.5,
+     "exp_r": -0.068,
+     "total_r": -0.54,
+     "t": -0.22
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.086,
+     "total_r": -1.09,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.472,
+     "total_r": 0.47,
+     "t": 0.0
+    }
+   },
+   "NZDUSD=X": {
+    "train": {
+     "n": 3,
+     "win_rate": 33.3,
+     "exp_r": -0.559,
+     "total_r": -1.68,
+     "t": -0.98
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.11,
+     "total_r": -1.11,
+     "t": 0.0
+    }
+   },
+   "EURGBP=X": {
+    "train": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.129,
+     "total_r": -1.13,
+     "t": 0.0
+    }
+   },
+   "EURJPY=X": {
+    "train": {
+     "n": 4,
+     "win_rate": 25.0,
+     "exp_r": -0.618,
+     "total_r": -2.47,
+     "t": -1.27
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": 0.471,
+     "total_r": 0.94,
+     "t": 0.29
+    }
+   },
+   "GBPJPY=X": {
+    "train": {
+     "n": 4,
+     "win_rate": 25.0,
+     "exp_r": -0.577,
+     "total_r": -2.31,
+     "t": -1.04
+    },
+    "val": {
+     "n": 0,
+     "win_rate": null,
+     "exp_r": null,
+     "total_r": 0.0,
+     "t": 0.0
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.257,
+     "total_r": -0.51,
+     "t": -0.31
+    }
+   },
+   "AUDJPY=X": {
+    "train": {
+     "n": 5,
+     "win_rate": 20.0,
+     "exp_r": -0.7,
+     "total_r": -3.5,
+     "t": -1.78
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": -0.208,
+     "total_r": -0.42,
+     "t": -0.23
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.086,
+     "total_r": -2.17,
+     "t": -41.93
+    }
+   },
+   "EURAUD=X": {
+    "train": {
+     "n": 7,
+     "win_rate": 71.4,
+     "exp_r": 0.293,
+     "total_r": 2.05,
+     "t": 0.73
+    },
+    "val": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.514,
+     "total_r": 0.51,
+     "t": 0.0
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.094,
+     "total_r": -1.09,
+     "t": 0.0
+    }
+   },
+   "NQ=F": {
+    "train": {
+     "n": 18,
+     "win_rate": 44.4,
+     "exp_r": -0.251,
+     "total_r": -4.51,
+     "t": -1.13
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 25.0,
+     "exp_r": -0.366,
+     "total_r": -1.46,
+     "t": -0.55
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": 0.117,
+     "total_r": 0.23,
+     "t": 0.1
+    }
+   },
+   "ES=F": {
+    "train": {
+     "n": 14,
+     "win_rate": 42.9,
+     "exp_r": -0.276,
+     "total_r": -3.87,
+     "t": -1.0
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": 0.419,
+     "total_r": 1.26,
+     "t": 0.51
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": 0.086,
+     "total_r": 0.17,
+     "t": 0.08
+    }
+   },
+   "YM=F": {
+    "train": {
+     "n": 25,
+     "win_rate": 56.0,
+     "exp_r": 0.134,
+     "total_r": 3.34,
+     "t": 0.55
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 100.0,
+     "exp_r": 1.003,
+     "total_r": 4.01,
+     "t": 4.34
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 50.0,
+     "exp_r": 0.08,
+     "total_r": 0.16,
+     "t": 0.07
+    }
+   },
+   "RTY=F": {
+    "train": {
+     "n": 22,
+     "win_rate": 68.2,
+     "exp_r": 0.244,
+     "total_r": 5.37,
+     "t": 1.15
+    },
+    "val": {
+     "n": 3,
+     "win_rate": 66.7,
+     "exp_r": 0.511,
+     "total_r": 1.53,
+     "t": 0.56
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 0.0,
+     "exp_r": -1.018,
+     "total_r": -1.02,
+     "t": 0.0
+    }
+   },
+   "GC=F": {
+    "train": {
+     "n": 15,
+     "win_rate": 73.3,
+     "exp_r": 0.402,
+     "total_r": 6.04,
+     "t": 1.57
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 25.0,
+     "exp_r": -0.165,
+     "total_r": -0.66,
+     "t": -0.18
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.07,
+     "total_r": -2.14,
+     "t": -110.42
+    }
+   },
+   "CL=F": {
+    "train": {
+     "n": 22,
+     "win_rate": 40.9,
+     "exp_r": -0.214,
+     "total_r": -4.7,
+     "t": -0.88
+    },
+    "val": {
+     "n": 4,
+     "win_rate": 25.0,
+     "exp_r": -0.499,
+     "total_r": -2.0,
+     "t": -0.85
+    },
+    "test": {
+     "n": 1,
+     "win_rate": 100.0,
+     "exp_r": 0.793,
+     "total_r": 0.79,
+     "t": 0.0
+    }
+   },
+   "BTC-USD": {
+    "train": {
+     "n": 15,
+     "win_rate": 66.7,
+     "exp_r": 0.513,
+     "total_r": 7.7,
+     "t": 1.45
+    },
+    "val": {
+     "n": 2,
+     "win_rate": 100.0,
+     "exp_r": 1.175,
+     "total_r": 2.35,
+     "t": 1.69
+    },
+    "test": {
+     "n": 2,
+     "win_rate": 0.0,
+     "exp_r": -1.064,
+     "total_r": -2.13,
+     "t": -40.76
+    }
+   }
+  }
+ }
+}

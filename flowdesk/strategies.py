@@ -452,7 +452,7 @@ def signal(name: str, R: list[dict], i: int, params: dict | None = None, raw: tu
     sl = raw - sgn * p["sl_pad_atr"] * atr
     dist = (entry - sl) * sgn
     if STRATEGIES.get(name, {}).get("fixed"):       # video rules: the stop is where the video puts it - skip, never move it
-        if not (0.4 * atr <= dist <= 3.0 * atr):
+        if not (0.4 * atr <= dist <= STRATEGIES[name].get("max_sl_atr", 3.0) * atr):
             return None
         if tgt is not None:
             if (tgt - entry) * sgn < 1.0 * dist:

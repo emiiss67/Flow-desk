@@ -48,7 +48,7 @@ def test_signal_levels_sane():
                 continue
             sgn = 1 if side == "LONG" else -1
             assert sgn * (sg["entry"] - sg["sl"]) > 0 and sgn * (sg["tp2"] - sg["tp1"]) >= 0
-            assert 0.39 <= sg["sl_atr"] <= 3.01
+            assert 0.39 <= sg["sl_atr"] <= S.STRATEGIES[name].get("max_sl_atr", 3.0) + 0.01
             n += 1
     assert n > 0
 

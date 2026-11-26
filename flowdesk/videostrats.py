@@ -155,6 +155,11 @@ STRATEGIES: dict = {
                 "desc": "After a swing low that swept liquidity, the biggest bearish fair value gap of the down-leg is closed through (inverted) = long; stop under the swing low, target the nearest unfilled gap above (mirrored for shorts)."},
     "stdv_london": {"name": "Standard deviations of the London leg", "src": "Dutch / Wicked", **_F, "params": {"sl_pad_atr": 0.0, "tp1_r": 1.0, "tp2_r": 2.5},
                     "desc": "Mark the last London leg (04:30-05:30 ET, wick to wick); in the New York morning the first rejection candle 2-4 leg lengths beyond it is faded back to the leg; stop beyond that candle."},
+    # thequantbuilder "learn one strategy" (video 17, 26 Nov): same entry as session_mom but the video adds the missing rules:
+    # stop "far away" = 8 x ATR, trailing stop that follows, 1% risk. Intraday only here: the EOD flat closes at 16:45 ET.
+    "session_mom_wide": {"name": "Session momentum, wide 8-ATR stop (first candle vs 12 EMA)", "src": "thequantbuilder 2", **_F, "max_sl_atr": 8.0,
+                         "params": {"sl_pad_atr": 0.0, "tp1_r": 0.125, "tp2_r": 1.0},
+                         "desc": "At the 09:30 ET open the first candle closing above the 12 EMA = long, below = short. Stop 8 ATR away (so noise never stops it out); 1 ATR in profit takes half and the stop trails 1 ATR behind, the rest runs to 8 ATR. Closed by the end-of-day flat."},
     "cisd": {"name": "Sweep + change in state of delivery", "src": "Aval", **_F, "params": {"sl_pad_atr": 0.0, "tp1_r": 1.0, "tp2_r": 2.5},
              "desc": "A 20-bar high (low) is swept, then a close back through the open of the candle run that made the sweep = entry toward the opposite 20-bar extreme (draw on liquidity); stop beyond the sweep."},
 }
@@ -433,4 +438,19 @@ def cisd(R: list[dict], i: int):
     return None
 
 
-FUNCS.update({"data_hl": data_hl, "ko10": ko10, "rej_block": rej_block, "pb_mech": pb_mech, "stdv_london": stdv_london, "cisd": cisd})
+def session_mom_wide(R: list[dict], i: int, stop_atr: float = 8.0):
+    """First 09:30 ET candle closes above (below) its 12 EMA = long (short); stop = stop_atr x ATR from the close."""
+    r = R[i]
+    if r["ny_hour"] != 9.5:
+        return None
+    a, c, e = float(r["atr"]), float(r["close"]), float(r["ema12"])
+    if not _fin(a, c, e) or a <= 0:
+        return None
+    if c > e:
+        return "LONG", c - stop_atr * a
+    if c < e:
+        return "SHORT", c + stop_atr * a
+    return None
+
+
+FUNCS.update({"session_mom_wide": session_mom_wide, "data_hl": data_hl, "ko10": ko10, "rej_block": rej_block, "pb_mech": pb_mech, "stdv_london": stdv_london, "cisd": cisd})

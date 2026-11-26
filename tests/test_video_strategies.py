@@ -103,7 +103,7 @@ def test_video_strategies_are_off_fixed_and_not_regime_switched():
 # ---------------- batch 2: OTE PDF + @resellingleague models (flowdesk/videostrats.py) ----------------
 from flowdesk import videostrats as V
 
-BATCH2 = ("ote_major", "ote_internal", "data_hl", "ko10", "rej_block", "pb_mech", "stdv_london", "cisd")
+BATCH2 = ("ote_major", "ote_internal", "data_hl", "ko10", "rej_block", "pb_mech", "stdv_london", "cisd", "session_mom_wide")
 
 
 def build_at(start_utc, bars, warm=260):
@@ -198,3 +198,25 @@ def test_stdv_london_fades_the_2_to_4_sd_zone_back_to_the_leg():
     assert sigs("stdv_london", R, w) == [(10, "SHORT")]
     side, (stop, tgt) = V.stdv_london(R, w + 10)
     assert stop > 101.2 and abs(tgt - 100.2) < 1e-9
+
+
+def test_session_mom_wide_first_candle_vs_ema12_with_8_atr_stop():
+    # Tue 6 Jan 2026: 09:30 ET = 14:30 UTC. First candle closes above its 12 EMA -> long; stop 8 ATR below the close.
+    R, w = build_at("2026-01-06 14:30", [(100.0, 100.5, 99.95, 100.4), (100.4, 100.6, 100.3, 100.5)])
+    assert sigs("session_mom_wide", R, w) == [(0, "LONG")]            # only the 09:30 candle, not the next one
+    side, stop = V.session_mom_wide(R, w)
+    atr, close = R[w]["atr"], R[w]["close"]
+    assert side == "LONG" and abs((close - stop) - 8 * atr) < 1e-9
+    sg = S.signal("session_mom_wide", R, w)
+    assert sg and abs(sg["sl_atr"] - 8.0) < 1e-6                     # the 3-ATR cap of the other video strategies is lifted for it only
+    assert abs(sg["tp1"] - close - 1.0 * atr) < 1e-6 and abs(sg["tp2"] - close - 8.0 * atr) < 1e-6
+    R2, w2 = build_at("2026-01-06 14:30", [(100.0, 100.05, 99.5, 99.6)])
+    assert sigs("session_mom_wide", R2, w2) == [(0, "SHORT")]
+    assert V.session_mom_wide(R2, w2)[1] > R2[w2]["close"]
+    R3, w3 = build_at("2026-01-06 15:30", [(100.0, 100.5, 99.95, 100.4)])   # 10:30 ET: not the first candle
+    assert sigs("session_mom_wide", R3, w3) == []
+
+
+def test_only_session_mom_wide_may_have_a_stop_wider_than_3_atr():
+    assert S.STRATEGIES["session_mom_wide"]["max_sl_atr"] == 8.0
+    assert [k for k, v in S.STRATEGIES.items() if v.get("max_sl_atr")] == ["session_mom_wide"]
