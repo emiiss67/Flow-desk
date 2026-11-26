@@ -10,6 +10,9 @@ there is POSITIVE OUT-OF-SAMPLE evidence for it and it is not losing in live pap
   4. strategy live  : closed trades since `clean_since` (after the closed-candle / management fixes) - >= strat_live_min_n
                       with an average at or below strat_live_kill_exp R -> the whole strategy is off.
 
+  5. daily review    : the end-of-day mistakes review (review.py) can pause a strategy x symbol, block a feature bucket or raise
+                      the core minimum score for a few days - restrictions only, they expire and never relax 1-4.
+
 Shared by the bot (bot._enter) and /signal (signalcall) so what /signal says is what the bot does."""
 from __future__ import annotations
 
@@ -101,12 +104,20 @@ def symbol_ok(rules: dict, name: str, symbol: str, live: dict | None = None, c: 
     return True, ""
 
 
-def check(rules: dict, name: str, symbol: str, journal=None, c: dict | None = None) -> tuple[bool, str]:
+def check(rules: dict, name: str, symbol: str, journal=None, c: dict | None = None, feats: dict | None = None,
+          score: float | None = None) -> tuple[bool, str]:
     g = cfg(c)
-    if not g.get("enabled", True):
-        return True, ""
-    live = live_stats(journal, int(g.get("clean_since") or 0)) if journal is not None else None
-    ok, why = strategy_ok(rules, name, live, c)
-    if not ok:
-        return ok, why
-    return symbol_ok(rules, name, symbol, live, c)
+    if g.get("enabled", True):
+        live = live_stats(journal, int(g.get("clean_since") or 0)) if journal is not None else None
+        ok, why = strategy_ok(rules, name, live, c)
+        if not ok:
+            return ok, why
+        ok, why = symbol_ok(rules, name, symbol, live, c)
+        if not ok:
+            return ok, why
+    if journal is not None:                      # daily mistakes review (review.py): only ever adds restrictions
+        from . import review
+        if review.cfg(c).get("enabled", True):
+            blk, why = review.blocked(journal, name, symbol, feats, score)
+            return (not blk), why
+    return True, ""

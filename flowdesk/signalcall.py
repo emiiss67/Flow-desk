@@ -206,7 +206,11 @@ def evaluate(sym: str, broker, journal, fx, cfg: dict | None = None, provider=No
             ok, why = learning.allow(rules, st, sym, dict(c["feats"]), res.get("confluence"))
             if ok:
                 from . import guard
-                ok, why = guard.check(rules, st, sym, getattr(broker, "j", None), cfg)
+                ok, why = guard.check(rules, st, sym, getattr(broker, "j", None), cfg, feats=dict(c["feats"]), score=res.get("confluence"))
+            if ok:
+                from . import eod
+                blk, why = eod.entry_block(sym, c=cfg)
+                ok = not blk
             if ok:
                 ok, why = quality.fill_check(res, sym, st, c["feats"], cfg)
             if ok:

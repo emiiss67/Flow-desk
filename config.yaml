@@ -66,6 +66,34 @@ gate:                         # evidence gate (flowdesk/guard.py, loss review 20
   strat_live_min_n: 15
   strat_live_kill_exp: -0.25
 
+eod:                          # end-of-day flat + daily mistakes review (flowdesk/eod.py, flowdesk/review.py)
+  enabled: true               # false = no end-of-day close / entry block
+  tz: America/New_York        # sessions are defined in New York time (US DST handled); the Vilnius time shifts with DST
+  close_time: "17:00"         # session end = CME Globex daily halt = FX / metals / energy / index-futures rollover
+  flat_minutes_before: 15     # close every open position at 16:45 NY (23:45 Vilnius in winter) at market price + normal costs
+  no_entry_minutes_before: 45 # no new entries from 16:15 NY until the market reopens
+  reopen_time: "18:00"        # reopen 18:00 NY (after the Friday close: Sunday 18:00 NY)
+  weekend_closed: true
+  categories:
+    Crypto: {weekend_closed: false, reopen_time: "17:00"}   # BTC trades 24/7: same daily cut at 16:45 NY, trades again from 17:00 NY
+  overrides: {}               # per symbol, e.g. {"BTC-USD": {enabled: false}}
+  early_closes:               # exchange holiday hours (NY date, symbols, close time); flat / no-entry follow. Source: CME Globex holiday schedule
+    - {date: "2026-11-26", symbols: ["NQ=F", "ES=F", "YM=F", "RTY=F"], close_time: "13:00"}   # Thanksgiving: halt 12:00 CT, reopen 17:00 CT
+    - {date: "2026-11-26", symbols: ["GC=F", "CL=F"], close_time: "14:30"}                      # halt 13:30 CT
+    - {date: "2026-11-27", symbols: ["NQ=F", "ES=F", "YM=F", "RTY=F"], close_time: "13:15"}   # day after: close 12:15 CT
+    - {date: "2026-11-27", symbols: ["GC=F", "CL=F"], close_time: "14:45"}                      # close 13:45 CT
+  review:                     # runs right after the flat; only ever makes the bot stricter, every restriction expires
+    enabled: true
+    delay_minutes: 3
+    window_days: 14
+    pause_repeat_n: 2         # same mistake type on a strategy x symbol twice in the window -> paused 3 days (7 if repeated)
+    pause_days: 3
+    streak_n: 3               # 3 losses in a row -> paused 2 days
+    combo_n: 4                # losing live on a pair: >= 4 trades, avg <= -0.25R, <= 25% wins -> paused 5 days
+    strat_n: 8                # whole strategy losing live: >= 8 trades, avg <= -0.25R -> paused 3 days
+    bucket_n: 3               # 3 losses of one kind (counter-trend, session, quiet market, tight stop) -> that bucket blocked 7 days
+    score_bump_per_loss: 2    # low-score losses of the core engine raise its minimum score (+2 each, max +10, 7 days)
+
 scanner:
   interval_seconds: 120
   require_killzone: false     # true = only open new trades in London/NY killzones

@@ -16,6 +16,7 @@ HELP = ("<b>FlowDesk</b> (PAPER)\n"
         "/pause, /resume - stop/start new entries\n/resetlimit - restart today's daily-loss window from the current balance\n/resetpnl - start the P&amp;L calendar from today (history and balance stay)\n"
         "/topup [amount] - add paper funds (no amount: show usage) · /withdraw amount\n"
         "/close SYMBOL - close a paper position\n"
+        "/review - latest end-of-day mistakes review and what the bot changed\n"
         "/watchlist, /news, /calendar, /status, /desk")
 
 
@@ -279,7 +280,19 @@ class Commands:
         st = "paused" if self.j.get("paused", False) else "running"
         return (f"<b>FlowDesk</b> {st} · PAPER\nLast scan {f'{age:.0f}s ago' if age is not None else 'never'}\n"
                 f"Open {len(self.b.open_trades())} | Balance {fmt_money(self.b.balance, self.b.ccy, False)}\n"
+                f"{esc(self._eod_line())}\n"
                 f"Data: {esc(self.p.name)} (order flow estimated)")
+
+    def _eod_line(self) -> str:
+        try:
+            from . import eod
+            return eod.headline()
+        except Exception:
+            return "End of day: unavailable"
+
+    def cmd_review(self, a):
+        from . import review
+        return review.fmt(review.latest(self.j))
 
     def cmd_desk(self, a):
         url = self.j.get("tunnel_url")

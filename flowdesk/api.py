@@ -489,7 +489,23 @@ def api_learning():
             learning.S.STRATEGIES.items()},
             "history": learning.history(), "status": j.get("learn_status"), "requested": bool(j.get("learn_request")),
             "eur_per_r": risk_eur, "base_risk_pct": float((get_config().get("sizing", {}) or {}).get("base_risk_pct", 15)),
-            "news": _news_test(), **_cur()}
+            "news": _news_test(), "daily_review": _daily_review(), **_cur()}
+
+
+def _daily_review() -> dict:
+    from . import eod, review
+    j = J()
+    try:
+        return {"latest": review.latest(j), "history": review.history(j), "active": review.active_rules(j),
+                "eod": {"enabled": eod.cfg().get("enabled", True), "headline": eod.headline(), "schedule": eod.schedule()}}
+    except Exception as e:
+        return {"error": type(e).__name__}
+
+
+@app.get("/api/review")
+def api_review():
+    """Latest end-of-day review + the restrictions it set + today's end-of-day schedule per symbol."""
+    return {"ok": True, "paper": True, **_daily_review()}
 
 
 def _news_test():

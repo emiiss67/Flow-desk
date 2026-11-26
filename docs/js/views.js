@@ -512,6 +512,24 @@ function regimeH(r, names) {
       <div class="lr-c"><div class="k">${smp(pdays + ' days before', 'Pick window')}</div><b class="${pnlClass((sc ? sc.pick : e.pick)?.exp_r)}">${fmtR((sc ? sc.pick : e.pick)?.exp_r)}</b><div class="sub">${f(sc ? sc.pick : e.pick)}</div></div></div>`; }).join('')}</div></div>`;
 }
 
+function dailyReviewH(dr) {
+  if (!dr || dr.error) return '';
+  const L = dr.latest, eod = dr.eod || {}, act = dr.active || {};
+  const LAB = { news_spike: 'news spike', counter_trend: 'against the 1h trend', chased_entry: 'chased the entry', cost_too_high: 'costs too high for the stop', low_quality_score: 'low confluence score', bad_session: 'bad session', stopped_then_reversed: 'stopped out, then reversed to target', tight_stop: 'stop too tight', quiet_market: 'quiet market', gave_back_winner: 'gave back a winner', instant_adverse: 'stopped almost immediately', eod_forced: 'closed by end-of-day flat', clean_stop: 'clean stop-out' };
+  const until = t => dmy(t) + ' ' + hm(t);
+  const restr = [...(act.pauses || []).map(p => `<div class="lr-b"><span class="r">⏸</span><div>${esc(deTicker(p.strategy === 'core' ? 'Main engine' : p.strategy))} ${p.symbol === '*' ? 'everywhere' : 'on ' + esc(nm(p.symbol))} until ${until(p.until)}<div class="sub">${esc(p.why)}</div></div></div>`),
+    ...(act.blocks || []).map(b => `<div class="lr-b"><span class="r">⛔</span><div>${esc(b.strategy)} · ${esc(b.label)} until ${until(b.until)}<div class="sub">${esc(b.why)}</div></div></div>`),
+    ...Object.entries(act.min_score || {}).map(([k, m]) => `<div class="lr-b"><span class="r">🔒</span><div>Minimum confluence score ${m.min} until ${until(m.until)}<div class="sub">${esc(m.why)}</div></div></div>`)].join('');
+  const trs = L ? (L.trades || []).map(x => `<div class="ev" style="grid-template-columns:1fr 70px 70px 1.4fr"><span>${esc(x.name)} ${esc(x.side)}</span><b class="num ${pnlClass(x.r)}">${fmtR(x.r)}</b><span class="m">${esc(x.exit || '')}</span><span class="${x.loss ? 'r' : 'm'}">${x.loss ? esc((x.tags || []).map(k => LAB[k] || k).join(', ')) : 'win / flat'}</span></div>`).join('') : '';
+  return `<div class="panel" style="margin-top:16px"><h3>Daily review <span class="right">${L ? esc(L.day) : 'none yet'}</span></h3>
+    <div class="sub" style="margin-bottom:6px">${esc(eod.enabled === false ? 'End-of-day flat is off.' : (eod.headline || ''))}. Right after the flat, the bot reviews the day's closed trades, names each mistake and gets stricter where it repeats (restrictions only, they expire).</div>
+    ${L ? `<div class="wr-grid"><div><div class="k">Trades</div><div class="v">${L.n}</div><div class="sub">${L.wins} won · ${L.losses} lost</div></div><div><div class="k">P&amp;L</div><div class="v ${pnlClass(L.pnl)}">${money(L.pnl)}</div><div class="sub">${fmtR(L.total_r)}</div></div><div><div class="k">Closed at end of day</div><div class="v">${L.eod_closed || 0}</div></div></div>
+      <div class="rows" style="margin-top:8px">${(L.lessons || []).map(t => `<div class="lr-b"><span>📝</span><div>${esc(t)}</div></div>`).join('')}${(L.actions || []).map(a => `<div class="lr-b"><span>🔧</span><div>${esc(a.text)}</div></div>`).join('')}</div>
+      <div class="rows" style="margin-top:8px">${trs}</div>` : '<div class="unavail">The first review runs after the next end-of-day flat.</div>'}
+    <div class="label" style="margin:12px 0 4px">Active restrictions from reviews (${(act.pauses || []).length + (act.blocks || []).length + Object.keys(act.min_score || {}).length})</div>
+    <div class="rows">${restr || '<div class="unavail">None</div>'}</div></div>`;
+}
+
 Views.learning = async (v) => {
   v.innerHTML = `<div class="page-title">Learning</div><div class="page-sub">The bot studies every backtest and paper trade, blocks what keeps losing and only trades strategies that showed an edge on data they were not tuned on.</div><div id="lrn"><div class="skeleton" style="height:520px"></div></div>`;
   const [d, err] = await load('/api/learning'); if (!d) { $('#lrn').innerHTML = `<div class="panel">${unavailable('Learning', err)}</div>`; return; }
@@ -538,6 +556,7 @@ Views.learning = async (v) => {
     <div class="panel"><div class="lr-top"><div><div class="label" style="margin:0">Rules version ${r.version ?? 0}${r.created ? ' · ' + dmy(r.created) + ' ' + hm(r.created) : ''}</div>
       <div class="sub">${esc(r.note || '')}${d.status?.state ? ' · last run: ' + esc(d.status.state) + (d.status.step ? ' (' + esc(d.status.step) + ')' : '') : ''}. Runs every night automatically.</div></div>
       ${API.demo ? '' : `<button class="btn pri" id="lrnRun" ${running || d.requested ? 'disabled' : ''}>${running ? 'Learning…' : d.requested ? 'Queued…' : 'Learn now'}</button>`}</div></div>
+${dailyReviewH(d.daily_review)}
 ${regimeH(r, names)}
     <div class="panel" style="margin-top:16px"><div class="wr-h"><span>Before vs after learning</span><span class="sub" style="font-weight:400">${days ? `newest ~${days} days, never used to make any decision` : 'not learned yet'}</span></div>
       <div class="wr-grid">${cmp('Win rate', b.win_rate, a.win_rate, wrTxt, true)}${cmp('Avg per trade', b.exp_r, a.exp_r, fmtR, true)}

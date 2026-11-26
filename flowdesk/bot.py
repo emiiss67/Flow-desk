@@ -105,6 +105,46 @@ class Bot:
             if state:
                 self.j.set(f"mgmt_{t['id']}", state)
 
+    # ---------- end of day ----------
+    def eod_step(self) -> None:
+        """Flat before the daily close (flowdesk/eod.py), then the daily mistakes review (flowdesk/review.py)."""
+        from . import eod, review
+        if not eod.cfg(self.cfg).get("enabled", True):
+            return
+        ts = time.time()
+        since = self.j.get("eod_since")
+        if since is None:                       # first run: never close trades retroactively for an older session end
+            since = int(ts)
+            self.j.set("eod_since", since)
+        for t in eod.due(self.b.open_trades(), ts, since, self.cfg):
+            price, src = None, "last price"
+            try:
+                df = self.p.candles(t["symbol"], t["tf"] or "15m")
+                price, src = float(df["close"].iloc[-1]), "latest quote"
+            except Exception:
+                price = t["last_price"] or t["entry"]
+            res = self.b.close(t["id"], price, "EOD close", int(ts))
+            if res:
+                log.info("EOD close %s %s #%s at %s (%s): %+.2f", t["symbol"], t["side"], t["id"], fmt(price), src, res["pnl"])
+                self.alert(f"🌙 <b>{esc(instruments.display(t['symbol']))}</b> {t['side']} closed at the end of day at {fmt(price)}: "
+                           f"<b>{fmt_money(res['trade']['pnl_usd'], self.b.ccy)}</b> (paper)")
+        rc = review.cfg(self.cfg)
+        if not rc.get("enabled", True):
+            return
+        cur = [x for x in eod.sessions("EURUSD=X", ts, self.cfg) if x["flat"] + rc["delay_minutes"] * 60 <= ts]
+        if not cur:
+            return
+        key = cur[-1]["date"]
+        done = self.j.get("review_done_day")
+        if done is None:                        # first run: the first review is tonight's, not an old session's
+            self.j.set("review_done_day", key)
+            return
+        if done == key or self.b.open_trades() and eod.due(self.b.open_trades(), ts, since, self.cfg):
+            return
+        s = review.run(self.j, self.b, self.p, now=int(ts), c=self.cfg)
+        self.j.set("review_done_day", key)
+        log.info("daily review %s: %s trades, %s losers, %s actions", s["day"], s["n"], s["losses"], len(s["actions"]))
+
     # ---------- scanning ----------
     def scan_once(self) -> None:
         """Scan the whole watchlist; several positions can open in one cycle (limits: max_positions,
@@ -179,7 +219,11 @@ class Bot:
         ok, why = learning.allow(rules, stream, sym, {k: v for k, v in feats.items()}, r.get("confluence"))
         if ok:
             from . import guard
-            ok, why = guard.check(rules, stream, sym, self.j, self.cfg)
+            ok, why = guard.check(rules, stream, sym, self.j, self.cfg, feats=feats, score=r.get("confluence"))
+        if ok:
+            from . import eod
+            blk, why = eod.entry_block(sym, c=self.cfg)
+            ok = not blk
         if ok:
             ok, why = self._quality(r, sym, stream, feats)
         if ok:
@@ -280,7 +324,7 @@ class Bot:
         interval = self.cfg.get("scanner", {}).get("interval_seconds", 120)
         while not self.stop.is_set():
             t0 = time.time()
-            for step in (self.manage, self.scan_once, self.event_alerts, self.b.snapshot_equity):
+            for step in (self.manage, self.eod_step, self.scan_once, self.event_alerts, self.b.snapshot_equity):
                 try:
                     step()
                 except Exception as e:
